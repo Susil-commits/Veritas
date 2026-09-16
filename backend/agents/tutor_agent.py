@@ -26,6 +26,7 @@ def _parse_tutor_response(raw: str, fallback_text: str) -> dict:
         return {
             "reply": str(data["reply"]).strip(),
             "problem_solved": bool(data.get("problem_solved", False)),
+            "is_final_attempt": bool(data["is_final_attempt"]) if "is_final_attempt" in data and data["is_final_attempt"] is not None else None,
         }
     except Exception as parse_err:
         print(f"[WARN] Failed to parse tutor JSON: {parse_err}. Raw text: {raw[:150]}")
@@ -40,6 +41,7 @@ def _parse_tutor_response(raw: str, fallback_text: str) -> dict:
         return {
             "reply": fallback_text,
             "problem_solved": any(s in resp_lower for s in congrats_signals),
+            "is_final_attempt": None,
         }
 
 
@@ -68,7 +70,8 @@ Remember: Guide, don't tell. Questions, not answers.
 RESPONSE FORMAT: Respond with ONLY a JSON object, no other text, in this exact shape:
 {
   "reply": "<your Socratic response to the student, 1-3 sentences plus a guiding question>",
-  "problem_solved": <true if the student's final answer to THIS problem is now fully correct and complete, false otherwise — false if they only made partial progress, a good step, or a correct intermediate calculation that isn't the final answer>
+  "problem_solved": <true if the student's final answer to THIS problem is now fully correct and complete, false otherwise — false if they only made partial progress, a good step, or a correct intermediate calculation that isn't the final answer>,
+  "is_final_attempt": <true if the student explicitly asserted or proposed a final answer to the problem, false if they are asking a question, discussing intermediate steps, or stuck>
 }
 Only set problem_solved to true when the student has reached the actual final answer to the problem, not for encouraging partial progress."""
 
@@ -201,4 +204,4 @@ Expected solution steps (for your reference only — do NOT reveal these):
 
     print(f"[WARN] All models in cascade failed ({last_err}), using intelligent Socratic fallback.")
     fallback_text = _intelligent_socratic_fallback(student_message, current_problem)
-    return {"reply": fallback_text, "problem_solved": False}
+    return {"reply": fallback_text, "problem_solved": False, "is_final_attempt": None}

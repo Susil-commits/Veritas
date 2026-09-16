@@ -543,6 +543,13 @@ async def send_message(req: MessageRequest):
                 current_state["mastery_state"] = graph_output.get("mastery_state", current_state.get("mastery_state", {}))
                 current_state["current_problem_credited"] = graph_output.get("current_problem_credited", current_state.get("current_problem_credited", False))
 
+                is_final_attempt = graph_output.get("is_final_attempt")
+                # Determine event correctness for telemetry & parent analytics:
+                # - True if problem solved
+                # - False if student explicitly proposed an incorrect final answer
+                # - None for exploratory questions, hints, or intermediate calculations
+                turn_correctness: bool | None = True if problem_solved else (False if is_final_attempt else None)
+
                 await asyncio.to_thread(save_session, req.session_id, current_state)
                 await asyncio.to_thread(
                     record_session_event,
@@ -550,7 +557,7 @@ async def send_message(req: MessageRequest):
                     student_id=current_state["student_id"],
                     problem_id=current_prob.get("id"),
                     attempt_text=clean_message,
-                    is_correct=True if problem_solved else None,
+                    is_correct=turn_correctness,
                     agent_response=response,
                 )
                 final_mastery = current_state.get("mastery_state", {})

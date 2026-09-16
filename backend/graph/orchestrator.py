@@ -48,6 +48,7 @@ class TutorState(TypedDict, total=False):
     agent_response: str
     thinking_steps: list[str]           # streamed to UI for transparency
     problem_solved: bool
+    is_final_attempt: bool | None
 
     # Routing & Safety
     safety_flag: Literal["harmful", "injection"] | None
@@ -77,6 +78,7 @@ async def safety_node(state: TutorState) -> dict:
         "conversation_history": history,
         "thinking_steps": steps,
         "problem_solved": False,
+        "is_final_attempt": False,
         "next_action": None,
     }
 
@@ -99,9 +101,11 @@ async def tutor_node(state: TutorState) -> dict:
     if isinstance(tutor_result, dict):
         response = tutor_result.get("reply", "")
         problem_solved = bool(tutor_result.get("problem_solved", False))
+        is_final_attempt = tutor_result.get("is_final_attempt")
     else:
         response = str(tutor_result)
         problem_solved = False
+        is_final_attempt = None
 
     # Secondary safety check: Prevent accidental final answer disclosure
     prob_ans = current_prob.get("answer") or ""
@@ -137,6 +141,7 @@ async def tutor_node(state: TutorState) -> dict:
         "conversation_history": history,
         "thinking_steps": steps,
         "problem_solved": problem_solved,
+        "is_final_attempt": is_final_attempt,
         "mastery_state": mastery_state,
         "current_problem_credited": credited,
         "next_action": None,
