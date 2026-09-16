@@ -3,6 +3,7 @@ LangGraph Orchestrator — 3-agent pipeline with state management.
 Routes between: Tutor Agent, Diagnostic Agent, Content Agent.
 """
 # pyright: reportMissingImports=false, reportMissingModuleSource=false
+import asyncio
 import uuid
 import warnings
 warnings.filterwarnings("ignore", message=".*allowed_objects.*")
@@ -58,7 +59,7 @@ class TutorState(TypedDict, total=False):
 
 # ── Node Functions ───────────────────────────────────────────────────────────
 
-def safety_node(state: TutorState) -> dict:
+async def safety_node(state: TutorState) -> dict:
     """Safety boundary agent — intercepts harmful or jailbreak prompts with pedagogical redirection."""
     flag = state.get("safety_flag")
     if flag == "harmful":
@@ -83,7 +84,7 @@ def safety_node(state: TutorState) -> dict:
     }
 
 
-def tutor_node(state: TutorState) -> dict:
+async def tutor_node(state: TutorState) -> dict:
     """Socratic tutor — responds to student text messages using Socratic inquiry."""
     steps = list(state.get("thinking_steps") or [])
     steps.append("Tutor agent: formulating Socratic response...")
@@ -92,7 +93,8 @@ def tutor_node(state: TutorState) -> dict:
     conversation_history = list(state.get("conversation_history") or [])
     current_prob = state.get("current_problem") or {}
 
-    tutor_result = run_tutor_agent(
+    tutor_result = await asyncio.to_thread(
+        run_tutor_agent,
         student_message=latest_input,
         conversation_history=conversation_history,
         current_problem=current_prob,
@@ -130,7 +132,7 @@ def tutor_node(state: TutorState) -> dict:
         mastery_state[curr_skill] = round(new_m, 4)
         student_id = state.get("student_id")
         if student_id:
-            _save_mastery(student_id, curr_skill, new_m)
+            await asyncio.to_thread(_save_mastery, student_id, curr_skill, new_m)
         credited = True
 
     return {
@@ -144,14 +146,15 @@ def tutor_node(state: TutorState) -> dict:
     }
 
 
-def diagnose_node(state: TutorState) -> dict:
+async def diagnose_node(state: TutorState) -> dict:
     """Diagnostic agent — OCR + misconception detection on uploaded image."""
     steps = list(state.get("thinking_steps") or [])
     steps.append("Diagnostic agent: reading handwritten work...")
 
     current_problem = state.get("current_problem") or {}
     skill_id = state.get("current_skill_id") or current_problem.get("skill_id", "")
-    diagnosis = run_diagnostic_agent(
+    diagnosis = await asyncio.to_thread(
+        run_diagnostic_agent,
         image_bytes=state.get("latest_image_bytes"),
         expected_steps=current_problem.get("expected_steps", []),
         problem_text=current_problem.get("text", ""),
@@ -168,20 +171,20 @@ def diagnose_node(state: TutorState) -> dict:
         is_correct=is_correct,
         skill_id=skill_id,
     )
+    student_id = state.get("student_id")
     if skill_id:
         mastery_state[skill_id] = new_mastery
-        student_id = state.get("student_id")
         if student_id:
             # Persist mastery to Supabase
-            _save_mastery(student_id, skill_id, new_mastery)
+            await asyncio.to_thread(_save_mastery, student_id, skill_id, new_mastery)
 
     steps.append(f"Mastery for {skill_id}: {new_mastery*100:.0f}%")
 
     # Log the session event
     session_id = state.get("session_id")
-    student_id = state.get("student_id")
     if session_id and student_id:
-        _log_event(
+        await asyncio.to_thread(
+            _log_event,
             session_id=session_id,
             student_id=student_id,
             problem_id=current_problem.get("id"),
@@ -200,7 +203,7 @@ def diagnose_node(state: TutorState) -> dict:
     }
 
 
-def select_problem_node(state: TutorState) -> dict:
+async def select_problem_node(state: TutorState) -> dict:
     """Content agent — selects the next problem based on mastery."""
     steps = list(state.get("thinking_steps") or [])
     steps.append("Content agent: finding the best next problem...")
@@ -215,7 +218,8 @@ def select_problem_node(state: TutorState) -> dict:
     diagnosis = state.get("diagnosis") or {}
     misconception_desc = diagnosis.get("description") or diagnosis.get("misconception_type")
 
-    problem = get_next_problem(
+    problem = await asyncio.to_thread(
+        get_next_problem,
         skill_id=next_skill,
         mastery_prob=mastery_prob,
         student_id=state.get("student_id", ""),
