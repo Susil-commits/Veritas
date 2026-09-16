@@ -230,10 +230,14 @@ export default function Landing() {
 
   // Animated intro portal control (bypassed if arriving directly with a section anchor like #demo)
   const [showIntro, setShowIntro] = useState(() => {
-    if (window.location.hash && !window.location.hash.includes('access_token')) {
+    try {
+      if (window.location.hash && !window.location.hash.includes('access_token')) {
+        return false
+      }
+      return sessionStorage.getItem('veritas_intro_seen') !== 'true' && sessionStorage.getItem('ainerd_intro_seen') !== 'true'
+    } catch {
       return false
     }
-    return sessionStorage.getItem('veritas_intro_seen') !== 'true' && sessionStorage.getItem('ainerd_intro_seen') !== 'true'
   })
 
   // Simple server & database connection status
