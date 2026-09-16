@@ -319,6 +319,10 @@ async def health_full():
 @app.post("/session/start")
 async def start_session(req: StartSessionRequest):
     """Create a new tutoring session, issue a scoped session token, and return the first problem."""
+    # Auth & token issuance rate limit: throttle automated session creation per student identity
+    auth_key = req.student_email or req.student_id or req.student_name or "anonymous_session"
+    limiter.enforce_auth_rate_limit(auth_key, max_attempts=10, window_seconds=60.0)
+
     supabase = get_supabase()
 
     student_id = None

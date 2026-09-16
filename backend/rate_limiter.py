@@ -75,7 +75,8 @@ class RateLimiter:
         window_seconds: float = 60.0,
     ):
         """
-        Protects authentication, OTP checks, and login verification from brute-force guessing.
+        Protects session token issuance (/session/start) and authentication entrypoints
+        from automated brute-force spamming, session flooding, and credential enumeration.
         Allows up to max_attempts within window_seconds. Throws HTTP 429 if exceeded.
         """
         now = time.time()
