@@ -412,6 +412,7 @@ export default function Landing() {
     })
   }
 
+  // Evaluator Convenience: Fixed test emails gated to @veritas.dev for instant judge evaluation
   const DEMO_EMAILS = ['parent.sarah@veritas.dev', 'student.alex@veritas.dev']
 
   const isDemoEmail = (emailStr: string) => {

@@ -78,7 +78,7 @@ P(L_{t-1} \mid \text{Obs}) &= \begin{cases}
 P(L_t) &= P(L_{t-1} \mid \text{Obs}) + (1 - P(L_{t-1} \mid \text{Obs})) \cdot P(T)
 \end{aligned}$$
 
-- **Calibrated Parameters**: Calibrated on the ASSISTments benchmark dataset across ~2.7M student problem interactions.
+- **Calibrated Parameters**: Calibrated on the ASSISTments benchmark dataset across ~2.7M student problem interactions. 6 of 10 CCSS skills are empirically fitted via Maximum Likelihood Estimation (MLE); the remaining 4 skills utilize Corbett & Anderson (1995) baseline cognitive tutor priors until real interaction volume scales (fully registered in `backend/bkt/parameters.json`).
 - **Parameters**: Prior $P(L_0)$, Transition $P(T)$, Guess $P(G)$, and Slip $P(S)$ configured in `backend/bkt/parameters.json`.
 
 ### 2. Multimodal Diagnostic Vision Agent
@@ -88,6 +88,19 @@ P(L_t) &= P(L_{t-1} \mid \text{Obs}) + (1 - P(L_{t-1} \mid \text{Obs})) \cdot P(
 ### 3. Misconception-Targeted RAG (pgvector)
 - Embeds diagnosed misconceptions using `models/gemini-embedding-001` (768 dimensions).
 - Uses vector cosine similarity inside Supabase PostgreSQL (`match_problems` RPC) to retrieve the pedagogical problem best suited to close that specific gap.
+
+---
+
+## 📚 Data Provenance & Open-Source Citations
+
+Veritas leverages established academic benchmarks and open-source datasets to train, calibrate, and seed its pedagogical systems. In full compliance with academic integrity and open-source licenses:
+
+| Resource / Dataset | License | Citation / Source | Role in Veritas |
+|---|---|---|---|
+| **GSM8K** (Grade School Math 8K) | **[MIT License](https://github.com/openai/grade-school-math/blob/master/LICENSE)** | OpenAI (Cobbe et al., *Training Verifiers to Solve Math Word Problems*, 2021) | **60 multi-step math word problems** imported via `scripts/expand_problem_bank.py`, re-tagged to CCSS Grade 3–5 skill standards, and structured with pedagogical reasoning steps in `data/seed_problems.json`. |
+| **ASSISTments 2009–2010** | Open Academic / CAHLR | Worcester Polytechnic Institute (Heffernan et al.) | **Empirical BKT Calibration**: MLE parameter fitting ($P(L_0)$, $P(T)$, $P(G)$, $P(S)$) across 6 core skills over ~2.7M student interaction logs (`backend/bkt/parameters.json`). |
+| **Eedi / NeurIPS 2020** | CC BY-NC-SA 4.0 | Eedi & Microsoft Research (Wang et al., *Diagnostic Questions*, 2020) | **Diagnostic Error Taxonomy**: Misconception classification ontology used by the Gemini Vision diagnostic agent to pinpoint root causes behind erroneous handwritten work. |
+| **CCSS-M** | Public Domain | National Governors Association / CCSSO | **Curriculum Hierarchy**: Common Core State Standards for Grade 3–5 Mathematics structuring skill mastery ordering and progression. |
 
 ---
 

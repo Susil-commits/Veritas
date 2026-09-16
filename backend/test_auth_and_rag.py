@@ -123,6 +123,39 @@ def test_token_lifecycle():
         except HTTPException as e:
             assert e.status_code == 401
             print("   ✓ Forged ES256 token rejected with HTTP 401 via JWKS")
+        # 8. Demo token allowlist enforcement vs arbitrary identity injection
+        DEMO_PARENT_ID = "99999999-8888-7777-6666-555555555555"
+        DEMO_STUDENT_ID = "24e836e3-3b42-41a0-8a27-222f883eaa10"
+
+        # Legitimate demo tokens
+        dp_claims = verify_session_token(f"demo_{DEMO_PARENT_ID}")
+        assert dp_claims["sub"] == DEMO_PARENT_ID and dp_claims["role"] == "parent"
+        dp_alias_claims = verify_session_token(f"demo_parent_{DEMO_PARENT_ID}")
+        assert dp_alias_claims["sub"] == DEMO_PARENT_ID and dp_alias_claims["role"] == "parent"
+        dp_short_claims = verify_session_token("demo_parent")
+        assert dp_short_claims["sub"] == DEMO_PARENT_ID and dp_short_claims["role"] == "parent"
+
+        ds_claims = verify_session_token(f"demo_{DEMO_STUDENT_ID}")
+        assert ds_claims["sub"] == DEMO_STUDENT_ID and ds_claims["role"] == "student"
+        ds_short_claims = verify_session_token("demo_student")
+        assert ds_short_claims["sub"] == DEMO_STUDENT_ID and ds_short_claims["role"] == "student"
+        print("   ✓ Genuine demo tokens verified via strict allowlist")
+
+        # Exploitative demo tokens with arbitrary suffixes
+        for forged_demo in [
+            "demo_arbitrary-victim-uuid",
+            "demo_00000000-0000-0000-0000-000000000000",
+            "demo_parent_victim-uuid",
+            "demo_admin",
+            "demo_root",
+        ]:
+            try:
+                verify_session_token(forged_demo)
+                assert False, f"Forged demo token '{forged_demo}' must be rejected"
+            except HTTPException as e:
+                assert e.status_code == 401
+                assert "Invalid demo token" in e.detail
+        print("   ✓ Forged demo tokens with arbitrary IDs rejected with HTTP 401")
     finally:
         if orig_jwt_secret is not None:
             os.environ["SUPABASE_JWT_SECRET"] = orig_jwt_secret
@@ -182,6 +215,18 @@ async def test_student_scoping():
         assert e.status_code == 401
         print("   ✓ Spoofed X-Parent-Id header rejected with HTTP 401 (header bypass successfully closed)")
 
+    # 5. Exploitative demo token attempting to spoof Bob (demo_student-bob-0002)
+    try:
+        await verify_student_access(
+            student_id=bob_id,
+            authorization=f"Bearer demo_{bob_id}",
+            x_session_token=None,
+        )
+        assert False, "Spoofed demo_<victim_id> token must be rejected with 401"
+    except HTTPException as e:
+        assert e.status_code == 401
+        print("   ✓ Arbitrary ID spoofing via demo_<victim_id> rejected with HTTP 401 (allowlist enforced)")
+
     print("✅ [TEST 2 PASSED] Student scoping verification complete!\n")
 
 
@@ -227,6 +272,18 @@ async def test_parent_scoping():
     caller_payload = await verify_parent_caller(authorization=f"Bearer {parent_a_token}")
     assert caller_payload["sub"] == parent_a
     print("   ✓ verify_parent_caller successfully authenticates valid parent")
+
+    # 6. Exploitative demo parent token attempting to spoof Parent B (demo_parent_parent-uuid-0002)
+    try:
+        await verify_parent_access(
+            parent_id=parent_b,
+            authorization=f"Bearer demo_parent_{parent_b}",
+            x_session_token=None,
+        )
+        assert False, "Spoofed demo_parent_<victim_id> must be rejected with 401"
+    except HTTPException as e:
+        assert e.status_code == 401
+        print("   ✓ Arbitrary parent ID spoofing via demo_parent_<victim_id> rejected with HTTP 401")
 
     print("✅ [TEST 2B PASSED] Parent scoping verification complete!\n")
 
