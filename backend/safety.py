@@ -86,6 +86,10 @@ NEO_OFF_TOPIC_PATTERNS = [
     r"\b(minecraft|fortnite|roblox|gta|video game)\b",
 ]
 
+COMPILED_PROMPT_INJECTION_PATTERNS = [re.compile(p, re.IGNORECASE) for p in PROMPT_INJECTION_PATTERNS]
+COMPILED_HARMFUL_PATTERNS = [re.compile(p, re.IGNORECASE) for p in HARMFUL_PATTERNS]
+COMPILED_NEO_OFF_TOPIC_PATTERNS = [re.compile(p, re.IGNORECASE) for p in NEO_OFF_TOPIC_PATTERNS]
+
 
 # Regex matching HTML/XML tags, comments, doctypes, and CDATA blocks.
 # Intentionally does NOT match mathematical inequalities (e.g. "3 < 5", "x > 2", "0 < x < 10", "x <= y").
@@ -136,11 +140,12 @@ def check_prompt_injection(text: str) -> Tuple[bool, Optional[str]]:
     Scans student input for prompt injection, jailbreak attempts, or direct answer demands.
     Returns (is_violation, explanation).
     """
-    text_lower = text.lower()
+    if not text:
+        return False, None
 
-    for pattern in PROMPT_INJECTION_PATTERNS:
-        if re.search(pattern, text_lower):
-            return True, f"Matched injection pattern: {pattern}"
+    for pattern in COMPILED_PROMPT_INJECTION_PATTERNS:
+        if pattern.search(text):
+            return True, f"Matched injection pattern: {pattern.pattern}"
 
     return False, None
 
@@ -150,9 +155,11 @@ def check_harmful_content(text: str) -> Tuple[bool, Optional[str]]:
     Scans for urgent distress or safety flags.
     Returns (is_flagged, category).
     """
-    text_lower = text.lower()
-    for pattern in HARMFUL_PATTERNS:
-        if re.search(pattern, text_lower):
+    if not text:
+        return False, None
+
+    for pattern in COMPILED_HARMFUL_PATTERNS:
+        if pattern.search(text):
             return True, "distress_or_inappropriate"
     return False, None
 
@@ -179,10 +186,9 @@ def check_neo_domain_scope(text: str) -> Tuple[bool, Optional[str]]:
         return False, f"Jailbreak or system prompt extraction attempt: {i_reason}"
 
     # Check for explicit off-topic patterns
-    text_lower = text.lower()
-    for pattern in NEO_OFF_TOPIC_PATTERNS:
-        if re.search(pattern, text_lower):
-            return False, f"Off-topic subject query matching: {pattern}"
+    for pattern in COMPILED_NEO_OFF_TOPIC_PATTERNS:
+        if pattern.search(text):
+            return False, f"Off-topic subject query matching: {pattern.pattern}"
 
     return True, None
 

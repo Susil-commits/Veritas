@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, useRef } from 'react'
+import React, { createContext, useContext, useEffect, useState, useRef, useCallback } from 'react'
 import type { User, Session } from '@supabase/supabase-js'
 import { supabase, type UserRole } from '../lib/supabase'
 import { stopAllSpeech } from '../hooks/useVoice'
@@ -71,14 +71,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   })
 
-  const saveProfile = (p: RememberedProfile) => {
-    const activeAvatar = avatar || p.avatar || 'initials'
-    const updated = { ...p, avatar: activeAvatar }
-    setRememberedProfile(updated)
-    try {
-      localStorage.setItem('veritas_remembered_profile', JSON.stringify(updated))
-    } catch {}
-  }
+  const saveProfile = useCallback((p: RememberedProfile) => {
+    setRememberedProfile((prev) => {
+      const activeAvatar = p.avatar || prev?.avatar || 'initials'
+      const updated = { ...p, avatar: activeAvatar }
+      try {
+        localStorage.setItem('veritas_remembered_profile', JSON.stringify(updated))
+      } catch {}
+      return updated
+    })
+  }, [])
 
   const clearRememberedProfile = () => {
     setRememberedProfile(null)
@@ -231,7 +233,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => {
       subscription.unsubscribe()
     }
-  }, [])
+  }, [saveProfile])
 
   const sendMagicLink = async (
     email: string,

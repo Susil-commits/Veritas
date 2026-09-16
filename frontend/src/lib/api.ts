@@ -35,6 +35,38 @@ export interface SessionData {
   welcome_message: string
 }
 
+let cachedSupabaseKey: string | null = null
+
+function getSupabaseAuthToken(): string | null {
+  try {
+    if (cachedSupabaseKey) {
+      const raw = localStorage.getItem(cachedSupabaseKey)
+      if (raw) {
+        const parsed = JSON.parse(raw)
+        const token = parsed?.access_token || parsed?.session?.access_token
+        if (token && typeof token === 'string') return token
+      }
+      cachedSupabaseKey = null
+    }
+
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i)
+      if (key && key.startsWith('sb-') && key.endsWith('-auth-token')) {
+        const raw = localStorage.getItem(key)
+        if (raw) {
+          const parsed = JSON.parse(raw)
+          const token = parsed?.access_token || parsed?.session?.access_token
+          if (token && typeof token === 'string') {
+            cachedSupabaseKey = key
+            return token
+          }
+        }
+      }
+    }
+  } catch {}
+  return null
+}
+
 export function getAuthHeaders(): Record<string, string> {
   const currentRole = localStorage.getItem('veritas_user_role') || localStorage.getItem('ainerd_user_role')
 
@@ -68,24 +100,13 @@ export function getAuthHeaders(): Record<string, string> {
   }
 
   // 2. Check localStorage for Supabase authenticated session token
-  try {
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i)
-      if (key && key.startsWith('sb-') && key.endsWith('-auth-token')) {
-        const raw = localStorage.getItem(key)
-        if (raw) {
-          const parsed = JSON.parse(raw)
-          const token = parsed?.access_token || parsed?.session?.access_token
-          if (token && typeof token === 'string') {
-            return {
-              'Authorization': `Bearer ${token}`,
-              'X-Session-Token': token,
-            }
-          }
-        }
-      }
+  const supabaseToken = getSupabaseAuthToken()
+  if (supabaseToken) {
+    return {
+      'Authorization': `Bearer ${supabaseToken}`,
+      'X-Session-Token': supabaseToken,
     }
-  } catch {}
+  }
 
   // 3. Check demo user profile
   try {

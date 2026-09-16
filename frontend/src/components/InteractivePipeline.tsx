@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import {
   FileText,
   Mic,
@@ -267,6 +267,14 @@ export default function InteractivePipeline() {
   const draggingNodeRef = useRef<{ id: string; startX: number; startY: number; mouseStartX: number; mouseStartY: number } | null>(null)
 
 
+  const simulationTimersRef = useRef<number[]>([])
+
+  useEffect(() => {
+    return () => {
+      simulationTimersRef.current.forEach(clearTimeout)
+    }
+  }, [])
+
   // Reset to default positions
   const handleResetLayout = () => {
     setNodes(DEFAULT_NODES)
@@ -279,25 +287,30 @@ export default function InteractivePipeline() {
     setSimulationMessage('Step 1: Student uploaded handwritten work (1/3 + 1/6 = 2/9)...')
     setSelectedNodeId('paper-work')
 
-    setTimeout(() => {
+    simulationTimersRef.current.forEach(clearTimeout)
+    simulationTimersRef.current = []
+
+    const t1 = window.setTimeout(() => {
       setSimulationMessage('Step 2: Handwriting Reader spotted denominator addition...')
       setSelectedNodeId('hub-misconception')
     }, 1100)
 
-    setTimeout(() => {
+    const t2 = window.setTimeout(() => {
       setSimulationMessage('Step 3: Veritas crafted a visual pizza-slice Socratic clue...')
       setSelectedNodeId('hub-socratic')
     }, 2200)
 
-    setTimeout(() => {
+    const t3 = window.setTimeout(() => {
       setSimulationMessage('Step 4: Sent Socratic hint to chat & updated skill mastery radar!')
       setSelectedNodeId('out-hint')
     }, 3300)
 
-    setTimeout(() => {
+    const t4 = window.setTimeout(() => {
       setIsSimulating(false)
       setSimulationMessage(null)
     }, 4800)
+
+    simulationTimersRef.current.push(t1, t2, t3, t4)
   }
 
   // Pointer drag handlers

@@ -9,14 +9,16 @@ from pathlib import Path
 # Load skill parameters at module import
 _PARAMS_PATH = Path(__file__).parent / "parameters.json"
 _SKILL_PARAMS: dict[str, dict] = {}
+_ORDERED_SKILLS: list[dict] = []
 
 def _load_params():
-    global _SKILL_PARAMS
+    global _SKILL_PARAMS, _ORDERED_SKILLS
     try:
         if _PARAMS_PATH.exists():
             with open(_PARAMS_PATH, "r", encoding="utf-8") as f:
                 data = json.load(f)
             _SKILL_PARAMS = {s["id"]: s for s in data.get("skills", [])}
+            _ORDERED_SKILLS = sorted(_SKILL_PARAMS.values(), key=lambda s: s.get("sequence_order", 0))
     except Exception as e:
         print(f"[WARN] Failed to load BKT parameters: {e}")
 
@@ -78,11 +80,10 @@ def get_next_skill(mastery_state: dict[str, float]) -> str:
     respecting the curriculum sequence order.
     Falls back to the first skill if all are mastered.
     """
-    ordered = sorted(_SKILL_PARAMS.values(), key=lambda s: s.get("sequence_order", 0))
-    if not ordered:
+    if not _ORDERED_SKILLS:
         return "3.OA.A.1"
 
-    for skill in ordered:
+    for skill in _ORDERED_SKILLS:
         skill_id = skill["id"]
         mastery = mastery_state.get(skill_id)
         if mastery is None:
@@ -91,7 +92,7 @@ def get_next_skill(mastery_state: dict[str, float]) -> str:
             return skill_id
 
     # All mastered — loop back to most advanced skill
-    return ordered[-1]["id"]
+    return _ORDERED_SKILLS[-1]["id"]
 
 
 def initialize_mastery() -> dict[str, float]:

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { getMastery, getSummary } from '../lib/api'
@@ -26,7 +26,7 @@ export default function Dashboard() {
   const [loadError, setLoadError] = useState<string | null>(null)
   const [authDenied, setAuthDenied] = useState<string | null>(null)
   const [retryTrigger, setRetryTrigger] = useState(0)
-  const cachedSession = (() => {
+  const cachedSession = useMemo(() => {
     try {
       const raw = sessionStorage.getItem('session')
       if (raw) {
@@ -37,7 +37,7 @@ export default function Dashboard() {
       }
     } catch {}
     return null
-  })()
+  }, [studentId])
   const sessionId = cachedSession?.session_id || null
   const studentName = cachedSession?.student_name || 'Student'
 
@@ -78,12 +78,14 @@ export default function Dashboard() {
     }).finally(() => setLoading(false))
   }, [studentId, sessionId, retryTrigger])
 
-  const avgMastery = skills.length
-    ? skills.reduce((a, s) => a + s.mastery_prob, 0) / skills.length
-    : 0
+  const avgMastery = useMemo(() => (
+    skills.length
+      ? skills.reduce((a, s) => a + s.mastery_prob, 0) / skills.length
+      : 0
+  ), [skills])
 
-  const strongSkills  = skills.filter(s => s.mastery_prob >= 0.7)
-  const weakSkills    = skills.filter(s => s.mastery_prob < 0.4)
+  const strongSkills = useMemo(() => skills.filter(s => s.mastery_prob >= 0.7), [skills])
+  const weakSkills   = useMemo(() => skills.filter(s => s.mastery_prob < 0.4), [skills])
 
   return (
     <div className="dashboard">

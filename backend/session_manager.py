@@ -324,13 +324,18 @@ def save_session(session_id: str, state: Any) -> None:
 
 
 def evict_session(session_id: str) -> None:
-    """Evict session state from RAM cache and disk store."""
+    """Evict session state from RAM cache, disk store, and release associated asyncio locks."""
     try:
         _sessions_cache.pop(session_id, None)
     except Exception:
         pass
     try:
         _remove_session_from_disk(session_id)
+    except Exception:
+        pass
+    try:
+        with _locks_guard:
+            _session_locks.pop(session_id, None)
     except Exception:
         pass
 

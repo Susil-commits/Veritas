@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { getParentChildren, addChild, getChildDetails, deleteParentData, type ChildItem } from '../lib/api'
@@ -241,11 +241,16 @@ export default function ParentDashboard() {
       })
   }
 
-  const selectedChild = childrenList.find((c) => c.student_id === selectedChildId)
+  const selectedChild = useMemo(
+    () => childrenList.find((c) => c.student_id === selectedChildId),
+    [childrenList, selectedChildId]
+  )
 
-  const avgMastery = skills.length
-    ? Math.round((skills.reduce((a, s) => a + s.mastery_prob, 0) / skills.length) * 100)
-    : 0
+  const avgMastery = useMemo(() => (
+    skills.length
+      ? Math.round((skills.reduce((a, s) => a + s.mastery_prob, 0) / skills.length) * 100)
+      : 0
+  ), [skills])
 
   return (
     <div className="parent-dashboard">

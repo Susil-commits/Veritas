@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, memo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { streamMessage, startSession, fetchNextProblem, resetSession } from '../lib/api'
 import { useSpeechInput, useTTS } from '../hooks/useVoice'
@@ -74,6 +74,25 @@ function renderMessageContent(content: string) {
     )
   })
 }
+
+interface ChatBubbleProps {
+  role: 'student' | 'tutor'
+  content: string
+  timestamp: Date | string
+}
+
+const ChatBubble = memo(function ChatBubble({ role, content, timestamp }: ChatBubbleProps) {
+  const formattedTime = (timestamp instanceof Date ? timestamp : new Date(timestamp)).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  return (
+    <div className={`chat-bubble ${role} animate-fadein`}>
+      {role === 'tutor' && <div className="tutor-avatar">AI</div>}
+      <div className="bubble-body">
+        <p className="bubble-text">{renderMessageContent(content)}</p>
+        <span className="bubble-time">{formattedTime}</span>
+      </div>
+    </div>
+  )
+})
 
 export default function TutorSession() {
   const navigate = useNavigate()
@@ -828,17 +847,12 @@ export default function TutorSession() {
         <div className="chat-messages">
           {messages.map((msg, i) => (
             msg.role === 'system' ? null : (
-              <div key={i} className={`chat-bubble ${msg.role} animate-fadein`}>
-                {msg.role === 'tutor' && (
-                  <div className="tutor-avatar">AI</div>
-                )}
-                <div className="bubble-body">
-                  <p className="bubble-text">{renderMessageContent(msg.content)}</p>
-                  <span className="bubble-time">
-                    {(msg.timestamp instanceof Date ? msg.timestamp : new Date(msg.timestamp)).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </span>
-                </div>
-              </div>
+              <ChatBubble
+                key={i}
+                role={msg.role}
+                content={msg.content}
+                timestamp={msg.timestamp}
+              />
             )
           ))}
           {problemSolved && (

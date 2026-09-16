@@ -104,13 +104,36 @@ export default function ShiningDots() {
         ctx.fill()
       }
 
-      animationFrameId = requestAnimationFrame(render)
+      if (isRunning) {
+        animationFrameId = requestAnimationFrame(render)
+      }
     }
 
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    if (prefersReducedMotion) {
+      render()
+      return
+    }
+
+    let isRunning = true
     render()
 
+    let resizeTimeout: number | undefined
     const handleResize = () => {
-      setupCanvas()
+      if (resizeTimeout) clearTimeout(resizeTimeout)
+      resizeTimeout = window.setTimeout(() => {
+        setupCanvas()
+      }, 100)
+    }
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        isRunning = false
+        cancelAnimationFrame(animationFrameId)
+      } else if (!isRunning) {
+        isRunning = true
+        animationFrameId = requestAnimationFrame(render)
+      }
     }
 
     const handleMouseMove = (e: MouseEvent) => {
@@ -124,12 +147,16 @@ export default function ShiningDots() {
     }
 
     window.addEventListener('resize', handleResize)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
     window.addEventListener('mousemove', handleMouseMove, { passive: true })
     window.addEventListener('mouseleave', handleMouseLeave)
 
     return () => {
+      isRunning = false
       cancelAnimationFrame(animationFrameId)
+      if (resizeTimeout) clearTimeout(resizeTimeout)
       window.removeEventListener('resize', handleResize)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
       window.removeEventListener('mousemove', handleMouseMove)
       window.removeEventListener('mouseleave', handleMouseLeave)
     }

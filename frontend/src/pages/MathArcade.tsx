@@ -140,27 +140,7 @@ export default function MathArcade() {
     loadProgress()
   }
 
-  // Game Countdown Timer
-  useEffect(() => {
-    if (!activeGameId || gameOver) return
-
-    timerRef.current = setInterval(() => {
-      setGameTimeLeft((prev) => {
-        if (prev <= 1) {
-          if (timerRef.current) clearInterval(timerRef.current)
-          handleGameOver()
-          return 0
-        }
-        return prev - 1
-      })
-    }, 1000)
-
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current)
-    }
-  }, [activeGameId, gameOver])
-
-  const handleGameOver = async () => {
+  const handleGameOver = useCallback(async () => {
     setGameOver(true)
     if (!activeGameId) return
 
@@ -183,7 +163,33 @@ export default function MathArcade() {
     } catch (err) {
       console.error('Failed to record game score:', err)
     }
-  }
+  }, [activeGameId, gameScore, progress?.levels, studentId])
+
+  // Game Countdown Timer
+  useEffect(() => {
+    if (!activeGameId || gameOver) return
+
+    timerRef.current = setInterval(() => {
+      setGameTimeLeft((prev) => {
+        if (prev <= 1) {
+          if (timerRef.current) clearInterval(timerRef.current)
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
+
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current)
+    }
+  }, [activeGameId, gameOver])
+
+  // Trigger game over when countdown reaches zero
+  useEffect(() => {
+    if (activeGameId && !gameOver && gameTimeLeft === 0) {
+      handleGameOver()
+    }
+  }, [activeGameId, gameOver, gameTimeLeft, handleGameOver])
 
   const handleOptionSelect = (selected: number) => {
     if (!currentQuestion || gameOver || questionFeedback) return
