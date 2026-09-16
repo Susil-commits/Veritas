@@ -186,6 +186,14 @@ export async function getSummary(studentId: string, sessionId: string) {
   return data
 }
 
+export interface AlertItem {
+  type: 'low_mastery' | 'misconception' | 'inactivity' | 'stagnation'
+  skill_id: string | null
+  skill_name: string | null
+  message: string
+  severity: 'info' | 'warning' | 'urgent'
+}
+
 export interface ChildItem {
   student_id: string
   student_name: string
@@ -196,6 +204,11 @@ export interface ChildItem {
   fraction_alert_message: string
   fraction_mastery: number
   session_count: number
+  alert_message?: string
+  top_gap_skill?: string | null
+  top_gap_skill_id?: string | null
+  alerts?: AlertItem[]
+  active_misconceptions?: Record<string, any>
 }
 
 export async function getParentChildren(parentId: string): Promise<{ children: ChildItem[] }> {

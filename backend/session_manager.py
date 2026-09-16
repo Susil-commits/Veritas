@@ -8,6 +8,7 @@ import uuid
 import asyncio
 import threading
 import json
+import datetime
 from pathlib import Path
 from collections import OrderedDict
 from typing import Any
@@ -21,6 +22,11 @@ DATA_DIR.mkdir(parents=True, exist_ok=True)
 SESSIONS_STORE_PATH = DATA_DIR / "sessions_store.json"
 _disk_lock = threading.Lock()
 _disk_sessions_memory: dict[str, Any] | None = None
+
+# Persistent misconception tracking store (longitudinal diagnostic model beside BKT)
+MISCONCEPTIONS_STORE_PATH = DATA_DIR / "misconceptions_store.json"
+_misconceptions_lock = threading.Lock()
+_misconceptions_memory: dict[str, dict[str, Any]] | None = None
 
 
 def _load_sessions_from_disk() -> dict[str, Any]:
@@ -430,6 +436,106 @@ def record_session_event(
                 raise insert_err
     except Exception as e:
         print(f"[WARN] SessionManager: Failed to insert session event: {e}")
+
+
+def _load_misconceptions_from_disk() -> dict[str, dict[str, Any]]:
+    global _misconceptions_memory
+    with _misconceptions_lock:
+        if _misconceptions_memory is not None:
+            return _misconceptions_memory
+        if not MISCONCEPTIONS_STORE_PATH.exists():
+            _misconceptions_memory = {}
+            return _misconceptions_memory
+        try:
+            with open(MISCONCEPTIONS_STORE_PATH, "r", encoding="utf-8") as f:
+                _misconceptions_memory = json.load(f)
+                return _misconceptions_memory
+        except Exception as e:
+            print(f"[WARN] SessionManager: Failed to read misconceptions from disk: {e}")
+            _misconceptions_memory = {}
+            return _misconceptions_memory
+
+
+def _write_misconceptions_to_disk() -> None:
+    global _misconceptions_memory
+    with _misconceptions_lock:
+        try:
+            if _misconceptions_memory is None:
+                _misconceptions_memory = {}
+            temp_path = MISCONCEPTIONS_STORE_PATH.with_suffix(".tmp")
+            with open(temp_path, "w", encoding="utf-8") as f:
+                json.dump(_misconceptions_memory, f, separators=(",", ":"))
+            temp_path.replace(MISCONCEPTIONS_STORE_PATH)
+        except Exception as e:
+            print(f"[WARN] SessionManager: Failed to write misconceptions to disk: {e}")
+
+
+def get_student_misconceptions(student_id: str) -> dict[str, dict[str, Any]]:
+    """Retrieve all tracked misconceptions and resolution status for a student."""
+    all_misc = _load_misconceptions_from_disk()
+    return dict(all_misc.get(student_id, {}))
+
+
+def save_student_misconception(
+    student_id: str,
+    misconception_type: str,
+    skill_id: str,
+    resolved: bool = False,
+) -> dict[str, Any]:
+    """
+    Record or update a diagnosed misconception occurrence in longitudinal student profile:
+    {
+      "count": N,
+      "last_seen": "<ISO_TIMESTAMP>",
+      "resolved": false,
+      "skill_id": "<SKILL_ID>"
+    }
+    """
+    all_misc = _load_misconceptions_from_disk()
+    now_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    student_misc = all_misc.setdefault(student_id, {})
+    entry = student_misc.get(misconception_type, {
+        "count": 0,
+        "last_seen": now_iso,
+        "resolved": False,
+        "skill_id": skill_id or "",
+    })
+    if not resolved:
+        entry["count"] = entry.get("count", 0) + 1
+        entry["last_seen"] = now_iso
+        entry["resolved"] = False
+        if skill_id:
+            entry["skill_id"] = skill_id
+    else:
+        entry["resolved"] = True
+        entry["resolved_at"] = now_iso
+    student_misc[misconception_type] = entry
+    _write_misconceptions_to_disk()
+    return entry
+
+
+def resolve_student_misconceptions_for_skill(student_id: str, skill_id: str) -> list[str]:
+    """Mark all active misconceptions associated with skill_id as resolved."""
+    all_misc = _load_misconceptions_from_disk()
+    student_misc = all_misc.get(student_id, {})
+    now_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    resolved_types = []
+    for m_type, entry in student_misc.items():
+        if entry.get("skill_id") == skill_id and not entry.get("resolved", False):
+            entry["resolved"] = True
+            entry["resolved_at"] = now_iso
+            resolved_types.append(m_type)
+    if resolved_types:
+        _write_misconceptions_to_disk()
+    return resolved_types
+
+
+def clear_student_misconceptions(student_id: str) -> None:
+    """Clear student misconceptions store upon session/profile reset."""
+    all_misc = _load_misconceptions_from_disk()
+    if student_id in all_misc:
+        del all_misc[student_id]
+        _write_misconceptions_to_disk()
 
 
 def get_all_active_session_ids() -> list[str]:

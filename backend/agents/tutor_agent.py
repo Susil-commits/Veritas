@@ -151,10 +151,12 @@ def run_tutor_agent(
     student_message: str,
     conversation_history: list[dict],
     current_problem: dict | None = None,
+    active_misconceptions: dict | None = None,
 ) -> dict:
     """
     Given a student message and conversation history, return a Socratic guiding response.
     conversation_history: list of {"role": "student"|"tutor", "content": str}
+    active_misconceptions: optional tracked student misconceptions {m_type: {"count": int, "resolved": bool}}
     """
     # Build system message with current problem context
     system_content = SOCRATIC_SYSTEM_PROMPT
@@ -169,6 +171,20 @@ Difficulty: {current_problem.get('difficulty', 1)}/5
 
 Expected solution steps (for your reference only — do NOT reveal these):
 {chr(10).join(f"Step {i+1}: {s}" for i, s in enumerate(current_problem.get('expected_steps', [])))}
+"""
+
+    if active_misconceptions:
+        unresolved = [
+            f"- {m_type.replace('_', ' ').title()}: observed {m_data.get('count', 1)} time(s)"
+            for m_type, m_data in active_misconceptions.items()
+            if not m_data.get("resolved")
+        ]
+        if unresolved:
+            system_content += f"""
+
+PRIOR MISCONCEPTIONS TO ADDRESS IF REPEATED:
+{chr(10).join(unresolved)}
+Guide the student gently away from these specific traps if you see them recurring.
 """
 
     messages: list[BaseMessage] = [SystemMessage(content=system_content)]

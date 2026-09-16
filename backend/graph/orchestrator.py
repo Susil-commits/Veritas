@@ -4,6 +4,7 @@ Routes between: Safety Shield (harmful/injection boundary) and Socratic Tutor.
 """
 # pyright: reportMissingImports=false, reportMissingModuleSource=false
 import asyncio
+import datetime
 import warnings
 warnings.filterwarnings("ignore", message=".*allowed_objects.*")
 from typing import TypedDict, Literal, Any
@@ -13,6 +14,7 @@ from agents.tutor_agent import run_tutor_agent
 from bkt.tracker import update_mastery
 from db.supabase_client import get_supabase
 from evaluators.math_evaluator import evaluate_student_solution
+from session_manager import resolve_student_misconceptions_for_skill
 from safety import (
     SOCRATIC_BOUNDARY_RESPONSE,
     SAFE_SUPPORT_RESPONSE,
@@ -41,6 +43,9 @@ class TutorState(TypedDict, total=False):
     # Mastery
     mastery_state: dict[str, float]      # {skill_id: probability}
     current_skill_id: str
+
+    # Misconceptions (longitudinal learner model beside BKT)
+    active_misconceptions: dict[str, dict]  # {misconception_type: {"count": int, "last_seen": str, "resolved": bool, "skill_id": str}}
 
     # Diagnosis result (set after photo upload)
     diagnosis: dict | None
@@ -93,11 +98,14 @@ async def tutor_node(state: TutorState) -> dict:
     conversation_history = list(state.get("conversation_history") or [])
     current_prob = state.get("current_problem") or {}
 
+    active_misc = dict(state.get("active_misconceptions") or {})
+
     tutor_result = await asyncio.to_thread(
         run_tutor_agent,
         student_message=latest_input,
         conversation_history=conversation_history,
         current_problem=current_prob,
+        active_misconceptions=active_misc,
     )
     if isinstance(tutor_result, dict):
         response = tutor_result.get("reply", "")
@@ -166,21 +174,32 @@ async def tutor_node(state: TutorState) -> dict:
         attempt_type = "independent_attempt"
 
     # If problem solved, credit mastery with pedagogical attempt-type weighting
+    # and mark active misconceptions for this skill as resolved
     mastery_state = dict(state.get("mastery_state") or {})
     curr_skill = current_prob.get("skill_id") or state.get("current_skill_id")
     credited = state.get("current_problem_credited", False)
-    if problem_solved and curr_skill and not credited:
-        new_m = update_mastery(
-            current_mastery=mastery_state.get(curr_skill, 0.3),
-            is_correct=True,
-            skill_id=curr_skill,
-            attempt_type=attempt_type,
-        )
-        mastery_state[curr_skill] = round(new_m, 4)
+    if problem_solved and curr_skill:
+        # Resolve active misconceptions for current skill
+        now_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        for m_type, m_info in active_misc.items():
+            if m_info.get("skill_id") == curr_skill and not m_info.get("resolved"):
+                m_info["resolved"] = True
+                m_info["resolved_at"] = now_iso
         student_id = state.get("student_id")
         if student_id:
-            await asyncio.to_thread(_save_mastery, student_id, curr_skill, new_m)
-        credited = True
+            await asyncio.to_thread(resolve_student_misconceptions_for_skill, student_id, curr_skill)
+
+        if not credited:
+            new_m = update_mastery(
+                current_mastery=mastery_state.get(curr_skill, 0.3),
+                is_correct=True,
+                skill_id=curr_skill,
+                attempt_type=attempt_type,
+            )
+            mastery_state[curr_skill] = round(new_m, 4)
+            if student_id:
+                await asyncio.to_thread(_save_mastery, student_id, curr_skill, new_m)
+            credited = True
 
     return {
         "agent_response": response,
@@ -189,6 +208,7 @@ async def tutor_node(state: TutorState) -> dict:
         "problem_solved": problem_solved,
         "is_final_attempt": is_final_attempt,
         "mastery_state": mastery_state,
+        "active_misconceptions": active_misc,
         "current_problem_credited": credited,
         "next_action": None,
     }

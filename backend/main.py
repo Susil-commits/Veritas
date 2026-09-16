@@ -86,6 +86,10 @@ from session_manager import (
     record_session_event,
     get_all_active_session_ids,
     get_session_lock,
+    get_student_misconceptions,
+    save_student_misconception,
+    resolve_student_misconceptions_for_skill,
+    clear_student_misconceptions,
 )
 
 # ── Resilient Session Store & Global State ──────────────────────────────────
@@ -894,6 +898,7 @@ async def start_session(
                         student_name=existing_state.get("student_name", req.student_name),
                     )
                     prob_title = existing_state["current_problem"].get("title", "your current problem")
+                    active_misc = existing_state.get("active_misconceptions") or await asyncio.to_thread(get_student_misconceptions, student_id)
                     return {
                         "session_id": existing_session_id,
                         "student_id": student_id,
@@ -901,6 +906,7 @@ async def start_session(
                         "session_token": session_token,
                         "current_problem": existing_state["current_problem"],
                         "mastery_state": existing_state.get("mastery_state", mastery_state),
+                        "active_misconceptions": active_misc,
                         "welcome_message": f"Welcome back, {req.student_name}! Picking up right where we left off with **{prob_title}**. Let's keep solving!",
                         "resumed": True,
                     }
@@ -937,7 +943,8 @@ async def start_session(
         student_name=req.student_name,
     )
 
-    # Initialize session state
+    # Initialize session state with longitudinal active misconceptions
+    active_misc = await asyncio.to_thread(get_student_misconceptions, student_id)
     state: TutorState = {
         "student_id": student_id,
         "student_name": req.student_name,
@@ -950,6 +957,7 @@ async def start_session(
         "problems_attempted": [problem["id"]],
         "mastery_state": mastery_state,
         "current_skill_id": current_skill,
+        "active_misconceptions": active_misc,
         "diagnosis": None,
         "agent_response": "",
         "thinking_steps": [],
@@ -964,6 +972,7 @@ async def start_session(
         "session_token": session_token,
         "current_problem": problem,
         "mastery_state": mastery_state,
+        "active_misconceptions": active_misc,
         "welcome_message": f"Hi {req.student_name}! I'm your math tutor. Let's start with this problem. Read it carefully, then tell me what you think the first step is!",
     }
 
@@ -1030,7 +1039,7 @@ async def reset_session_endpoint(
     else:
         evict_student_sessions(clean_student_id)
 
-    # 2. Reset student skill mastery in database back to baseline
+    # 2. Reset student skill mastery in database back to baseline and clear longitudinal misconceptions
     try:
         await db_exec(
             supabase.table("student_skill_mastery")
@@ -1039,6 +1048,8 @@ async def reset_session_endpoint(
         )
     except Exception as e:
         print(f"[WARN] Failed to delete student_skill_mastery on reset: {e}")
+
+    await asyncio.to_thread(clear_student_misconceptions, clean_student_id)
 
     # 3. Create fresh mastery priors (all skills 0.3)
     fresh_mastery = initialize_mastery()
@@ -1208,6 +1219,7 @@ async def send_message(
                     "problems_attempted": list(current_state.get("problems_attempted") or []),
                     "mastery_state": dict(current_state.get("mastery_state") or {}),
                     "current_skill_id": current_prob.get("skill_id") or current_state.get("current_skill_id", ""),
+                    "active_misconceptions": dict(current_state.get("active_misconceptions") or {}),
                     "diagnosis": current_state.get("diagnosis"),
                     "agent_response": "",
                     "thinking_steps": [thinking_step_initial],
@@ -1232,6 +1244,7 @@ async def send_message(
                 current_state["conversation_history"] = graph_output.get("conversation_history", current_state.get("conversation_history", []))
                 current_state["thinking_steps"] = steps
                 current_state["mastery_state"] = graph_output.get("mastery_state", current_state.get("mastery_state", {}))
+                current_state["active_misconceptions"] = graph_output.get("active_misconceptions", current_state.get("active_misconceptions", {}))
                 current_state["current_problem_credited"] = graph_output.get("current_problem_credited", current_state.get("current_problem_credited", False))
 
                 is_final_attempt = graph_output.get("is_final_attempt")
@@ -1475,6 +1488,30 @@ async def upload_work(
                     except Exception as e:
                         print(f"[WARN] Supabase write failed: {e}")
 
+                    # Update longitudinal misconception tracking model beside BKT
+                    if misconception and misconception not in ("unknown", "temporary_system_pause"):
+                        now_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
+                        active_map = current_state.setdefault("active_misconceptions", {})
+                        entry = active_map.get(misconception, {
+                            "count": 0,
+                            "last_seen": now_iso,
+                            "resolved": False,
+                            "skill_id": curr_skill or "",
+                        })
+                        entry["count"] = entry.get("count", 0) + 1
+                        entry["last_seen"] = now_iso
+                        entry["resolved"] = False
+                        if curr_skill:
+                            entry["skill_id"] = curr_skill
+                        active_map[misconception] = entry
+                        await asyncio.to_thread(
+                            save_student_misconception,
+                            current_state["student_id"],
+                            misconception,
+                            curr_skill or "",
+                            False,
+                        )
+
                 # Record event turn in session_events
                 try:
                     await asyncio.to_thread(
@@ -1496,6 +1533,15 @@ async def upload_work(
                 if is_correct:
                     if curr_skill:
                         await _update_mastery_for_skill(current_state, curr_skill)
+                        # Resolve active misconceptions for current skill
+                        active_map = current_state.setdefault("active_misconceptions", {})
+                        now_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
+                        for m_type, m_info in active_map.items():
+                            if m_info.get("skill_id") == curr_skill and not m_info.get("resolved"):
+                                m_info["resolved"] = True
+                                m_info["resolved_at"] = now_iso
+                        await asyncio.to_thread(resolve_student_misconceptions_for_skill, current_state["student_id"], curr_skill)
+
                     cur_m = current_state["mastery_state"].get(curr_skill, 0.3)
                     mastery_pct = f"{cur_m*100:.0f}%"
                     yield f"data: {json.dumps({'type': 'thinking', 'content': 'Updating skill progress: ' + mastery_pct})}\n\n"
@@ -1518,7 +1564,7 @@ async def upload_work(
                         current_state["problems_attempted"] = current_state.get("problems_attempted", []) + [next_problem["id"]]
                         await asyncio.to_thread(save_session, session_id, current_state)
 
-                yield f"data: {json.dumps({'type': 'diagnosis', 'diagnosis': diagnosis, 'mastery_state': current_state['mastery_state'], 'next_problem': current_state.get('current_problem')})}\n\n"
+                yield f"data: {json.dumps({'type': 'diagnosis', 'diagnosis': diagnosis, 'mastery_state': current_state['mastery_state'], 'active_misconceptions': current_state.get('active_misconceptions', {}), 'next_problem': current_state.get('current_problem')})}\n\n"
                 yield f"data: {json.dumps({'type': 'done'})}\n\n"
         except asyncio.CancelledError:
             # Client disconnected or cancelled upload stream; terminate cleanly
@@ -1881,6 +1927,120 @@ async def add_child(
     }
 
 
+def generate_student_alerts(
+    student_id: str,
+    all_mastery_map: dict[str, float],
+    days_since: int,
+    active_misconceptions: dict[str, dict],
+    recent_events: list[dict] | None = None,
+) -> tuple[list[dict], str, bool, str, float, str | None, str | None]:
+    """
+    Generate learner-aware parent alerts across all 10 Common Core skills:
+    - Inactivity: > 3 days since last session
+    - Low mastery: < 0.50 on any skill (reports lowest)
+    - Repeated misconception: from misconception tracker (count >= 2, unresolved)
+    - Stagnation: multiple attempts without mastery growth
+    Returns:
+    (alerts, alert_message, has_gap, fraction_alert_message, fraction_mastery, top_gap_skill_id, top_gap_skill_name)
+    """
+    all_skills = get_all_skills()
+    skill_name_map = {s["id"]: s["name"] for s in all_skills}
+    alerts: list[dict] = []
+
+    # 1. Inactivity Alert
+    if days_since >= 3:
+        severity = "urgent" if days_since >= 5 else "warning"
+        alerts.append({
+            "type": "inactivity",
+            "skill_id": None,
+            "skill_name": None,
+            "message": f"Inactivity alert: No practice in {days_since} days",
+            "severity": severity,
+        })
+
+    # 2. Low Mastery Alert across all 10 CCSS skills
+    lowest_skill = None
+    min_prob = 1.0
+    for sid, name in skill_name_map.items():
+        prob = all_mastery_map.get(sid, 0.30)
+        if prob < min_prob:
+            min_prob = prob
+            lowest_skill = (sid, name)
+
+    if lowest_skill and min_prob < 0.50:
+        severity = "urgent" if min_prob < 0.35 else "warning"
+        alerts.append({
+            "type": "low_mastery",
+            "skill_id": lowest_skill[0],
+            "skill_name": lowest_skill[1],
+            "message": f"Low mastery in {lowest_skill[1]} ({int(min_prob * 100)}%)",
+            "severity": severity,
+        })
+
+    # 3. Repeated Misconception Alert (count >= 2, unresolved)
+    unresolved_misc = [
+        (m_type, info)
+        for m_type, info in (active_misconceptions or {}).items()
+        if not info.get("resolved") and info.get("count", 0) >= 2
+    ]
+    unresolved_misc.sort(key=lambda x: x[1].get("count", 0), reverse=True)
+    for m_type, m_info in unresolved_misc:
+        m_count = m_info.get("count", 2)
+        m_skill_id = m_info.get("skill_id") or ""
+        m_skill_name = skill_name_map.get(m_skill_id, "Core Skills")
+        clean_name = m_type.replace("_", " ").title()
+        severity = "urgent" if m_count >= 3 else "warning"
+        alerts.append({
+            "type": "misconception",
+            "skill_id": m_skill_id or None,
+            "skill_name": m_skill_name,
+            "message": f"Recurring misconception: {clean_name} in {m_skill_name} ({m_count}x)",
+            "severity": severity,
+        })
+
+    # 4. Stagnation / Plateau Alert
+    if recent_events and len(recent_events) >= 4:
+        recent_slice = recent_events[:6]
+        recent_correct = sum(1 for e in recent_slice if e.get("is_correct"))
+        if recent_correct == 0:
+            stagnant_id = lowest_skill[0] if lowest_skill else None
+            stagnant_name = lowest_skill[1] if lowest_skill else "Current Topic"
+            alerts.append({
+                "type": "stagnation",
+                "skill_id": stagnant_id,
+                "skill_name": stagnant_name,
+                "message": f"Practice plateau: 0 of last {len(recent_slice)} attempts solved on {stagnant_name}",
+                "severity": "warning",
+            })
+
+    # Fraction mastery calculation (CCSS fraction cluster)
+    frac_scores = [all_mastery_map[s] for s in ("4.NF.B.3", "4.NF.A.1", "4.NF.B.4", "5.NF.B.7") if s in all_mastery_map]
+    fraction_mastery = sum(frac_scores) / len(frac_scores) if frac_scores else 0.35
+
+    # Fraction alert message (backward compatibility)
+    if days_since >= 3:
+        frac_alert = f"Notice: Has not practiced fractions in {days_since} days"
+    elif fraction_mastery < 0.5:
+        frac_alert = "Notice: Needs practice with fractions (mastery below 50%)"
+    else:
+        frac_alert = "Practiced fractions recently"
+
+    top_gap_id = lowest_skill[0] if lowest_skill and min_prob < 0.5 else None
+    top_gap_name = lowest_skill[1] if lowest_skill and min_prob < 0.5 else None
+
+    # Summary alert message
+    if alerts:
+        urgent_alerts = [a for a in alerts if a["severity"] == "urgent"]
+        primary = urgent_alerts[0] if urgent_alerts else alerts[0]
+        alert_msg = f"Notice: {primary['message']}"
+    else:
+        alert_msg = "Math practice on track"
+
+    has_gap = bool(alerts) or days_since >= 3 or fraction_mastery < 0.5
+
+    return alerts, alert_msg, has_gap, frac_alert, fraction_mastery, top_gap_id, top_gap_name
+
+
 @app.get("/parent/{parent_id}/children")
 async def get_parent_children(
     parent_id: str,
@@ -1946,9 +2106,8 @@ async def get_parent_children(
         except Exception:
             pass
 
-        # Check fraction mastery & activity
+        # Check skill mastery & activity
         all_mastery_map: dict[str, float] = {}
-        fraction_mastery = 0.35
         try:
             m_res = await db_exec(
                 supabase.table("student_skill_mastery")
@@ -1958,9 +2117,6 @@ async def get_parent_children(
             if m_res.data:
                 for r in m_res.data:
                     all_mastery_map[r["skill_id"]] = float(r["mastery_prob"])
-                frac_scores = [r["mastery_prob"] for r in m_res.data if r["skill_id"] in ("4.NF.B.3", "4.NF.A.1", "4.NF.B.4", "5.NF.B.7")]
-                if frac_scores:
-                    fraction_mastery = sum(frac_scores) / len(frac_scores)
         except Exception:
             pass
 
@@ -1975,42 +2131,16 @@ async def get_parent_children(
             except Exception:
                 days_since = 3
 
-        # Comprehensive Multi-Skill Alert Generation across all 10 Common Core skills
-        all_skills = get_all_skills()
-        skill_name_map = {s["id"]: s["name"] for s in all_skills}
-        
-        lowest_skill = None
-        min_prob = 1.0
-        for sid, name in skill_name_map.items():
-            prob = all_mastery_map.get(sid, 0.30)
-            if prob < min_prob:
-                min_prob = prob
-                lowest_skill = (sid, name)
+        # Load longitudinal student misconceptions
+        active_misc = await asyncio.to_thread(get_student_misconceptions, student_id)
 
-        generic_alert_msg = "Math practice on track"
-        top_gap_skill_id = None
-        top_gap_skill_name = None
-
-        if days_since >= 3:
-            generic_alert_msg = f"Notice: Inactivity alert — No practice in {days_since} days"
-            if lowest_skill and min_prob < 0.5:
-                top_gap_skill_id = lowest_skill[0]
-                top_gap_skill_name = lowest_skill[1]
-                generic_alert_msg += f" (Focus needed: {lowest_skill[1]})"
-        elif lowest_skill and min_prob < 0.5:
-            top_gap_skill_id = lowest_skill[0]
-            top_gap_skill_name = lowest_skill[1]
-            generic_alert_msg = f"Notice: Low mastery in {lowest_skill[1]} ({int(min_prob*100)}%)"
-
-        has_gap = days_since >= 3 or fraction_mastery < 0.5 or (lowest_skill is not None and min_prob < 0.5)
-
-        # Backward compatibility for fraction alert message
-        if days_since >= 3:
-            alert_msg = "Notice: Has not practiced fractions in 3 days"
-        elif fraction_mastery < 0.5:
-            alert_msg = "Notice: Needs practice with fractions (mastery below 50%)"
-        else:
-            alert_msg = "Practiced fractions recently"
+        # Generate learner-aware alerts across all CCSS skills
+        alerts, generic_alert_msg, has_gap, alert_msg, fraction_mastery, top_gap_skill_id, top_gap_skill_name = generate_student_alerts(
+            student_id=student_id,
+            all_mastery_map=all_mastery_map,
+            days_since=days_since,
+            active_misconceptions=active_misc,
+        )
 
         results.append({
             "student_id": student_id,
@@ -2025,6 +2155,8 @@ async def get_parent_children(
             "top_gap_skill": top_gap_skill_name,
             "top_gap_skill_id": top_gap_skill_id,
             "session_count": session_count,
+            "alerts": alerts,
+            "active_misconceptions": active_misc,
         })
 
     return {"children": results}
@@ -2167,6 +2299,30 @@ async def get_child_details(
         "total_stars": games_data.get("total_stars", 0),
     }
 
+    # Multi-skill learner-aware alert generation
+    days_since = 3
+    if sessions_res.data and sessions_res.data[0].get("started_at"):
+        try:
+            ts = datetime.datetime.fromisoformat(sessions_res.data[0]["started_at"].replace("Z", "+00:00"))
+            diff_seconds = time.time() - ts.timestamp()
+            days_since = max(0, int(diff_seconds // 86400))
+        except Exception:
+            days_since = 3
+
+    child_mastery_map = {
+        r["skill_id"]: float(r["mastery_prob"])
+        for r in (mastery_rows.data or [])
+        if "skill_id" in r and "mastery_prob" in r
+    }
+    active_misc = await asyncio.to_thread(get_student_misconceptions, child_id)
+    alerts, alert_msg, has_gap, frac_alert, frac_m, top_id, top_name = generate_student_alerts(
+        student_id=child_id,
+        all_mastery_map=child_mastery_map,
+        days_since=days_since,
+        active_misconceptions=active_misc,
+        recent_events=events_list,
+    )
+
     return {
         "student_id": child_id,
         "mastery": mastery_rows.data or [],
@@ -2175,6 +2331,13 @@ async def get_child_details(
         "recent_events": events_list,
         "games": games_data,
         "activity_summary": activity_summary,
+        "alerts": alerts,
+        "active_misconceptions": active_misc,
+        "alert_message": alert_msg,
+        "fraction_alert_message": frac_alert,
+        "has_fraction_gap": has_gap,
+        "top_gap_skill": top_name,
+        "top_gap_skill_id": top_id,
     }
 
 
