@@ -109,12 +109,19 @@ def score_candidate_adaptive(
     diff_dist = abs(diff - target_center)
     difficulty_score = max(0.0, 1.0 - (diff_dist * 0.35))
 
-    # Retrieval relevance bonus from pgvector rank (1st = 1.0, 2nd = 0.88, etc.)
-    sim_score = max(0.2, 1.0 - (candidate_rank * 0.12))
+    # Retrieval relevance bonus from pgvector cosine similarity (bounded 0.0 to 1.0)
+    sim_score = float(candidate.get("similarity", 0.0))
+    sim_score = max(0.0, min(1.0, sim_score))
 
-    # Misconception match bonus
+    # Misconception match bonus: exact misconception_type matching with keyword fallback
     misc_score = 0.0
+    diagnosed_misconception = None
     if misconception_text:
+        diagnosed_misconception = misconception_text.split(":")[0].strip().lower()
+
+    if candidate.get("misconception_type") and diagnosed_misconception:
+        misc_score = 1.0 if str(candidate.get("misconception_type")).lower() == diagnosed_misconception else 0.0
+    elif misconception_text:
         cand_text = (
             str(candidate.get("text", "")) + " " +
             str(candidate.get("title", "")) + " " +
