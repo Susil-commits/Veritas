@@ -7,7 +7,7 @@
 [![Google Gemini](https://img.shields.io/badge/Gemini_3.6_Flash-Vision_%26_LLM-4285F4?style=flat&logo=google)](https://ai.google.dev/)
 [![Supabase](https://img.shields.io/badge/Supabase-Postgres_%2B_pgvector-3ECF8E?style=flat&logo=supabase)](https://supabase.com/)
 [![BKT](https://img.shields.io/badge/ML-Bayesian_Knowledge_Tracing-8A2BE2?style=flat)](#machine-learning-pedagogical-engine)
-[![Tests](https://img.shields.io/badge/Tests-5%2F5_Passing-brightgreen?style=flat)](#automated-validation-suite)
+[![Tests](https://img.shields.io/badge/Tests-6%2F6_Passing-brightgreen?style=flat)](#automated-validation-suite)
 
 ---
 
@@ -42,10 +42,13 @@ flowchart TD
         SessMgr["Dual-Tier SessionManager"]
     end
 
-    subgraph Agents ["LangGraph Multi-Agent Orchestrator"]
-        TutorAgent["Tutor Agent (Gemini 3.6 Flash)"]
+    subgraph Agents ["Multi-Agent Architecture"]
+        subgraph Orchestrator ["LangGraph State Machine Orchestrator"]
+            SafetyAgent["Safety Boundary Agent"]
+            TutorAgent["Socratic Tutor Agent (Gemini 3.6 Flash)"]
+        end
         DiagAgent["Diagnostic Vision Agent (Gemini OCR)"]
-        ContentAgent["Content Agent (RAG Semantic Matcher)"]
+        ContentAgent["Content Agent (pgvector RAG)"]
     end
 
     subgraph Data ["Persistence & ML (Supabase)"]
@@ -56,12 +59,17 @@ flowchart TD
 
     UI -->|SSE Stream / Text / Photo| FastAPI
     FastAPI --> Guard --> SessMgr
-    SessMgr <--> Agents
-    Agents --> BKT
+    SessMgr <--> Orchestrator
+    SessMgr <--> DiagAgent
+    SessMgr <--> ContentAgent
+    TutorAgent --> BKT
+    DiagAgent --> BKT
     BKT --> DB
     ContentAgent <--> PgVector
     DB -.->|Supabase Realtime| Radar
 ```
+
+> **Multi-Agent Orchestration Note**: The Socratic Tutor and Safety-boundary agents are orchestrated via a compiled **LangGraph state machine** (`/session/message`), delivering state-driven dynamic routing, safety interception, and conversation history management. The Diagnostic Vision Agent (`/session/upload-work`) and Content Agent (`/session/next-problem`) are invoked directly for specialized multimodal vision breakdown and pgvector curriculum progression.
 
 ---
 
@@ -130,47 +138,43 @@ python backend/run_all_tests.py
 
 ### Live Test Suite Output
 ```text
-======================================================================
+============================================================================
    VERITAS AI SOCRATIC TUTOR — AUTOMATED VALIDATION SUITE
-======================================================================
+============================================================================
 
 ▶ Running Day-3 Resiliency & Session Persistence (test_session_persistence.py)...
-  ✓ Session created and stored in RAM cache
-  ✓ Simulating Render container restart (RAM cache completely emptied)
-  ✓ Successfully rehydrated session from database after simulated server crash!
-  ✓ Supabase reachable: True | Gemini API reachable: True
-  ✓ Parent data deletion purged 1 child records
-  ✓ Day-3 Resiliency & Session Persistence passed in 7.27s
+  ✓ Day-3 Resiliency & Session Persistence passed in 17.87s
 
 ▶ Running Production RLS & Credential Isolation (test_production_rls.py)...
-  ✓ Anonymous request with public key returned 0 rows (RLS active)
-  ✓ Scanned all frontend source: Service role key is 100% isolated to backend
-  ✓ Production RLS & Credential Isolation passed in 1.89s
+  ✓ Production RLS & Credential Isolation passed in 4.62s
 
 ▶ Running Platform Safety & Socratic Guardrails (test_safety.py)...
-  ✓ HTML tags safely escaped & control characters stripped
-  ✓ Intercepted prompt injections and jailbreak payloads
-  ✓ Flagged direct answer leaks & permitted Socratic queries
-  ✓ Upload Magic Bytes verified (executable MIME & 11MB files rejected)
-  ✓ Auth brute-force rate limiter activated after threshold
-  ✓ Platform Safety & Socratic Guardrails passed in 0.52s
+  ✓ Platform Safety & Socratic Guardrails passed in 0.54s
 
 ▶ Running Student Scoping, Rate Limiting & RAG Retrieval (test_auth_and_rag.py)...
-  ✓ Cryptographic HMAC token verified & tampered tokens rejected
-  ✓ Student IDOR scoping: Bob's records forbidden with Alice's token
-  ✓ Content Agent retrieved targeted problem via pgvector cosine search
-  ✓ Student Scoping, Rate Limiting & RAG Retrieval passed in 3.89s
+  ✓ Student Scoping, Rate Limiting & RAG Retrieval passed in 8.82s
 
 ▶ Running Parent-Child Architecture & Inactivity Alerts (test_parent_child_flow.py)...
-  ✓ Child linked to parent account with unique UUID
-  ✓ Inactivity / fraction gap alert triggered (has_fraction_gap=True)
-  ✓ Retrieved child details with 10 CCSS skills for radar rendering
-  ✓ Parent-Child Architecture & Inactivity Alerts passed in 9.46s
+  ✓ Parent-Child Architecture & Inactivity Alerts passed in 21.97s
 
-======================================================================
-  ALL 5/5 TEST SUITES PASSED IN 23.03s!
+▶ Running Neo AI Platform Assistant & Guardrails (test_neo.py)...
+  ✓ Neo AI Platform Assistant & Guardrails passed in 16.11s
+
+============================================================================
+                      DEMO DAY TEST EXECUTION SUMMARY                       
+============================================================================
+ #  | TEST SUITE                                      | STATUS     |    TIME
+----------------------------------------------------------------------------
+ 1  | Day-3 Resiliency & Session Persistence          | ✓ PASS     |  17.87s
+ 2  | Production RLS & Credential Isolation           | ✓ PASS     |   4.62s
+ 3  | Platform Safety & Socratic Guardrails           | ✓ PASS     |   0.54s
+ 4  | Student Scoping, Rate Limiting & RAG Retrieval  | ✓ PASS     |   8.82s
+ 5  | Parent-Child Architecture & Inactivity Alerts   | ✓ PASS     |  21.97s
+ 6  | Neo AI Platform Assistant & Guardrails          | ✓ PASS     |  16.11s
+----------------------------------------------------------------------------
+  ALL 6/6 TEST SUITES PASSED IN 69.92s!
   STATUS: 100% PRODUCTION READY & DEMO-DAY BULLETPROOF
-======================================================================
+============================================================================
 ```
 
 ---

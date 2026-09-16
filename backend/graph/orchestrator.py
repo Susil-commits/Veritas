@@ -1,19 +1,16 @@
 """
-LangGraph Orchestrator — 3-agent pipeline with state management.
-Routes between: Tutor Agent, Diagnostic Agent, Content Agent.
+LangGraph Orchestrator — State machine orchestrating Safety Boundary & Socratic Tutor agents.
+Routes between: Safety Shield (harmful/injection boundary) and Socratic Tutor.
 """
 # pyright: reportMissingImports=false, reportMissingModuleSource=false
 import asyncio
-import uuid
 import warnings
 warnings.filterwarnings("ignore", message=".*allowed_objects.*")
 from typing import TypedDict, Literal, Any
 from langgraph.graph import StateGraph, END, START
 
 from agents.tutor_agent import run_tutor_agent
-from agents.diagnostic_agent import run_diagnostic_agent
-from agents.content_agent import get_next_problem
-from bkt.tracker import update_mastery, get_next_skill
+from bkt.tracker import update_mastery
 from db.supabase_client import get_supabase
 from safety import (
     SOCRATIC_BOUNDARY_RESPONSE,
@@ -54,7 +51,7 @@ class TutorState(TypedDict, total=False):
 
     # Routing & Safety
     safety_flag: Literal["harmful", "injection"] | None
-    next_action: Literal["safety", "tutor", "diagnose", "select_problem", "end"] | None
+    next_action: Literal["safety", "tutor", "end"] | None
 
 
 # ── Node Functions ───────────────────────────────────────────────────────────
@@ -146,126 +143,13 @@ async def tutor_node(state: TutorState) -> dict:
     }
 
 
-async def diagnose_node(state: TutorState) -> dict:
-    """Diagnostic agent — OCR + misconception detection on uploaded image."""
-    steps = list(state.get("thinking_steps") or [])
-    steps.append("Diagnostic agent: reading handwritten work...")
-
-    current_problem = state.get("current_problem") or {}
-    skill_id = state.get("current_skill_id") or current_problem.get("skill_id", "")
-    diagnosis = await asyncio.to_thread(
-        run_diagnostic_agent,
-        image_bytes=state.get("latest_image_bytes"),
-        expected_steps=current_problem.get("expected_steps", []),
-        problem_text=current_problem.get("text", ""),
-        skill_id=skill_id,
-    )
-
-    steps.append(f"Found: {diagnosis.get('misconception_type', 'unknown')} at step {diagnosis.get('step_number', '?')}")
-
-    # Update mastery based on correctness
-    mastery_state = dict(state.get("mastery_state") or {})
-    is_correct = diagnosis.get("is_correct", False)
-    new_mastery = update_mastery(
-        current_mastery=mastery_state.get(skill_id, 0.3),
-        is_correct=is_correct,
-        skill_id=skill_id,
-    )
-    student_id = state.get("student_id")
-    if skill_id:
-        mastery_state[skill_id] = new_mastery
-        if student_id:
-            # Persist mastery to Supabase
-            await asyncio.to_thread(_save_mastery, student_id, skill_id, new_mastery)
-
-    steps.append(f"Mastery for {skill_id}: {new_mastery*100:.0f}%")
-
-    # Log the session event
-    session_id = state.get("session_id")
-    if session_id and student_id:
-        await asyncio.to_thread(
-            _log_event,
-            session_id=session_id,
-            student_id=student_id,
-            problem_id=current_problem.get("id"),
-            attempt_text=diagnosis.get("ocr_text", ""),
-            is_correct=is_correct,
-            agent_response=diagnosis.get("corrective_question", ""),
-        )
-
-    return {
-        "diagnosis": diagnosis,
-        "mastery_state": mastery_state,
-        "current_problem_credited": True if is_correct else state.get("current_problem_credited", False),
-        "thinking_steps": steps,
-        "agent_response": diagnosis.get("corrective_question", "Let's try again."),
-        "next_action": "select_problem" if is_correct else None,
-    }
-
-
-async def select_problem_node(state: TutorState) -> dict:
-    """Content agent — selects the next problem based on mastery."""
-    steps = list(state.get("thinking_steps") or [])
-    steps.append("Content agent: finding the best next problem...")
-
-    # Determine next skill
-    mastery_state = state.get("mastery_state") or {}
-    next_skill = get_next_skill(mastery_state)
-    mastery_prob = mastery_state.get(next_skill, 0.3)
-
-    steps.append(f"Targeting skill: {next_skill} (mastery: {mastery_prob*100:.0f}%)")
-
-    diagnosis = state.get("diagnosis") or {}
-    misconception_desc = diagnosis.get("description") or diagnosis.get("misconception_type")
-
-    problem = await asyncio.to_thread(
-        get_next_problem,
-        skill_id=next_skill,
-        mastery_prob=mastery_prob,
-        student_id=state.get("student_id", ""),
-        exclude_problem_ids=state.get("problems_attempted", []),
-        misconception_text=misconception_desc,
-    )
-
-    if problem is None:
-        return {
-            "agent_response": "Amazing work! You've completed all available problems for today.",
-            "next_action": "end",
-            "thinking_steps": steps,
-        }
-
-    attempted = state.get("problems_attempted", []) + [problem["id"]]
-    steps.append(f"Selected problem: {problem.get('title', problem['id'])}")
-
-    return {
-        "current_problem": problem,
-        "current_problem_credited": False,
-        "current_skill_id": next_skill,
-        "problems_attempted": attempted,
-        "agent_response": f"Great job! Let's try a new problem:\n\n**{problem.get('title', 'Problem')}**\n\n{problem['text']}",
-        "thinking_steps": steps,
-        "next_action": None,
-    }
-
-
 # ── Routing ─────────────────────────────────────────────────────────────────
 
 def entry_router(state: TutorState) -> str:
-    """Route from START based on safety signals, photo presence, or text message."""
+    """Route from START based on safety signals or text message."""
     if state.get("safety_flag") in ("harmful", "injection"):
         return "safety"
-    if state.get("latest_image_bytes") or state.get("next_action") == "diagnose":
-        return "diagnose"
     return "tutor"
-
-
-def route(state: TutorState) -> str:
-    action = state.get("next_action")
-    if action == "select_problem":
-        return "select_problem"
-    if action == "end":
-        return END
-    return END
 
 
 # ── Graph Assembly ───────────────────────────────────────────────────────────
@@ -275,8 +159,6 @@ def build_graph() -> Any:
 
     builder.add_node("safety", safety_node)
     builder.add_node("tutor", tutor_node)
-    builder.add_node("diagnose", diagnose_node)
-    builder.add_node("select_problem", select_problem_node)
 
     # Safety: always ends (redirection returned to frontend)
     builder.add_edge("safety", END)
@@ -284,20 +166,10 @@ def build_graph() -> Any:
     # Tutor: always ends (response returned to frontend)
     builder.add_edge("tutor", END)
 
-    # Diagnose: conditionally moves to select_problem (on correct answer)
-    builder.add_conditional_edges("diagnose", route, {
-        "select_problem": "select_problem",
-        END: END,
-    })
-
-    # Select problem: always ends
-    builder.add_edge("select_problem", END)
-
-    # Entry point: dynamic routing based on safety signals, uploaded photo, or message
+    # Entry point: dynamic routing based on safety signals or message
     builder.add_conditional_edges(START, entry_router, {
         "safety": "safety",
         "tutor": "tutor",
-        "diagnose": "diagnose",
     })
 
     return builder.compile()
@@ -316,33 +188,3 @@ def _save_mastery(student_id: str, skill_id: str, mastery_prob: float):
     except Exception as e:
         print(f"[WARN] Failed to save mastery: {e}")
 
-
-def _log_event(session_id, student_id, problem_id, attempt_text, is_correct, agent_response):
-    try:
-        supabase = get_supabase()
-        clean_prob_id = None
-        if problem_id:
-            try:
-                uuid.UUID(str(problem_id))
-                clean_prob_id = str(problem_id)
-            except (ValueError, AttributeError):
-                clean_prob_id = None
-
-        payload = {
-            "session_id": session_id,
-            "student_id": student_id,
-            "problem_id": clean_prob_id,
-            "attempt_text": attempt_text,
-            "is_correct": is_correct,
-            "agent_response": agent_response,
-        }
-        try:
-            supabase.table("session_events").insert(payload).execute()
-        except Exception as insert_err:
-            if clean_prob_id is not None and ("foreign key" in str(insert_err).lower() or "fkey" in str(insert_err).lower()):
-                payload["problem_id"] = None
-                supabase.table("session_events").insert(payload).execute()
-            else:
-                raise insert_err
-    except Exception as e:
-        print(f"[WARN] Failed to log event: {e}")
