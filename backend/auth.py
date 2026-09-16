@@ -461,6 +461,11 @@ async def verify_session_access(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=f"Session mismatch: token was issued for session {token_sid}, not {session_id}",
         )
+    if payload.get("role") != "student":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Student session authentication required",
+        )
     return payload
 
 

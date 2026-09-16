@@ -756,13 +756,18 @@ async def start_session(
     if token:
         try:
             payload = verify_session_token(token)
-            authenticated_sub = payload.get("sub")
-        except Exception:
-            token_lower = token.lower()
-            if "student" in token_lower:
-                authenticated_sub = DEMO_STUDENT_ID
-            elif "parent" in token_lower:
-                authenticated_sub = "99999999-8888-7777-6666-555555555555"
+        except HTTPException:
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid authentication token",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        authenticated_sub = payload.get("sub")
+        if payload.get("role") != "student":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Student session authentication required: token must have student role",
+            )
 
     student_id = None
     clean_req_student_id = req.student_id.strip() if req.student_id and req.student_id.strip() else None
@@ -1118,6 +1123,11 @@ async def send_message(
     auth: dict = Depends(verify_session_access),
 ):
     """Send a student text message and get a streaming tutor response with safety guardrails."""
+    if auth.get("role") != "student":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Student session authentication required",
+        )
     if auth.get("sid") and auth["sid"] != req.session_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -1275,6 +1285,11 @@ async def next_problem_endpoint(
     auth: dict = Depends(verify_session_access),
 ):
     """Explicitly advance to the next tailored practice problem with BKT mastery progression."""
+    if auth.get("role") != "student":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Student session authentication required",
+        )
     if auth.get("sid") and auth["sid"] != req.session_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -1375,6 +1390,11 @@ async def upload_work(
     auth: dict = Depends(verify_session_access),
 ):
     """Upload a photo of student handwritten work for OCR + diagnosis with strict upload validation."""
+    if auth.get("role") != "student":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Student session authentication required",
+        )
     if auth.get("sid") and auth["sid"] != session_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

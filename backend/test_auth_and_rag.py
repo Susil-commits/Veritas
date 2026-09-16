@@ -31,6 +31,7 @@ from auth import (
     verify_student_access,
     verify_parent_access,
     verify_parent_caller,
+    verify_session_access,
 )
 from rate_limiter import RateLimiter
 
@@ -284,6 +285,20 @@ async def test_parent_scoping():
     except HTTPException as e:
         assert e.status_code == 401
         print("   ✓ Arbitrary parent ID spoofing via demo_parent_<victim_id> rejected with HTTP 401")
+
+    # 7. Parent token attempting to operate student tutoring session routes raises 403
+    try:
+        await verify_session_access(session_id="sess-pa", authorization=f"Bearer {parent_a_token}")
+        assert False, "Parent token must NOT be allowed to operate student tutoring sessions"
+    except HTTPException as e:
+        assert e.status_code == 403
+        assert "Student session authentication required" in e.detail
+        print("   ✓ Parent token blocked from student tutoring session route with HTTP 403")
+
+    # 8. Student token operating student tutoring session route succeeds
+    sess_auth = await verify_session_access(session_id="sess-st", authorization=f"Bearer {student_token}")
+    assert sess_auth["role"] == "student"
+    print("   ✓ Valid student token granted access to student tutoring session route")
 
     print("✅ [TEST 2B PASSED] Parent scoping verification complete!\n")
 
