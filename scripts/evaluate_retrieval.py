@@ -23,14 +23,24 @@ if sys.platform == "win32":
     except Exception:
         pass
 
+from typing import TypedDict
 from dotenv import load_dotenv
 load_dotenv(ROOT_DIR / ".env")
 load_dotenv(BACKEND_DIR / ".env")
 
-from agents.content_agent import get_next_problem, _load_local_problems
+from agents.content_agent import get_candidate_problems, get_next_problem, _load_local_problems
+
+
+class BenchmarkCase(TypedDict):
+    skill_id: str
+    misconception: str
+    mastery_prob: float
+    expected_difficulty_range: list[int]
+    keywords: list[str]
+
 
 # Ground-truth test evaluation dataset of misconceptions mapped to target skills & difficulty levels
-RETRIEVAL_BENCHMARK_CASES = [
+RETRIEVAL_BENCHMARK_CASES: list[BenchmarkCase] = [
     {
         "skill_id": "4.NF.B.3",
         "misconception": "denominator_addition: student added bottom denominators directly 1/3 + 1/4 = 2/7",
@@ -111,12 +121,11 @@ def run_retrieval_benchmark() -> dict:
 
     n_cases = len(RETRIEVAL_BENCHMARK_CASES)
     recall_at_1 = 0
+    recall_at_3 = 0
+    recall_at_5 = 0
     mrr_sum = 0.0
     skill_match_count = 0
     diff_match_count = 0
-
-    print(f"\n {'#':<2} | {'SKILL ID':<9} | {'DIAGNOSED MISCONCEPTION':<36} | {'RETRIEVED TITLE':<23} | {'DIFF':<4}")
-    print("-" * 80)
 
     for i, case in enumerate(RETRIEVAL_BENCHMARK_CASES, 1):
         skill_id = case["skill_id"]
@@ -124,53 +133,71 @@ def run_retrieval_benchmark() -> dict:
         mastery = case["mastery_prob"]
         exp_range = case["expected_difficulty_range"]
 
-        retrieved = get_next_problem(
+        # Retrieve actual ordered top-5 candidate list from pgvector / problem bank
+        candidates = get_candidate_problems(
             skill_id=skill_id,
             mastery_prob=mastery,
             student_id="benchmark_student",
             misconception_text=misc,
+            top_k=5,
         )
 
-        if not retrieved:
-            print(f" {i:<2} | {skill_id:<9} | {misc[:34]:<36} | {'FAILED (None)':<23} | N/A")
+        if not candidates:
+            print(f"\nQuery #{i:<2} | {skill_id:<9} | FAILED (No candidates returned)")
             continue
 
-        ret_skill = retrieved.get("skill_id")
-        ret_diff = retrieved.get("difficulty", 1)
-        ret_title = str(retrieved.get("title", ""))[:22]
+        # Evaluate candidate ranking
+        first_correct_rank = None
+        for rank_idx, cand in enumerate(candidates, start=1):
+            cand_skill = cand.get("skill_id")
+            cand_diff = cand.get("difficulty", 1)
+            is_match = (cand_skill == skill_id and exp_range[0] <= cand_diff <= exp_range[1])
+            if is_match and first_correct_rank is None:
+                first_correct_rank = rank_idx
 
-        is_skill_match = (ret_skill == skill_id)
-        is_diff_match = (exp_range[0] <= ret_diff <= exp_range[1])
+        # Calculate genuine Reciprocal Rank and Recall@K
+        if first_correct_rank is not None:
+            mrr_sum += 1.0 / first_correct_rank
+            if first_correct_rank == 1:
+                recall_at_1 += 1
+            if first_correct_rank <= 3:
+                recall_at_3 += 1
+            if first_correct_rank <= 5:
+                recall_at_5 += 1
 
-        if is_skill_match:
+        top_cand = candidates[0]
+        if top_cand.get("skill_id") == skill_id:
             skill_match_count += 1
-        if is_diff_match:
+        if exp_range[0] <= top_cand.get("difficulty", 1) <= exp_range[1]:
             diff_match_count += 1
 
-        # In targeted RAG with our adaptive ranker, top-1 precision
-        if is_skill_match and is_diff_match:
-            recall_at_1 += 1
-            mrr_sum += 1.0
-        elif is_skill_match:
-            mrr_sum += 0.5
+        print(f"\n[Case {i:<2}] Skill: {skill_id} | ZPD Target Diff: {exp_range[0]}-{exp_range[1]} | Mastery: {mastery:.2f}")
+        print(f"         Diagnosed: {misc[:65]}")
+        for r_idx, c in enumerate(candidates, start=1):
+            c_skill = c.get("skill_id")
+            c_diff = c.get("difficulty", 1)
+            is_tgt = (c_skill == skill_id and exp_range[0] <= c_diff <= exp_range[1])
+            tag = " <-- [TARGET MATCH]" if is_tgt else ""
+            print(f"         • Rank {r_idx}: \"{c.get('title', '')[:32]}\" ({c_skill}, diff {c_diff}/5){tag}")
 
-        print(f" {i:<2} | {skill_id:<9} | {misc[:34]:<36} | {ret_title:<23} | {ret_diff}/5")
+        rr_val = (1.0 / first_correct_rank) if first_correct_rank else 0.0
+        print(f"         => First Target Rank: {first_correct_rank or 'Not found in Top 5'} | Reciprocal Rank: {rr_val:.4f}")
 
-    r1 = (recall_at_1 / n_cases) * 100
-    r3 = 100.0  # All cases have candidates within top 3 of matching skill
-    r5 = 100.0
+    r1 = (recall_at_1 / n_cases) * 100.0
+    r3 = (recall_at_3 / n_cases) * 100.0
+    r5 = (recall_at_5 / n_cases) * 100.0
     mrr = mrr_sum / n_cases
-    skill_accuracy = (skill_match_count / n_cases) * 100
-    diff_accuracy = (diff_match_count / n_cases) * 100
+    skill_accuracy = (skill_match_count / n_cases) * 100.0
+    diff_accuracy = (diff_match_count / n_cases) * 100.0
 
-    print("-" * 80)
-    print("📈 RETRIEVAL BENCHMARK SUMMARY RESULTS:")
+    print("\n" + "=" * 80)
+    print("📈 VERITAS RAG RETRIEVAL BENCHMARK SUMMARY (GENUINE RANKING METRICS):")
     print(f"   • Total Test Queries          : {n_cases}")
-    print(f"   • Skill Match Precision       : {skill_accuracy:.1f}%")
-    print(f"   • Difficulty (ZPD) Alignment  : {diff_accuracy:.1f}%")
-    print(f"   • Recall@1 (Optimal Remediation): {r1:.1f}%")
-    print(f"   • Recall@3                    : {r3:.1f}%")
-    print(f"   • Recall@5                    : {r5:.1f}%")
+    print(f"   • Top-1 Skill Precision       : {skill_accuracy:.1f}% ({skill_match_count}/{n_cases})")
+    print(f"   • Top-1 Difficulty (ZPD) Fit  : {diff_accuracy:.1f}% ({diff_match_count}/{n_cases})")
+    print(f"   • Recall@1 (Target at Rank 1) : {r1:.1f}% ({recall_at_1}/{n_cases})")
+    print(f"   • Recall@3 (Target in Top 3)  : {r3:.1f}% ({recall_at_3}/{n_cases})")
+    print(f"   • Recall@5 (Target in Top 5)  : {r5:.1f}% ({recall_at_5}/{n_cases})")
     print(f"   • Mean Reciprocal Rank (MRR)  : {mrr:.4f}")
     print("=" * 80 + "\n")
 
@@ -187,9 +214,10 @@ def run_retrieval_benchmark() -> dict:
 
 if __name__ == "__main__":
     results = run_retrieval_benchmark()
-    if results["skill_match_rate"] >= 90.0:
-        print("✓ Retrieval benchmark PASSED.")
+    if results["recall_at_3"] >= 80.0 and results["mrr"] >= 0.70:
+        print("[OK] Retrieval benchmark PASSED with valid candidate ranking.")
         sys.exit(0)
     else:
-        print("✗ Retrieval benchmark FAILED.")
+        print("[FAIL] Retrieval benchmark FAILED thresholds.")
         sys.exit(1)
+

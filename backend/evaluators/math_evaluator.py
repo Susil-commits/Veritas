@@ -93,35 +93,99 @@ def extract_expected_answer(problem: dict) -> Tuple[str | None, str]:
 def extract_student_candidate(message: str) -> list[Tuple[str, str]]:
     """
     Extract candidate answers from student's message with their identified types.
+    Ensures candidates are anchored to answer intent, rejecting negated values,
+    disjunctive alternative queries (e.g. 'is it 12 or 15?'), and arbitrary
+    contextual numbers in long conversational sentences.
     Returns list of (candidate_str, candidate_type).
     """
     text = message.strip()
-    candidates: list[Tuple[str, str]] = []
+    if not text:
+        return []
 
-    # 1. Check variable equation e.g. "x = 4", "a = 1/2"
+    # 1. Disjunctive alternative questions (e.g. "Is the answer 12 or 15?", "is it 3/4 or 5/8?")
+    # These represent undecided student inquiries rather than definite answer commitments.
+    if re.search(r"\b(?:is\s+it|is\s+the\s+answer|could\s+it\s+be|what\s+about)\b.+\b\d+\b.+\bor\b.+\b\d+\b", text, flags=re.IGNORECASE) or \
+       re.search(r"\b\d+(?:/\d+)?(?:\.\d+)?\s+or\s+\d+(?:/\d+)?(?:\.\d+)?\b", text, flags=re.IGNORECASE):
+        return []
+
+    words = text.split()
+    is_short_direct = len(words) <= 5
+
+    candidates: list[Tuple[str, str]] = []
+    seen = set()
+
+    def add_cand(val: str, c_type: str):
+        v = val.strip()
+        if v and (v.lower(), c_type) not in seen:
+            seen.add((v.lower(), c_type))
+            candidates.append((v, c_type))
+
+    # Identify all negated numbers and spans (e.g., "isn't 12", "not 12", "not equal to 12")
+    negated_spans = []
+    negated_numbers = set()
+    for neg_match in re.finditer(r"\b(?:isn't|is\s+not|not|wasn't|cannot\s+be|can't\s+be|not\s+equal\s+to)\s*(-?\d+(?:/\d+)?(?:\.\d+)?)", text, flags=re.IGNORECASE):
+        negated_spans.append(neg_match.span(1))
+        negated_numbers.add(neg_match.group(1).strip())
+
+    def is_in_negation(start: int, end: int, val: str = "") -> bool:
+        if val and val in negated_numbers:
+            return True
+        return any(ns <= start and end <= ne for ns, ne in negated_spans)
+
+    # 1. Check explicit variable equations e.g. "x = 4", "a = 1/2"
     has_equation = False
     for eq in re.finditer(r"\b([a-zA-Z])\s*=\s*(-?\d+(?:/\d+)?(?:\.\d+)?)\b", text):
-        has_equation = True
-        candidates.append((f"{eq.group(1).lower()} = {eq.group(2)}", "equation"))
+        eq_val = eq.group(2).strip()
+        if not is_in_negation(eq.start(2), eq.end(2), eq_val):
+            has_equation = True
+            add_cand(f"{eq.group(1).lower()} = {eq.group(2)}", "equation")
 
-    # 2. Check mixed fractions e.g. "1 1/2"
-    for mf in re.finditer(r"\b(\d+\s+\d+/\d+)\b", text):
-        candidates.append((mf.group(1), "fraction"))
-
-    # 3. Check simple fractions e.g. "3/4", "6/8"
-    for sf in re.finditer(r"\b(-?\d+/\d+)\b", text):
-        candidates.append((sf.group(1), "fraction"))
-
-    # 4. Check numbers e.g. "40", "16", "2.5" (if not already part of an equation)
+    # 2. Extract candidates anchored to explicit answer-intent phrases (if not an equation)
     if not has_equation:
-        for nm in re.finditer(r"\b(-?\d+(?:\.\d+)?)\b", text):
-            candidates.append((nm.group(1), "number"))
+        intent_patterns = [
+            r"(?:the\s+)?answer\s*(?:is|should\s+be|=|:)\s*(-?\d+\s+\d+/\d+|-?\d+/\d+|-?\d+(?:\.\d+)?|[0-9]*[a-zA-Z](?:\s*[+\-*/]\s*[0-9]*[a-zA-Z0-9]+)+)",
+            r"(?:i\s+got|i\s+get|i\s+found|my\s+answer\s+is)\s*(-?\d+\s+\d+/\d+|-?\d+/\d+|-?\d+(?:\.\d+)?|[0-9]*[a-zA-Z](?:\s*[+\-*/]\s*[0-9]*[a-zA-Z0-9]+)+)",
+            r"(?:i\s+think\s+(?:the\s+answer\s+is|it(?:'s|s|\s+is))\s*|maybe\s+it(?:'s|s|\s+is)\s*|maybe\s+)\s*(-?\d+\s+\d+/\d+|-?\d+/\d+|-?\d+(?:\.\d+)?|[0-9]*[a-zA-Z](?:\s*[+\-*/]\s*[0-9]*[a-zA-Z0-9]+)+)",
+            r"(?:so|therefore|equals?)\s+(-?\d+\s+\d+/\d+|-?\d+/\d+|-?\d+(?:\.\d+)?)",
+            r"(?:is\s+it|is\s+the\s+simplified\s+fraction|decimal\s+form\s+is)\s*(-?\d+\s+\d+/\d+|-?\d+/\d+|-?\d+(?:\.\d+)?)",
+        ]
 
-    # 5. Check algebraic expressions e.g. "2p + h", "9w", "4a + 3b"
-    for ex in re.finditer(r"\b([0-9]*[a-zA-Z](?:\s*[+\-*/]\s*[0-9]*[a-zA-Z0-9]+)+)\b", text):
-        candidates.append((ex.group(1), "expression"))
-    for single_term in re.finditer(r"\b([0-9]+[a-zA-Z])\b", text):
-        candidates.append((single_term.group(1), "expression"))
+        for pat in intent_patterns:
+            for m in re.finditer(pat, text, flags=re.IGNORECASE):
+                c_val = m.group(1).strip()
+                if not is_in_negation(m.start(1), m.end(1), c_val):
+                    if "/" in c_val and " " in c_val:
+                        add_cand(c_val, "fraction")
+                    elif "/" in c_val:
+                        add_cand(c_val, "fraction")
+                    elif re.match(r"^-?\d+(?:\.\d+)?$", c_val):
+                        add_cand(c_val, "number")
+                    else:
+                        add_cand(c_val, "expression")
+
+    # 3. For short/direct messages (<= 5 words), extract bare fractions, numbers, or expressions
+    if is_short_direct and not candidates:
+        # Mixed fractions e.g. "1 1/2"
+        for mf in re.finditer(r"\b(\d+\s+\d+/\d+)\b", text):
+            if not is_in_negation(mf.start(1), mf.end(1), mf.group(1).strip()):
+                add_cand(mf.group(1), "fraction")
+
+        # Simple fractions e.g. "3/4", "6/8"
+        for sf in re.finditer(r"\b(-?\d+/\d+)\b", text):
+            if not is_in_negation(sf.start(1), sf.end(1), sf.group(1).strip()):
+                add_cand(sf.group(1), "fraction")
+
+        # Standalone numbers e.g. "40", "40.0"
+        if not has_equation:
+            for nm in re.finditer(r"\b(-?\d+(?:\.\d+)?)\b", text):
+                if not is_in_negation(nm.start(1), nm.end(1), nm.group(1).strip()):
+                    add_cand(nm.group(1), "number")
+
+        # Expressions e.g. "2p + h", "h + 2p"
+        for ex in re.finditer(r"\b([0-9]*[a-zA-Z](?:\s*[+\-*/]\s*[0-9]*[a-zA-Z0-9]+)+)\b", text):
+            add_cand(ex.group(1), "expression")
+        for st in re.finditer(r"\b([0-9]+[a-zA-Z])\b", text):
+            add_cand(st.group(1), "expression")
 
     return candidates
 

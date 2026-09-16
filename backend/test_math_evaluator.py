@@ -122,6 +122,46 @@ def test_attempt_type_differentiation():
     print(f"   [OK] Attempt types verified: Independent={m_independent*100:.1f}%, Hinted={m_hinted*100:.1f}%, Corrected={m_corrected*100:.1f}%.")
 
 
+def test_false_positive_adversarial_defense():
+    print("\n[TEST 7] Testing False-Positive Defenses (Negation, Disjunction, Contextual Numbers)...")
+    prob_12 = {
+        "title": "Apple Basket",
+        "expected_steps": ["Answer: 12"],
+    }
+    prob_8 = {
+        "title": "Apple Basket",
+        "expected_steps": ["Answer: 8"],
+    }
+
+    # Case A: Negated candidate + contextual problem number: "I think the answer isn't 12, maybe 8. The problem gives 12 apples."
+    adversarial_msg = "I think the answer isn't 12, maybe 8. The problem gives 12 apples."
+    res_for_12 = evaluate_student_solution(adversarial_msg, prob_12)
+    assert res_for_12["objective_solved"] is False, f"False positive! Negated 12 was marked correct: {res_for_12}"
+    print("   [OK] Negated candidate 'isn't 12' and contextual '12 apples' rejected for expected 12.")
+
+    res_for_8 = evaluate_student_solution(adversarial_msg, prob_8)
+    assert res_for_8["objective_solved"] is True, f"Positive candidate 'maybe 8' failed to resolve: {res_for_8}"
+    print("   [OK] Positive intent 'maybe 8' correctly resolved for expected 8.")
+
+    # Case B: Disjunctive undecided query: "Is the answer 12 or 15?"
+    disjunctive_msg = "Is the answer 12 or 15?"
+    res_disj = evaluate_student_solution(disjunctive_msg, prob_12)
+    assert res_disj["objective_solved"] is False, f"False positive! Disjunctive query marked correct: {res_disj}"
+    assert res_disj["is_explicit_attempt"] is False
+    print("   [OK] Disjunctive undecided query '12 or 15' rejected as non-attempt.")
+
+    # Case C: Contextual mention without answer intent in long sentence:
+    # "The question says 40 students are in the room, what formula should I use?" with expected answer 40
+    prob_40 = {
+        "title": "Room Count",
+        "expected_steps": ["Answer: 40"],
+    }
+    context_msg = "The question says 40 students are in the room, what formula should I use?"
+    res_context = evaluate_student_solution(context_msg, prob_40)
+    assert res_context["objective_solved"] is False, f"False positive! Contextual question marked correct: {res_context}"
+    print("   [OK] Contextual mention in long query rejected without answer intent.")
+
+
 if __name__ == "__main__":
     test_arithmetic_evaluation()
     test_fraction_and_decimal_equivalence()
@@ -129,4 +169,6 @@ if __name__ == "__main__":
     test_algebraic_equations()
     test_exploratory_messages()
     test_attempt_type_differentiation()
+    test_false_positive_adversarial_defense()
     print("\n=== ALL OBJECTIVE MATH EVALUATOR TESTS PASSED! ===")
+

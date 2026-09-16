@@ -268,9 +268,15 @@ def get_session(session_id: str) -> dict[str, Any] | None:
             student_turn = ev.get("attempt_text")
             tutor_turn = ev.get("agent_response")
             if student_turn:
-                conversation_history.append({"role": "student", "content": student_turn})
+                s_turn = {"role": "student", "content": student_turn}
+                if prob_id:
+                    s_turn["problem_id"] = prob_id
+                conversation_history.append(s_turn)
             if tutor_turn:
-                conversation_history.append({"role": "tutor", "content": tutor_turn})
+                t_turn = {"role": "tutor", "content": tutor_turn}
+                if prob_id:
+                    t_turn["problem_id"] = prob_id
+                conversation_history.append(t_turn)
 
         # Resolve current problem
         current_problem = None

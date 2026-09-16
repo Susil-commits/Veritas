@@ -74,10 +74,19 @@ async def safety_node(state: TutorState) -> dict:
     steps = list(state.get("thinking_steps") or [])
     steps.append("Safety shield: intercepted prompt and applied pedagogical boundary")
 
+    curr_prob = state.get("current_problem") or {}
+    curr_prob_id = curr_prob.get("id")
+
     history = list(state.get("conversation_history") or [])
     if state.get("latest_input"):
-        history.append({"role": "student", "content": state.get("latest_input", "")})
-    history.append({"role": "tutor", "content": response})
+        student_msg = {"role": "student", "content": state.get("latest_input", "")}
+        if curr_prob_id:
+            student_msg["problem_id"] = curr_prob_id
+        history.append(student_msg)
+    tutor_msg = {"role": "tutor", "content": response}
+    if curr_prob_id:
+        tutor_msg["problem_id"] = curr_prob_id
+    history.append(tutor_msg)
 
     return {
         "agent_response": response,
@@ -150,11 +159,16 @@ async def tutor_node(state: TutorState) -> dict:
         )
         problem_solved = False
 
-    # Update conversation history
-    history = conversation_history + [
-        {"role": "student", "content": latest_input},
-        {"role": "tutor", "content": response},
-    ]
+    curr_prob_id = current_prob.get("id")
+
+    # Update conversation history with problem_id tagging
+    new_student_turn = {"role": "student", "content": latest_input}
+    new_tutor_turn = {"role": "tutor", "content": response}
+    if curr_prob_id:
+        new_student_turn["problem_id"] = curr_prob_id
+        new_tutor_turn["problem_id"] = curr_prob_id
+
+    history = conversation_history + [new_student_turn, new_tutor_turn]
 
     steps.append("Problem solved! Ready for next challenge." if problem_solved else "Thinking of a guiding question...")
 
@@ -162,9 +176,16 @@ async def tutor_node(state: TutorState) -> dict:
     # - "corrected_after_feedback": if previous student turns exist on this problem
     # - "hinted_attempt": if student message requested a hint
     # - "independent_attempt": first attempt unassisted
-    student_turns_on_prob = [
-        m for m in conversation_history if m.get("role") == "student"
-    ]
+    if curr_prob_id and any("problem_id" in m for m in conversation_history):
+        student_turns_on_prob = [
+            m for m in conversation_history
+            if m.get("role") == "student" and m.get("problem_id") == curr_prob_id
+        ]
+    else:
+        student_turns_on_prob = [
+            m for m in conversation_history
+            if m.get("role") == "student"
+        ]
     is_hint_requested = any("hint" in str(m.get("content", "")).lower() for m in student_turns_on_prob) or ("hint" in latest_input.lower())
     if is_hint_requested:
         attempt_type = "hinted_attempt"

@@ -145,21 +145,22 @@ def score_candidate_adaptive(
     return total_score
 
 
-def get_next_problem(
+def get_candidate_problems(
     skill_id: str,
     mastery_prob: float,
     student_id: str,
     exclude_problem_ids: list[str] | None = None,
     misconception_text: str | None = None,
-) -> dict | None:
+    top_k: int = 5,
+) -> list[dict]:
     """
-    Retrieve the next problem from Supabase using pgvector semantic similarity search,
-    calibrated to the student's diagnosed misconception and mastery level.
+    Retrieve an ordered list of candidate problems ranked by multi-factor pedagogical utility,
+    calibrated to the student's diagnosed misconception, mastery level, and ZPD difficulty.
 
     Difficulty selection logic:
-        mastery < 0.4  → difficulty 1-2 (build confidence)
+        mastery < 0.4       → difficulty 1-2 (build confidence)
         0.4 ≤ mastery < 0.7 → difficulty 2-3 (consolidate)
-        mastery ≥ 0.7  → difficulty 3-5 (challenge)
+        mastery ≥ 0.7       → difficulty 3-5 (challenge)
     """
     supabase = get_supabase()
     exclude_ids = set(exclude_problem_ids or [])
@@ -186,23 +187,21 @@ def get_next_problem(
             {
                 "query_embedding": query_embedding,
                 "skill_filter": skill_id,
-                "match_count": 8,
+                "match_count": max(8, top_k * 2),
             },
         ).execute()
 
         candidates = rpc_res.data or []
-        # Filter out already attempted problems
         fresh_candidates = [p for p in candidates if str(p.get("id")) not in exclude_ids]
 
         if fresh_candidates:
-            # Score each candidate adaptively via multi-factor pedagogical ranker
             scored_candidates = [
                 (score_candidate_adaptive(p, min_diff, max_diff, mastery_prob, misconception_text, i), p)
                 for i, p in enumerate(fresh_candidates)
             ]
             scored_candidates.sort(key=lambda x: x[0], reverse=True)
-            chosen = scored_candidates[0][1]
-            return _enrich_problem(chosen)
+            enriched = [_enrich_problem(p) for _, p in scored_candidates[:top_k]]
+            return [p for p in enriched if p is not None]
     except Exception as e:
         print(f"[WARN] pgvector match_problems RPC skipped/failed ({e}), falling back to direct SQL query.")
 
@@ -220,36 +219,74 @@ def get_next_problem(
         if exclude_problem_ids:
             query = query.not_.in_("id", exclude_problem_ids)
 
-        result = query.limit(5).execute()
+        result = query.limit(max(8, top_k * 2)).execute()
         result_data = result.data or []
 
-        if not result_data:
+        if len(result_data) < top_k:
             fallback_query = supabase.table("problems").select("*").eq("skill_id", skill_id)
             if exclude_problem_ids:
                 fallback_query = fallback_query.not_.in_("id", exclude_problem_ids)
-            result = fallback_query.limit(3).execute()
-            result_data = result.data or []
+            result = fallback_query.limit(max(8, top_k * 2)).execute()
+            # Merge while preserving uniqueness
+            existing_ids = {str(p.get("id")) for p in result_data}
+            for p in (result.data or []):
+                if str(p.get("id")) not in existing_ids:
+                    result_data.append(p)
+                    existing_ids.add(str(p.get("id")))
 
         if not result_data:
-            result = supabase.table("problems").select("*").eq("skill_id", skill_id).limit(1).execute()
+            result = supabase.table("problems").select("*").eq("skill_id", skill_id).limit(top_k).execute()
             result_data = result.data or []
     except Exception as sql_err:
         print(f"[WARN] Fallback SQL query error ({sql_err}), falling back to local problems.")
 
-    # ── 3. Resilient Local Seed Problem Fallback ─────────────────────────────
-    if not result_data:
-        local_fallback = _get_local_fallback_problem(skill_id, exclude_ids)
-        if local_fallback:
-            print(f"[INFO] Using resilient local seed problem for skill {skill_id}: {local_fallback.get('title')}")
-            return _enrich_problem(local_fallback)
-        return None
+    if result_data:
+        scored_sql = [
+            (score_candidate_adaptive(p, min_diff, max_diff, mastery_prob, misconception_text, i), p)
+            for i, p in enumerate(result_data)
+        ]
+        scored_sql.sort(key=lambda x: x[0], reverse=True)
+        enriched = [_enrich_problem(p) for _, p in scored_sql[:top_k]]
+        return [p for p in enriched if p is not None]
 
-    scored_sql = [
+    # ── 3. Resilient Local Seed Problem Fallback ─────────────────────────────
+    problems = _load_local_problems()
+    local_candidates = [p for p in problems if p.get("skill_id") == skill_id and str(p.get("id")) not in exclude_ids]
+    if not local_candidates:
+        local_candidates = [p for p in problems if p.get("skill_id") == skill_id]
+    if not local_candidates:
+        local_candidates = [p for p in problems if str(p.get("id")) not in exclude_ids] or problems
+
+    scored_local = [
         (score_candidate_adaptive(p, min_diff, max_diff, mastery_prob, misconception_text, i), p)
-        for i, p in enumerate(result_data)
+        for i, p in enumerate(local_candidates)
     ]
-    scored_sql.sort(key=lambda x: x[0], reverse=True)
-    return _enrich_problem(scored_sql[0][1])
+    scored_local.sort(key=lambda x: x[0], reverse=True)
+    enriched = [_enrich_problem(p) for _, p in scored_local[:top_k]]
+    return [p for p in enriched if p is not None]
+
+
+def get_next_problem(
+    skill_id: str,
+    mastery_prob: float,
+    student_id: str,
+    exclude_problem_ids: list[str] | None = None,
+    misconception_text: str | None = None,
+) -> dict | None:
+    """
+    Retrieve the single best next problem from Supabase / problem bank,
+    calibrated to the student's diagnosed misconception and mastery level.
+    """
+    candidates = get_candidate_problems(
+        skill_id=skill_id,
+        mastery_prob=mastery_prob,
+        student_id=student_id,
+        exclude_problem_ids=exclude_problem_ids,
+        misconception_text=misconception_text,
+        top_k=1,
+    )
+    return candidates[0] if candidates else None
+
 
 
 def generate_session_summary(

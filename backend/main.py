@@ -633,11 +633,17 @@ async def record_game_score(
 
     clean_student_id = req.student_id.strip()
     clean_game_id = req.game_id.strip()
-    caller_sub = auth.get("sub")
-    if caller_sub != clean_student_id and caller_sub != DEMO_STUDENT_ID and auth.get("role") != "parent":
+
+    if auth.get("role") != "student":
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"Access denied: caller {caller_sub} cannot record scores for student {clean_student_id}",
+            status_code=403,
+            detail="Student authentication required",
+        )
+
+    if auth.get("sub") != clean_student_id:
+        raise HTTPException(
+            status_code=403,
+            detail="Cannot modify another student's game state",
         )
 
     valid_game_ids = {item["id"] for item in GAME_LEVELS_CONFIG}
@@ -692,11 +698,17 @@ async def reset_game_score(
         raise HTTPException(400, "student_id is required")
 
     clean_student_id = req.student_id.strip()
-    caller_sub = auth.get("sub")
-    if caller_sub != clean_student_id and caller_sub != DEMO_STUDENT_ID and auth.get("role") != "parent":
+
+    if auth.get("role") != "student":
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"Access denied: caller {caller_sub} cannot reset scores for student {clean_student_id}",
+            status_code=403,
+            detail="Student authentication required",
+        )
+
+    if auth.get("sub") != clean_student_id:
+        raise HTTPException(
+            status_code=403,
+            detail="Cannot modify another student's game state",
         )
 
     if req.game_id and req.game_id.strip():
@@ -766,18 +778,24 @@ async def start_session(
                 detail="Invalid authentication token",
                 headers={"WWW-Authenticate": "Bearer"},
             )
-        authenticated_sub = payload.get("sub")
         if payload.get("role") != "student":
             raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Student session authentication required: token must have student role",
+                status_code=403,
+                detail="Student account required for tutoring sessions",
             )
+        authenticated_sub = payload.get("sub")
 
     student_id = None
     clean_req_student_id = req.student_id.strip() if req.student_id and req.student_id.strip() else None
 
     # Flow A: Authenticated user (verified Supabase JWT / existing session token)
     if authenticated_sub:
+        payload = verify_session_token(token)
+        if payload.get("role") != "student":
+            raise HTTPException(
+                status_code=403,
+                detail="Student account required for tutoring sessions",
+            )
         student_id = authenticated_sub
         try:
             upsert_payload = {"id": student_id, "name": req.student_name}
@@ -1374,7 +1392,11 @@ async def next_problem_endpoint(
                 f"Here is your next practice problem: **{problem_title}**. "
                 f"Take a moment to read it and share what you think we should do first!"
             )
-        session_state["conversation_history"].append({"role": "tutor", "content": tutor_intro})
+        session_state["conversation_history"].append({
+            "role": "tutor",
+            "content": tutor_intro,
+            "problem_id": next_prob.get("id"),
+        })
 
         await asyncio.to_thread(save_session, req.session_id, session_state)
         await asyncio.to_thread(

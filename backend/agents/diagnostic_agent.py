@@ -152,8 +152,6 @@ def run_diagnostic_agent(
     Returns:
         dict with ocr_text, is_correct, misconception_type, description, skill_gap, corrective_question, bounding_hint
     """
-    llm = build_vision_llm()
-
     context = f"""Problem: {problem_text}
 Expected Steps:
 {chr(10).join(f'{i+1}. {s}' for i, s in enumerate(expected_steps))}
@@ -174,9 +172,11 @@ Target Skill: {skill_id}"""
                 "skill_gap_name": "",
                 "corrective_question": "There was an issue processing that photo file. Could you try uploading as a standard JPEG or PNG?",
             }
-            box = normalize_bounding_box(fallback_err)
+            box, source, conf = normalize_bounding_box(fallback_err)
             fallback_err["bounding_hint"] = box
             fallback_err["bounding_box"] = box
+            fallback_err["localization_source"] = source
+            fallback_err["localization_confidence"] = conf
             return fallback_err
 
         # Detect image format from header magic bytes
@@ -205,6 +205,7 @@ Target Skill: {skill_id}"""
         ]
 
     try:
+        llm = build_vision_llm()
         response = llm.invoke(messages)
         raw = str(response.content).strip()
     except Exception as e:
@@ -221,9 +222,11 @@ Target Skill: {skill_id}"""
                 "skill_gap_name": "",
                 "corrective_question": "Our AI vision tutor is catching its breath! Please try submitting again in about 10 seconds, or type out what you wrote.",
             }
-            box = normalize_bounding_box(res)
+            box, source, conf = normalize_bounding_box(res)
             res["bounding_hint"] = box
             res["bounding_box"] = box
+            res["localization_source"] = source
+            res["localization_confidence"] = conf
             return res
         elif "image" in err_str or "decode" in err_str or "format" in err_str:
             res: dict[str, Any] = {

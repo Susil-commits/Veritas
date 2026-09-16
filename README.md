@@ -87,28 +87,35 @@ P(L_t) &= P(L_{t-1} \mid \text{Obs}) + (1 - P(L_{t-1} \mid \text{Obs})) \cdot P(
 \end{aligned}$$
 
 - **Calibrated Parameters**: Fitted using bounded grid-search Maximum Likelihood Estimation (MLE) over educational interaction sequences from ASSISTments 2009-2010.
-  - Student-level grouping: 70% train, 15% validation, 15% test splits strictly grouped by student ID, ensuring zero cross-split interaction contamination.
+  - Student-level grouping: 70% train, 15% validation, 15% test splits strictly grouped by student ID using a seeded pseudo-random shuffle (`Random(42)`), guaranteeing zero cross-split interaction contamination.
   - 6 core skills calibrated over empirical interaction sequences; remaining 4 skills utilize Corbett & Anderson (1995) baseline cognitive tutor priors (registered in `backend/bkt/parameters.json`).
-  - **Held-Out Predictive Evaluation**: Evaluated across **10,776** independent held-out student test observations:
-    - Brier Score: Improved by **4.18%** MSE (**0.1911** calibrated vs **0.1994** uncalibrated baseline)
-    - Log Loss: Improved by **5.46%** Cross-Entropy (**0.5759** calibrated vs **0.6092** uncalibrated baseline)
-- **Deterministic Math Grounding**: BKT updates are never entrusted to LLM judgment alone. An AST/SymPy-powered deterministic evaluator (`math_evaluator.py`) verifies student math solutions against canonical answers, overriding any hallucinated LLM correctness flags.
+  - **Held-Out Predictive Evaluation**: Evaluated across **8,437** independent held-out student test observations:
+    - Brier Score: Improved by **3.65%** MSE (**0.1920** calibrated vs **0.1993** uncalibrated baseline)
+    - Log Loss: Improved by **4.49%** Cross-Entropy (**0.5741** calibrated vs **0.6011** uncalibrated baseline)
+- **Pedagogical Observation Weighting**: Canonical BKT assumes binary unassisted observation sequences. To reflect real-world learning dynamics without inflating mastery, Veritas implements a pedagogical observation weighting model:
+  - *Independent attempts* receive full Bayesian credit ($w = 1.0$).
+  - *Hinted attempts* are scaled down ($w_{\text{hint}} = 0.5$) to account for tutor scaffolding.
+  - *Corrections after feedback* are scaled down ($w_{\text{corrected}} = 0.4$) to reward mastery growth without over-crediting assisted answers.
+  - Problem turn tracking tags student and tutor turns with `problem_id`, isolating attempt counts across problem transitions so first attempts on new problems are never misclassified as corrections.
+- **Deterministic Math Grounding**: BKT updates are never entrusted to LLM judgment alone. A regex- and fraction-based deterministic math evaluator (`math_evaluator.py`) verifies student math solutions against canonical answers. It extracts answer-intent phrases, simplifies equivalent fractions and decimals via Python's `fractions.Fraction`, verifies algebraic equations and commutative addition expressions, and rejects negated numbers (`"isn't 12"`) or disjunctive alternative queries (`"is it 12 or 15?"`), overriding any hallucinated LLM correctness flags.
 
 ### 2. Multimodal Diagnostic Vision Agent
 - **Visual Error Localization**: Inspects handwritten math work, extracts steps via OCR, and maps mistakes to research-backed misconception taxonomies (Eedi / NeurIPS 2020).
 - **Bounding Reticle Integrity**: Returns normalized coordinate bounding boxes `[ymin, xmin, ymax, xmax]` highlighting the exact error location. If model localization is unavailable, it cleanly outputs `null` bounding hints with confidence 0.0, strictly avoiding synthetic or hallucinated box artifacts.
-- **Evaluation**: **100.0%** OCR extraction accuracy and **100.0%** misconception diagnosis accuracy on our internal 10-sample benchmark (`scripts/evaluate_vision.py`).
+- **Evaluation & Integrity Testing**: Evaluated via dual-mode harness (`scripts/evaluate_vision.py`). Verified **100.0%** boundary clamping, zero synthetic coordinate leakage, and crash-free educational fallback resilience across boundary test conditions. Empirical OCR/misconception evaluation executes via `run_diagnostic_agent()` when real student handwriting datasets are provided.
 
 ### 3. Misconception-Targeted Adaptive RAG
 - **Embedding Space**: Embeds student misconceptions and problem text using `models/gemini-embedding-001` (768 dimensions, centralized in `backend/config.py`).
 - **Multi-Factor Adaptive Selection**: Candidates retrieved via pgvector cosine similarity are ranked using a multi-factor composite utility function:
   $$U(p) = w_{\text{sim}} \cdot S_{\text{cos}} + w_{\text{diff}} \cdot \left(1 - |d_p - d_{\text{target}}|\right) + w_{\text{misc}} \cdot \mathbb{I}_{\text{misc}} + w_{\text{gap}} \cdot (1 - P(L))$$
   balancing pgvector semantic similarity ($S_{\text{cos}}$), ZPD difficulty fit, exact diagnosed misconception targeting, and student mastery gap.
-- **Retrieval Benchmark** (`scripts/evaluate_retrieval.py` on internal 10-sample benchmark):
-  - Skill Standard Match: **100.0%**
-  - Difficulty (ZPD) Alignment: **100.0%**
-  - Recall@1 (Optimal Remediation): **100.0%**
-  - Recall@3: **100.0%**
+- **Longitudinal Misconception Tracking**: Student misconceptions are tracked across sessions and persisted to a local disk store (`misconceptions_store.json`), allowing pedagogical agents to retrieve student-specific persistent error patterns across restarts. Active misconceptions are resolved when the student independently solves subsequent problems targeting that skill.
+- **Retrieval Benchmark** (`scripts/evaluate_retrieval.py` on 10 target diagnostic cases with top-5 candidate ranking):
+  - Top-1 Skill Precision: **100.0%**
+  - Top-1 Difficulty (ZPD) Fit: **100.0%**
+  - Recall@1 (Optimal Target at Rank 1): **100.0%**
+  - Recall@3 (Target in Top 3): **100.0%**
+  - Recall@5 (Target in Top 5): **100.0%**
   - Mean Reciprocal Rank (MRR): **1.0000**
 
 ### 4. Socratic Verifier & Safety Guardrails
@@ -119,11 +126,10 @@ P(L_t) &= P(L_{t-1} \mid \text{Obs}) + (1 - P(L_{t-1} \mid \text{Obs})) \cdot P(
 
 | Evaluation Benchmark | Script / Harness | Scope & Dataset Size | Key Metric | Result |
 |---|---|---|---|---|
-| **BKT Predictive Accuracy** | `scripts/calibrate_bkt.py` | 10,776 held-out test observations (ASSISTments) | Held-Out Brier Score (MSE) | **-4.18%** (0.1911 vs 0.1994) |
-| **BKT Log Loss** | `scripts/calibrate_bkt.py` | 10,776 held-out test observations (ASSISTments) | Held-Out Log Loss | **-5.46%** (0.5759 vs 0.6092) |
-| **RAG Retrieval Quality** | `scripts/evaluate_retrieval.py` | 10 target diagnostic test cases | Recall@1 / Recall@3 / MRR | **100%** / **100%** / **1.0000** |
-| **Diagnostic Vision OCR** | `scripts/evaluate_vision.py` | Internal 10-sample benchmark | Step OCR / Misconception Accuracy | **100%** / **100%** |
-| **Vision Reticle Integrity** | `scripts/evaluate_vision.py` | Internal 10-sample benchmark | Zero Synthetic Box Hallucination | **100%** Pass |
+| **BKT Predictive Accuracy** | `scripts/calibrate_bkt.py` | 8,437 held-out test observations (ASSISTments) | Held-Out Brier Score (MSE) | **-3.65%** (0.1920 vs 0.1993) |
+| **BKT Log Loss** | `scripts/calibrate_bkt.py` | 8,437 held-out test observations (ASSISTments) | Held-Out Log Loss | **-4.49%** (0.5741 vs 0.6011) |
+| **RAG Retrieval Quality** | `scripts/evaluate_retrieval.py` | 10 target diagnostic test cases (Top-5 ranking) | Recall@1 / Recall@3 / MRR | **100%** / **100%** / **1.0000** |
+| **Vision Reticle & Fallback Integrity** | `scripts/evaluate_vision.py` | 10 structural & boundary test cases | Coordinate Clamping / Zero Leak / Resilient Fallback | **100%** Pass |
 | **Socratic Answer Shield** | `scripts/evaluate_socratic.py` | Internal 7-sample adversarial benchmark | Adversarial Leakage Interception | **100%** Interception |
 | **Curriculum Consistency** | `scripts/validate_curriculum_consistency.py` | 7 Game Levels, 10 BKT Skills, 208 Problems | End-to-End Curriculum Grounding | **100%** Verified |
 | **Problem Bank Integrity** | `scripts/seed_db.py` | 208 curated problems | Canonical Solvability (10/10 Skills) | **100%** Solvable |
@@ -162,7 +168,7 @@ Veritas leverages established academic benchmarks and open-source datasets to tr
 
 Veritas features an automated test runner verifying safety, RLS isolation, session survival, and multi-agent coordination.
 
-Run the entire suite locally in ~23 seconds:
+Run the entire suite locally:
 ```bash
 python backend/run_all_tests.py
 ```
@@ -173,46 +179,58 @@ python backend/run_all_tests.py
    VERITAS AI SOCRATIC TUTOR — AUTOMATED VALIDATION SUITE
 ============================================================================
 
+▶ Running Parent Role Authorization & Isolation (P0) (test_auth_p0_parent_isolation.py)...
+  ✓ Parent Role Authorization & Isolation (P0) passed in 3.12s
+
+▶ Running Deterministic Math Evaluator & Intent Parsing (test_math_evaluator.py)...
+  ✓ Deterministic Math Evaluator & Intent Parsing passed in 0.07s
+
+▶ Running Problem Turn Tracking & Attempt Isolation (test_problem_turn_tracking.py)...
+  ✓ Problem Turn Tracking & Attempt Isolation passed in 4.12s
+
 ▶ Running Day-3 Resiliency & Session Persistence (test_session_persistence.py)...
-  ✓ Day-3 Resiliency & Session Persistence passed in 17.87s
+  ✓ Day-3 Resiliency & Session Persistence passed in 6.65s
 
 ▶ Running Production RLS & Credential Isolation (test_production_rls.py)...
-  ✓ Production RLS & Credential Isolation passed in 4.62s
+  ✓ Production RLS & Credential Isolation passed in 2.19s
 
 ▶ Running Platform Safety & Socratic Guardrails (test_safety.py)...
-  ✓ Platform Safety & Socratic Guardrails passed in 0.54s
+  ✓ Platform Safety & Socratic Guardrails passed in 0.51s
 
 ▶ Running Student Scoping, Rate Limiting & RAG Retrieval (test_auth_and_rag.py)...
-  ✓ Student Scoping, Rate Limiting & RAG Retrieval passed in 8.82s
+  ✓ Student Scoping, Rate Limiting & RAG Retrieval passed in 5.62s
 
 ▶ Running Parent-Child Architecture & Inactivity Alerts (test_parent_child_flow.py)...
-  ✓ Parent-Child Architecture & Inactivity Alerts passed in 21.97s
+  ✓ Parent-Child Architecture & Inactivity Alerts passed in 18.17s
 
 ▶ Running Neo AI Platform Assistant & Guardrails (test_neo.py)...
-  ✓ Neo AI Platform Assistant & Guardrails passed in 16.11s
+  ✓ Neo AI Platform Assistant & Guardrails passed in 38.25s
 
 ▶ Running Session Resumption & Score Protection (test_session_and_score_fixes.py)...
-  ✓ Session Resumption & Score Protection passed in 28.84s
+  ✓ Session Resumption & Score Protection passed in 16.40s
 
 ▶ Running Math Arcade Games & Relogin Persistence (test_game_progress_persistence.py)...
-  ✓ Math Arcade Games & Relogin Persistence passed in 19.04s
+  ✓ Math Arcade Games & Relogin Persistence passed in 12.42s
 
 ============================================================================
-                      APPLICATION TEST EXECUTION SUMMARY                       
+                     APPLICATION TEST EXECUTION SUMMARY                     
 ============================================================================
  #  | TEST SUITE                                      | STATUS     |    TIME
 ----------------------------------------------------------------------------
- 1  | Day-3 Resiliency & Session Persistence          | ✓ PASS     |  17.87s
- 2  | Production RLS & Credential Isolation           | ✓ PASS     |   4.62s
- 3  | Platform Safety & Socratic Guardrails           | ✓ PASS     |   0.54s
- 4  | Student Scoping, Rate Limiting & RAG Retrieval  | ✓ PASS     |   8.82s
- 5  | Parent-Child Architecture & Inactivity Alerts   | ✓ PASS     |  21.97s
- 6  | Neo AI Platform Assistant & Guardrails          | ✓ PASS     |  16.11s
- 7  | Session Resumption & Score Protection           | ✓ PASS     |  28.84s
- 8  | Math Arcade Games & Relogin Persistence         | ✓ PASS     |  19.04s
+ 1  | Parent Role Authorization & Isolation (P0)      | ✓ PASS     |   3.12s
+ 2  | Deterministic Math Evaluator & Intent Parsing   | ✓ PASS     |   0.07s
+ 3  | Problem Turn Tracking & Attempt Isolation       | ✓ PASS     |   4.12s
+ 4  | Day-3 Resiliency & Session Persistence          | ✓ PASS     |   6.65s
+ 5  | Production RLS & Credential Isolation           | ✓ PASS     |   2.19s
+ 6  | Platform Safety & Socratic Guardrails           | ✓ PASS     |   0.51s
+ 7  | Student Scoping, Rate Limiting & RAG Retrieval  | ✓ PASS     |   5.62s
+ 8  | Parent-Child Architecture & Inactivity Alerts   | ✓ PASS     |  18.17s
+ 9  | Neo AI Platform Assistant & Guardrails          | ✓ PASS     |  38.25s
+ 10 | Session Resumption & Score Protection           | ✓ PASS     |  16.40s
+ 11 | Math Arcade Games & Relogin Persistence         | ✓ PASS     |  12.42s
 ----------------------------------------------------------------------------
-  ALL 8/8 TEST SUITES PASSED!
-  STATUS: ALL 8 APPLICATION TEST SUITES PASSED
+  ALL 11/11 TEST SUITES PASSED IN 107.53s!
+  STATUS: ALL 11 APPLICATION TEST SUITES PASSED
 ============================================================================
 ```
 
@@ -288,6 +306,7 @@ npm run dev
 
 ## 📌 Known Limitations & Post-Hackathon Roadmap
 
+- **Worker Concurrency & Distributed State**: In the current hackathon deployment, session state is managed via single-process asynchronous FastAPI workers backed by an in-memory cache with dual write-through to Supabase `sessions.state` JSONB / event tables and a persistent local disk cache (`sessions_store.json`). For horizontally autoscaled, multi-worker production environments behind a load balancer, session mutexes are roadmapped to distributed Redis locks (`Redlock`) with centralized Redis caching to ensure serialized turn processing across distinct worker instances.
 - **Dependency Security Patches**: Backend dependencies are pinned to versions current as of initial build; a full security-patch upgrade is planned post-hackathon. (`python-multipart` has been patched to `0.0.32` to protect public multipart upload parsing).
 - **Curriculum Scope**: Current problem bank targets 10 core Common Core State Standards (CCSS) in elementary mathematics, architected to expand to middle and high school standards.
 

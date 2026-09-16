@@ -12,6 +12,7 @@ import os
 import sys
 import json
 import math
+import random
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -36,19 +37,25 @@ def split_sequences(
     train_ratio: float = 0.70,
     val_ratio: float = 0.15,
     test_ratio: float = 0.15,
+    seed: int = 42,
 ) -> tuple[list[list[int]], list[list[int]], list[list[int]]]:
     """
     Student-level split: 70% Train, 15% Validation, 15% Held-out Test.
     Each element in `sequences` is the complete chronological response history of ONE distinct student.
     Grouping by student sequence guarantees that no individual interactions from the same student
     are split across train and test sets.
+    Uses a seeded random shuffle to ensure representative student distribution across splits.
     """
-    n = len(sequences)
+    rng = random.Random(seed)
+    shuffled = sequences.copy()
+    rng.shuffle(shuffled)
+
+    n = len(shuffled)
     n_train = int(n * train_ratio)
     n_val = int(n * val_ratio)
-    train_seqs = sequences[:n_train]
-    val_seqs = sequences[n_train:n_train + n_val]
-    test_seqs = sequences[n_train + n_val:]
+    train_seqs = shuffled[:n_train]
+    val_seqs = shuffled[n_train:n_train + n_val]
+    test_seqs = shuffled[n_train + n_val:]
     return train_seqs, val_seqs, test_seqs
 
 

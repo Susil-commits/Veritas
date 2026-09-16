@@ -17,6 +17,9 @@ if sys.platform == "win32":
 BACKEND_DIR = Path(__file__).resolve().parent
 
 TEST_SCRIPTS = [
+    ("test_auth_p0_parent_isolation.py", "Parent Role Authorization & Isolation (P0)"),
+    ("test_math_evaluator.py", "Deterministic Math Evaluator & Intent Parsing"),
+    ("test_problem_turn_tracking.py", "Problem Turn Tracking & Attempt Isolation"),
     ("test_session_persistence.py", "Day-3 Resiliency & Session Persistence"),
     ("test_production_rls.py", "Production RLS & Credential Isolation"),
     ("test_safety.py", "Platform Safety & Socratic Guardrails"),
@@ -69,7 +72,7 @@ def main():
 
     if passed_count == total_count:
         print(f"  ALL {passed_count}/{total_count} TEST SUITES PASSED IN {total_time:.2f}s!")
-        print("  STATUS: ALL 8 APPLICATION TEST SUITES PASSED")
+        print(f"  STATUS: ALL {total_count} APPLICATION TEST SUITES PASSED")
         print("=" * width + "\n")
         sys.exit(0)
     else:
