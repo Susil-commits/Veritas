@@ -36,14 +36,17 @@
   opacity: 0.92;
 }
 
-/* Sticky header offset for smooth anchor navigation (#demo, #how-it-works, etc.) */
+/* Sticky header offset for smooth anchor navigation (#demo, #how-it-works, #pipeline, etc.) */
 #demo,
 #how-it-works,
+#pipeline,
+#live-pipeline,
 #topics,
 #features,
 #auth-card,
 .demo-section,
 .architecture-section,
+.pipeline-section,
 .topics-section,
 .features {
   scroll-margin-top: 85px;
@@ -348,7 +351,7 @@
 .feature-card p { color: var(--text-secondary); font-size: 0.88rem; line-height: 1.6; }
 
 /* ── Architecture & Agents ── */
-.architecture-section, .research-section {
+.architecture-section, .pipeline-section, .research-section {
   display: flex;
   flex-direction: column;
   gap: 2.25rem;

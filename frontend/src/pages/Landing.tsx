@@ -323,7 +323,10 @@ export default function Landing() {
 
     let attempts = 0
     const tryScroll = () => {
-      const el = document.getElementById(cleanId)
+      let el = document.getElementById(cleanId)
+      if (!el && (cleanId === 'live-pipeline' || cleanId === 'pipeline')) {
+        el = document.getElementById('pipeline') || document.getElementById('live-pipeline')
+      }
       if (el) {
         el.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', block: 'start' })
       } else if (attempts < 10) {
@@ -783,12 +786,12 @@ export default function Landing() {
               How It Works
             </a>
             <a
-              href="#how-it-works"
+              href="#pipeline"
               className="nav-link"
               onClick={(e) => {
                 e.preventDefault()
-                scrollToSection('how-it-works', true)
-                window.history.pushState(null, '', '#how-it-works')
+                scrollToSection('pipeline', true)
+                window.history.pushState(null, '', '#pipeline')
               }}
             >
               Live Pipeline
@@ -912,7 +915,7 @@ export default function Landing() {
                   <button
                     type="button"
                     className="btn btn-ghost btn-sm"
-                    onClick={() => scrollToSection('how-it-works', true)}
+                    onClick={() => scrollToSection('pipeline', true)}
                   >
                     Explore Live Pipeline ↓
                   </button>
@@ -1628,8 +1631,18 @@ export default function Landing() {
             </div>
           </div>
         </div>
+      </section>
 
-        {/* Live Draggable Learning Flow Architecture Pipeline */}
+      {/* Live Draggable Learning Flow Architecture Pipeline */}
+      <section id="pipeline" className="pipeline-section">
+        <div id="live-pipeline" />
+        <div className="section-header">
+          <span className="badge badge-cyan">Live Pipeline</span>
+          <h2>Real-Time Socratic Learning Engine</h2>
+          <p className="section-sub">
+            Interactive visual architecture showing how student input flows through safety guardrails, multimodal reasoning, and mastery tracking. Drag nodes or simulate a step below.
+          </p>
+        </div>
         <InteractivePipeline />
       </section>
 
