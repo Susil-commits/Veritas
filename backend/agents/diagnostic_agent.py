@@ -10,6 +10,7 @@ import re
 from typing import Any
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import SystemMessage, HumanMessage
+from config import VISION_MODEL
 
 # Real misconception examples from Eedi/NeurIPS 2020 education research
 # These few-shot examples teach the model to name SPECIFIC misconceptions
@@ -92,7 +93,7 @@ Be specific and educational — a teacher should be able to show this diagnosis 
 
 
 def build_vision_llm() -> ChatGoogleGenerativeAI:
-    model_name = os.environ.get("GEMINI_VISION_MODEL") or os.environ.get("GEMINI_MODEL", "gemini-3.6-flash")
+    model_name = os.environ.get("GEMINI_VISION_MODEL") or VISION_MODEL
     api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY", "")
     return ChatGoogleGenerativeAI(
         model=model_name,
@@ -104,10 +105,14 @@ def build_vision_llm() -> ChatGoogleGenerativeAI:
     )
 
 
-def normalize_bounding_box(data: dict) -> dict | None:
-    """Ensure coordinates {x, y, width, height} are valid percentages (0-100)."""
+def normalize_bounding_box(data: dict) -> tuple[dict | None, str, float]:
+    """
+    Ensure coordinates {x, y, width, height} are valid percentages (0-100).
+    Returns (bounding_box_or_none, localization_source, localization_confidence).
+    Distinguishes genuine 'model' localization from 'fallback' (null).
+    """
     if data.get("is_correct"):
-        return None
+        return None, "model", 1.0
     raw = data.get("bounding_hint") or data.get("bounding_box")
     if isinstance(raw, dict):
         try:
@@ -121,21 +126,12 @@ def normalize_bounding_box(data: dict) -> dict | None:
                     "y": round(min(max(y, 5.0), 85.0), 1),
                     "width": round(min(max(width, 10.0), 90.0), 1),
                     "height": round(min(max(height, 8.0), 40.0), 1),
-                }
+                }, "model", 1.0
         except (ValueError, TypeError):
             pass
 
-    # Deterministic fallback based on step_number
-    step = data.get("step_number", 1)
-    if not isinstance(step, int) or step < 1:
-        step = 1
-    y_estimate = min(15.0 + (step - 1) * 25.0, 70.0)
-    return {
-        "x": 10.0,
-        "y": round(y_estimate, 1),
-        "width": 80.0,
-        "height": 22.0,
-    }
+    # When model does not provide valid coordinates, do NOT generate a fake box!
+    return None, "fallback", 0.0
 
 
 def run_diagnostic_agent(
@@ -240,9 +236,11 @@ Target Skill: {skill_id}"""
                 "skill_gap_name": "",
                 "corrective_question": "That photo seems a bit blurry or dark. Could you take another picture with more light, or type your next step?",
             }
-            box = normalize_bounding_box(res)
+            box, source, conf = normalize_bounding_box(res)
             res["bounding_hint"] = box
             res["bounding_box"] = box
+            res["localization_source"] = source
+            res["localization_confidence"] = conf
             return res
         else:
             res: dict[str, Any] = {
@@ -255,9 +253,11 @@ Target Skill: {skill_id}"""
                 "skill_gap_name": "",
                 "corrective_question": "I had a momentary glitch reading your paper. Can you try uploading once more or type your answer?",
             }
-            box = normalize_bounding_box(res)
+            box, source, conf = normalize_bounding_box(res)
             res["bounding_hint"] = box
             res["bounding_box"] = box
+            res["localization_source"] = source
+            res["localization_confidence"] = conf
             return res
 
     # Extract JSON object using regex to handle potential conversational wrappers
@@ -280,9 +280,11 @@ Target Skill: {skill_id}"""
         if not data.get("corrective_question"):
             data["corrective_question"] = "Can you walk me through your steps out loud?"
 
-        box = normalize_bounding_box(data)
+        box, source, conf = normalize_bounding_box(data)
         data["bounding_hint"] = box
         data["bounding_box"] = box
+        data["localization_source"] = source
+        data["localization_confidence"] = conf
         return data
     except Exception as parse_err:
         print(f"[WARN] Failed to parse diagnostic JSON: {parse_err}. Raw text: {raw[:150]}")
@@ -297,7 +299,9 @@ Target Skill: {skill_id}"""
             "skill_gap_name": "",
             "corrective_question": "I couldn't quite make out all your pencil marks in that photo! Could you try taking a clearer photo in good lighting, or tell me what step you wrote down?",
         }
-        box = normalize_bounding_box(fallback)
+        box, source, conf = normalize_bounding_box(fallback)
         fallback["bounding_hint"] = box
         fallback["bounding_box"] = box
+        fallback["localization_source"] = source
+        fallback["localization_confidence"] = conf
         return fallback

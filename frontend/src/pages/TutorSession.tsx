@@ -9,6 +9,7 @@ import MasteryRadar from '../components/MasteryRadar'
 import ThemeToggle from '../components/ThemeToggle'
 import UserAvatar from '../components/UserAvatar'
 import AvatarModal from '../components/AvatarModal'
+import ConfirmLogoutModal from '../components/ConfirmLogoutModal'
 import { getSkillMeta } from '../lib/skillsData'
 import type { SessionData, Problem, Diagnosis } from '../lib/api'
 import './TutorSession.css'
@@ -111,6 +112,7 @@ export default function TutorSession() {
   const [sessionRetryCount, setSessionRetryCount] = useState(0)
   const [mobileTab, setMobileTab] = useState<'chat' | 'problem' | 'progress'>('chat')
   const [showResetModal, setShowResetModal] = useState(false)
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
   const [isResetting, setIsResetting] = useState(false)
   const [copiedCode, setCopiedCode] = useState(false)
   const chatEndRef = useRef<HTMLDivElement>(null)
@@ -598,19 +600,10 @@ export default function TutorSession() {
                 style={{ padding: '5px 8px', fontSize: '0.74rem' }}
                 onClick={() => {
                   stop()
-                  if (session?.session_id) {
-                    sessionStorage.removeItem(`veritas_chat_${session.session_id}`)
-                  }
-                  sessionStorage.removeItem('session')
-                  signOut()
-                    .then(() => navigate('/'))
-                    .catch((err) => {
-                      console.error('Sign out error:', err)
-                      navigate('/')
-                    })
+                  setShowLogoutConfirm(true)
                 }}
                 aria-label="Log out"
-                title="Log out"
+                title="Log out of Veritas"
               >
                 Log Out
               </button>
@@ -1094,6 +1087,30 @@ export default function TutorSession() {
           </div>
         </div>
       )}
+
+      {/* Log Out Confirmation Modal */}
+      <ConfirmLogoutModal
+        isOpen={showLogoutConfirm}
+        onClose={() => setShowLogoutConfirm(false)}
+        onConfirm={async () => {
+          stop()
+          if (session?.session_id) {
+            sessionStorage.removeItem(`veritas_chat_${session.session_id}`)
+          }
+          sessionStorage.removeItem('session')
+          try {
+            await signOut()
+            navigate('/')
+          } catch (err) {
+            console.error('Sign out error:', err)
+            navigate('/')
+          }
+        }}
+        title="Log Out of Practice Session?"
+        message="Are you sure you want to log out? Your current problem, conversation history, and skill mastery are safely saved."
+        confirmText="Yes, Log Out"
+        cancelText="Cancel"
+      />
     </div>
   )
 }

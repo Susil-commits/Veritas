@@ -4,7 +4,19 @@
     "primary_calibration_source": "ASSISTments 2009-2010 Skill Builder Dataset (WPI / CAHLR)",
     "baseline_source": "Corbett & Anderson (1995) Standard Cognitive Tutor Priors",
     "calibration_method": "Maximum Likelihood Estimation (MLE) over empirical student sequences",
-    "last_calibrated": "2026-09-11"
+    "data_split": {
+      "train": "70%",
+      "validation": "15%",
+      "test": "15%"
+    },
+    "pilot_calibration_sample": "300 sequences/skill pilot grid MLE",
+    "evaluation_metrics": [
+      "Log Loss (Binary Cross-Entropy)",
+      "Brier Score",
+      "Accuracy",
+      "Calibration Curve"
+    ],
+    "last_calibrated": "2026-09-16"
   },
   "skills": [
     {
@@ -47,13 +59,13 @@
       "id": "4.NF.A.1",
       "name": "Equivalent fractions",
       "sequence_order": 4,
-      "prior": 0.35,
+      "prior": 0.4,
       "learn": 0.08,
       "guess": 0.18,
       "slip": 0.14,
       "calibrated": true,
       "source": "ASSISTments 2009-2010 (Equivalent Fractions)",
-      "notes": "Fitted via MLE on 396 real student sequences (2918 responses)"
+      "notes": "pilot MLE fit on 277 sequences (70% train split from 396 students, 2918 total ASSISTments responses)"
     },
     {
       "id": "4.NF.B.3",
@@ -65,7 +77,7 @@
       "slip": 0.14,
       "calibrated": true,
       "source": "ASSISTments 2009-2010 (Addition and Subtraction Fractions)",
-      "notes": "Fitted via MLE on 1066 real student sequences (11047 responses)"
+      "notes": "pilot MLE fit on 300 sequences (70% train split from 1066 students, 11047 total ASSISTments responses)"
     },
     {
       "id": "4.NF.B.4",
@@ -77,7 +89,7 @@
       "slip": 0.14,
       "calibrated": true,
       "source": "ASSISTments 2009-2010 (Multiplication Fractions)",
-      "notes": "Fitted via MLE on 596 real student sequences (5360 responses)"
+      "notes": "pilot MLE fit on 300 sequences (70% train split from 596 students, 5360 total ASSISTments responses)"
     },
     {
       "id": "5.NF.B.7",
@@ -89,7 +101,7 @@
       "slip": 0.14,
       "calibrated": true,
       "source": "ASSISTments 2009-2010 (Division Fractions)",
-      "notes": "Fitted via MLE on 545 real student sequences (3850 responses)"
+      "notes": "pilot MLE fit on 300 sequences (70% train split from 545 students, 3850 total ASSISTments responses)"
     },
     {
       "id": "6.EE.A.2",
@@ -113,7 +125,7 @@
       "slip": 0.14,
       "calibrated": true,
       "source": "ASSISTments 2009-2010 (Equation Solving Two or Fewer Steps)",
-      "notes": "Fitted via MLE on 877 real student sequences (24169 responses)"
+      "notes": "pilot MLE fit on 300 sequences (70% train split from 877 students, 24169 total ASSISTments responses)"
     },
     {
       "id": "7.EE.B.4",
@@ -125,7 +137,7 @@
       "slip": 0.14,
       "calibrated": true,
       "source": "ASSISTments 2009-2010 (Equation Solving More Than Two Steps)",
-      "notes": "Fitted via MLE on 408 real student sequences (8111 responses)"
+      "notes": "pilot MLE fit on 285 sequences (70% train split from 408 students, 8111 total ASSISTments responses)"
     }
   ]
 }

@@ -12,6 +12,7 @@ from langgraph.graph import StateGraph, END, START
 from agents.tutor_agent import run_tutor_agent
 from bkt.tracker import update_mastery
 from db.supabase_client import get_supabase
+from evaluators.math_evaluator import evaluate_student_solution
 from safety import (
     SOCRATIC_BOUNDARY_RESPONSE,
     SAFE_SUPPORT_RESPONSE,
@@ -106,6 +107,21 @@ async def tutor_node(state: TutorState) -> dict:
         response = str(tutor_result)
         problem_solved = False
         is_final_attempt = None
+
+    # Deterministic Objective Math Validator: Verify student candidate mathematically
+    if latest_input and current_prob:
+        math_eval = evaluate_student_solution(latest_input, current_prob)
+        if math_eval.get("eval_type") != "none":
+            if math_eval.get("objective_solved"):
+                problem_solved = True
+                is_final_attempt = True
+                steps.append(f"Math Validator: {math_eval.get('match_reason')}")
+            elif math_eval.get("is_explicit_attempt") and not math_eval.get("objective_solved"):
+                # Student submitted an explicit incorrect answer — override any premature LLM "solved" claim
+                if problem_solved:
+                    print(f"[INFO] Overriding LLM problem_solved to False via objective validator: {math_eval.get('match_reason')}")
+                problem_solved = False
+                is_final_attempt = True
 
     # Secondary safety check: Prevent accidental final answer disclosure
     prob_ans = current_prob.get("answer") or ""

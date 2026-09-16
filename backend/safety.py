@@ -217,6 +217,71 @@ def is_answer_leaked(tutor_reply: str, expected_answer: Optional[str]) -> bool:
     return False
 
 
+def verify_pedagogical_response(
+    tutor_reply: str,
+    expected_answer: Optional[str] = None,
+    expected_steps: Optional[list[str]] = None,
+    misconception_type: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    Comprehensive Pedagogical Verifier for Socratic AI tutoring.
+    Checks:
+    1. Answer leakage: Does the response blurt out the final calculation?
+    2. Step revelation: Does the response give away full expected solution steps?
+    3. Inquiry check: Does the response guide the student by asking at least one question?
+    4. Misconception awareness: Does the guidance target the diagnosed root error?
+    5. Length & age appropriateness: Conciseness suited for Grade 3-7 learners.
+    """
+    reply = tutor_reply.strip()
+    reply_lower = reply.lower()
+    violations: list[str] = []
+
+    # 1. Final Answer Leakage Check
+    if expected_answer and is_answer_leaked(reply, expected_answer):
+        violations.append("answer_leakage")
+
+    # 2. Step Revelation Check (prematurely revealing expected steps or intermediate directives)
+    if expected_steps:
+        for i, step in enumerate(expected_steps):
+            clean_step = step.strip().lower()
+            clean_step_body = re.sub(r"^\d+\.\s*(?:identify|set up|solve|answer)?[:\s]*", "", clean_step)
+            clauses = [clean_step_body] + [c.strip() for c in re.split(r"[:;]", clean_step_body) if len(c.strip()) > 10]
+            for c in clauses:
+                if len(c) > 10 and c in reply_lower:
+                    violations.append(f"revealed_step_{i+1}")
+                    break
+
+    # 3. Guiding Question Check (Socratic method requires asking guiding questions with '?' or explicit question frames)
+    has_question = ("?" in reply) or any(
+        bool(re.search(p, reply_lower)) for p in [
+            r"\b(can you|could you|what is|what did|what does|what operation|what do|how do|how did|how would|why do|why did|which of|which number|where did)\b"
+        ]
+    )
+    if not has_question:
+        violations.append("no_guiding_question")
+
+    # 4. Age Appropriateness (Length check: concise 1-4 sentences max for kids)
+    sentences = [s for s in re.split(r"[.!?]+", reply) if len(s.strip()) > 3]
+    if len(sentences) > 5 or len(reply.split()) > 95:
+        violations.append("excessive_length")
+
+    # 5. Misconception Alignment
+    misconception_aligned = True
+    if misconception_type and ("fraction" in misconception_type or "denominator" in misconception_type):
+        if not any(k in reply_lower for k in ["fraction", "denominator", "bottom", "pieces", "parts"]):
+            misconception_aligned = False
+
+    approved = len(violations) == 0
+
+    return {
+        "approved": approved,
+        "violations": violations,
+        "has_guiding_question": has_question,
+        "misconception_aligned": misconception_aligned,
+        "sentence_count": len(sentences),
+    }
+
+
 def validate_image_upload(
     file_bytes: bytes,
     content_type: Optional[str] = None,

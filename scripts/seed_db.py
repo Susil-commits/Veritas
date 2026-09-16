@@ -33,16 +33,17 @@ load_dotenv(Path(__file__).parent.parent / ".env")
 from pydantic import SecretStr
 from db.supabase_client import get_supabase
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
+from config import EMBEDDING_MODEL, EMBEDDING_DIMENSION
 
 SEED_FILE = Path(__file__).parent.parent / "data" / "seed_problems.json"
 BATCH_SIZE = 15
 
 
 def embed_batch_with_retry(texts: list[str], embeddings_model, max_retries: int = 4) -> list[list[float]]:
-    """Generate 768-dim embeddings for a batch with exponential backoff on rate limits."""
+    """Generate embeddings for a batch with exponential backoff on rate limits."""
     for attempt in range(max_retries):
         try:
-            return embeddings_model.embed_documents(texts, output_dimensionality=768)
+            return embeddings_model.embed_documents(texts, output_dimensionality=EMBEDDING_DIMENSION)
         except Exception as e:
             err_str = str(e).lower()
             if attempt < max_retries - 1 and ("429" in err_str or "quota" in err_str or "resource" in err_str or "rate" in err_str):
@@ -68,7 +69,7 @@ def main():
         sys.exit(1)
 
     embeddings = GoogleGenerativeAIEmbeddings(
-        model="models/gemini-embedding-001",
+        model=EMBEDDING_MODEL,
         google_api_key=SecretStr(api_key),
     )
 

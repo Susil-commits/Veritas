@@ -13,16 +13,21 @@ from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGener
 from langchain_core.messages import SystemMessage, HumanMessage
 from db.supabase_client import get_supabase
 from bkt.tracker import get_skill_params
+from config import EMBEDDING_MODEL, EMBEDDING_DIMENSION, CHAT_MODEL
+
+
+# Centralized Embedding Model Configuration
+EMBEDDING_MODEL_NAME: str = EMBEDDING_MODEL
 
 
 def embed_text(text: str) -> list[float]:
     """Embed a text string using Gemini embedding model."""
     api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY", "")
     embeddings = GoogleGenerativeAIEmbeddings(
-        model="models/gemini-embedding-001",
+        model=EMBEDDING_MODEL_NAME,
         google_api_key=SecretStr(api_key),
     )
-    return embeddings.embed_query(text, output_dimensionality=768)
+    return embeddings.embed_query(text, output_dimensionality=EMBEDDING_DIMENSION)
 
 
 LOCAL_SEED_FILE = Path(__file__).resolve().parent.parent.parent / "data" / "seed_problems.json"
@@ -83,6 +88,56 @@ def _enrich_problem(prob: dict | None) -> dict | None:
     return p
 
 
+def score_candidate_adaptive(
+    candidate: dict,
+    target_min_diff: int,
+    target_max_diff: int,
+    mastery_prob: float,
+    misconception_text: str | None = None,
+    candidate_rank: int = 0,
+) -> float:
+    """
+    Compute multi-factor utility score for adaptive problem selection:
+    1. Semantic similarity / retrieval rank bonus (0.0 to 1.0)
+    2. Difficulty fit (distance to optimal ZPD difficulty)
+    3. Misconception targeting bonus (keyword matching against diagnosed error)
+    4. Mastery gap urgency (1.0 - mastery_prob)
+    """
+    diff = candidate.get("difficulty", 1)
+    target_center = (target_min_diff + target_max_diff) / 2.0
+    # Difficulty fit: 1.0 if at target center, decays smoothly with distance
+    diff_dist = abs(diff - target_center)
+    difficulty_score = max(0.0, 1.0 - (diff_dist * 0.35))
+
+    # Retrieval relevance bonus from pgvector rank (1st = 1.0, 2nd = 0.88, etc.)
+    sim_score = max(0.2, 1.0 - (candidate_rank * 0.12))
+
+    # Misconception match bonus
+    misc_score = 0.0
+    if misconception_text:
+        cand_text = (
+            str(candidate.get("text", "")) + " " +
+            str(candidate.get("title", "")) + " " +
+            str(candidate.get("expected_steps", ""))
+        ).lower()
+        misc_keywords = [w for w in re.findall(r"\w+", misconception_text.lower()) if len(w) > 3]
+        if misc_keywords:
+            matched = sum(1 for kw in misc_keywords if kw in cand_text)
+            misc_score = min(1.0, matched / len(misc_keywords))
+
+    # Mastery gap: students with lower mastery benefit more from tightly focused problems
+    mastery_gap = max(0.1, 1.0 - mastery_prob)
+
+    # Composite weighted utility: weights 0.35 sim, 0.30 difficulty fit, 0.20 misconception, 0.15 mastery gap
+    total_score = (
+        0.35 * sim_score +
+        0.30 * difficulty_score +
+        0.20 * misc_score +
+        0.15 * mastery_gap
+    )
+    return total_score
+
+
 def get_next_problem(
     skill_id: str,
     mastery_prob: float,
@@ -133,9 +188,13 @@ def get_next_problem(
         fresh_candidates = [p for p in candidates if str(p.get("id")) not in exclude_ids]
 
         if fresh_candidates:
-            # Prioritize candidates within the target difficulty range
-            in_range = [p for p in fresh_candidates if min_diff <= p.get("difficulty", 1) <= max_diff]
-            chosen = in_range[0] if in_range else fresh_candidates[0]
+            # Score each candidate adaptively via multi-factor pedagogical ranker
+            scored_candidates = [
+                (score_candidate_adaptive(p, min_diff, max_diff, mastery_prob, misconception_text, i), p)
+                for i, p in enumerate(fresh_candidates)
+            ]
+            scored_candidates.sort(key=lambda x: x[0], reverse=True)
+            chosen = scored_candidates[0][1]
             return _enrich_problem(chosen)
     except Exception as e:
         print(f"[WARN] pgvector match_problems RPC skipped/failed ({e}), falling back to direct SQL query.")
@@ -178,7 +237,12 @@ def get_next_problem(
             return _enrich_problem(local_fallback)
         return None
 
-    return _enrich_problem(result_data[0])
+    scored_sql = [
+        (score_candidate_adaptive(p, min_diff, max_diff, mastery_prob, misconception_text, i), p)
+        for i, p in enumerate(result_data)
+    ]
+    scored_sql.sort(key=lambda x: x[0], reverse=True)
+    return _enrich_problem(scored_sql[0][1])
 
 
 def generate_session_summary(
@@ -190,7 +254,7 @@ def generate_session_summary(
     """
     Generate an LLM-written session summary for the teacher/parent dashboard.
     """
-    model_name = os.environ.get("GEMINI_MODEL", "gemini-3.6-flash")
+    model_name = os.environ.get("GEMINI_MODEL", CHAT_MODEL)
     api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY", "")
     llm = ChatGoogleGenerativeAI(
         model=model_name,

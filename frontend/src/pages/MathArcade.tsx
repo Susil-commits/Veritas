@@ -1,16 +1,27 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { getGamesProgress, recordGameScore, type GameLevel, type GamesProgressResponse } from '../lib/api'
+import {
+  getGamesProgress,
+  recordGameScore,
+  resetGameScore,
+  type GameLevel,
+  type GamesProgressResponse,
+} from '../lib/api'
 import ThemeToggle from '../components/ThemeToggle'
 import UserAvatar from '../components/UserAvatar'
 import './MathArcade.css'
 
+export type GameMode = 'blitz' | 'zen'
+
 interface GameQuestion {
   question: string
-  options: number[]
-  answer: number
+  options: (number | string)[]
+  answer: number | string
+  hint?: string
 }
+
+/* ── Procedural Question Generators for all 7 Levels ─────────── */
 
 function generateMultiplicationQuestion(): GameQuestion {
   const a = Math.floor(Math.random() * 9) + 2 // 2 to 10
@@ -49,24 +60,217 @@ function generateDivisionQuestion(): GameQuestion {
   }
 }
 
-function generateFractionQuestion(): GameQuestion {
-  // Equivalent fraction matching: e.g. 2/4 = ?/8 -> answer 4
-  const numerators = [1, 2, 3, 4]
-  const denominators = [2, 3, 4, 5]
-  const den = denominators[Math.floor(Math.random() * denominators.length)]
-  const num = numerators[Math.floor(Math.random() * Math.min(den - 1, numerators.length))] || 1
-  const multiplier = Math.floor(Math.random() * 2) + 2 // 2 or 3
-  const targetDen = den * multiplier
-  const answer = num * multiplier
+function generateTwoStepQuestion(): GameQuestion {
+  const types = ['mult_add', 'mult_sub', 'paren_mult', 'add_div']
+  const type = types[Math.floor(Math.random() * types.length)]
+  let question = ''
+  let answer = 0
+
+  if (type === 'mult_add') {
+    const a = Math.floor(Math.random() * 6) + 3 // 3 to 8
+    const b = Math.floor(Math.random() * 6) + 2 // 2 to 7
+    const c = Math.floor(Math.random() * 15) + 3 // 3 to 17
+    answer = a * b + c
+    question = `(${a} × ${b}) + ${c}`
+  } else if (type === 'mult_sub') {
+    const a = Math.floor(Math.random() * 6) + 4 // 4 to 9
+    const b = Math.floor(Math.random() * 6) + 3 // 3 to 8
+    const c = Math.floor(Math.random() * 10) + 2 // 2 to 11
+    answer = a * b - c
+    question = `(${a} × ${b}) - ${c}`
+  } else if (type === 'paren_mult') {
+    const a = Math.floor(Math.random() * 6) + 2 // 2 to 7
+    const b = Math.floor(Math.random() * 5) + 2 // 2 to 6
+    const c = Math.floor(Math.random() * 4) + 2 // 2 to 5
+    answer = (a + b) * c
+    question = `(${a} + ${b}) × ${c}`
+  } else {
+    const b = Math.floor(Math.random() * 4) + 2 // 2 to 5
+    const q = Math.floor(Math.random() * 7) + 3 // 3 to 9
+    const total = b * q
+    const a = Math.floor(Math.random() * (total - 3)) + 2
+    const c = total - a
+    answer = q
+    question = `(${a} + ${c}) ÷ ${b}`
+  }
 
   const optionsSet = new Set<number>([answer])
   while (optionsSet.size < 4) {
-    const fake = Math.max(1, answer + (Math.floor(Math.random() * 7) - 3))
+    const delta = Math.floor(Math.random() * 7) - 3
+    const fake = Math.max(1, answer + (delta === 0 ? 4 : delta))
     optionsSet.add(fake)
   }
   const options = Array.from(optionsSet).sort(() => Math.random() - 0.5)
   return {
-    question: `${num}/${den} = ?/${targetDen}`,
+    question,
+    options,
+    answer,
+  }
+}
+
+function generateFractionQuestion(): GameQuestion {
+  const isEquivalent = Math.random() > 0.4
+  if (isEquivalent) {
+    const numerators = [1, 2, 3, 4]
+    const denominators = [2, 3, 4, 5]
+    const den = denominators[Math.floor(Math.random() * denominators.length)]
+    const num = numerators[Math.floor(Math.random() * Math.min(den - 1, numerators.length))] || 1
+    const multiplier = Math.floor(Math.random() * 2) + 2 // 2 or 3
+    const targetDen = den * multiplier
+    const answer = num * multiplier
+
+    const optionsSet = new Set<number>([answer])
+    while (optionsSet.size < 4) {
+      const fake = Math.max(1, answer + (Math.floor(Math.random() * 7) - 3))
+      optionsSet.add(fake)
+    }
+    const options = Array.from(optionsSet).sort(() => Math.random() - 0.5)
+    return {
+      question: `${num}/${den} = ?/${targetDen}`,
+      options,
+      answer,
+    }
+  } else {
+    // Fraction Addition with common denominator
+    const den = [4, 5, 6, 8, 10][Math.floor(Math.random() * 5)]
+    const a = Math.floor(Math.random() * (den - 2)) + 1
+    const b = Math.floor(Math.random() * (den - a - 1)) + 1
+    const answer = a + b
+
+    const optionsSet = new Set<number>([answer])
+    while (optionsSet.size < 4) {
+      const fake = Math.max(1, Math.min(den, answer + (Math.floor(Math.random() * 5) - 2)))
+      optionsSet.add(fake)
+    }
+    const options = Array.from(optionsSet).sort(() => Math.random() - 0.5)
+    return {
+      question: `${a}/${den} + ${b}/${den} = ?/${den}`,
+      options,
+      answer,
+    }
+  }
+}
+
+function generateEquationQuestion(): GameQuestion {
+  const op = ['add', 'sub', 'mult', 'div'][Math.floor(Math.random() * 4)]
+  let question = ''
+  let answer = 0
+
+  if (op === 'add') {
+    const x = Math.floor(Math.random() * 20) + 3
+    const c = Math.floor(Math.random() * 15) + 2
+    const total = x + c
+    answer = x
+    question = `x + ${c} = ${total}`
+  } else if (op === 'sub') {
+    const x = Math.floor(Math.random() * 25) + 8
+    const c = Math.floor(Math.random() * (x - 2)) + 1
+    const diff = x - c
+    answer = x
+    question = `x - ${c} = ${diff}`
+  } else if (op === 'mult') {
+    const x = Math.floor(Math.random() * 9) + 2
+    const a = Math.floor(Math.random() * 7) + 2
+    const prod = a * x
+    answer = x
+    question = `${a}x = ${prod}`
+  } else {
+    const x = Math.floor(Math.random() * 8) + 2
+    const d = Math.floor(Math.random() * 5) + 2
+    const dividend = x * d
+    answer = dividend
+    question = `x ÷ ${d} = ${x}`
+  }
+
+  const optionsSet = new Set<number>([answer])
+  while (optionsSet.size < 4) {
+    const delta = Math.floor(Math.random() * 7) - 3
+    const fake = Math.max(1, answer + (delta === 0 ? 3 : delta))
+    optionsSet.add(fake)
+  }
+  const options = Array.from(optionsSet).sort(() => Math.random() - 0.5)
+  return {
+    question: `Solve for x: ${question}`,
+    options,
+    answer,
+  }
+}
+
+function generateDecimalQuestion(): GameQuestion {
+  const type = ['add', 'sub', 'mult'][Math.floor(Math.random() * 3)]
+  let question = ''
+  let answerStr = ''
+  let numAnswer = 0
+
+  if (type === 'add') {
+    const a = (Math.floor(Math.random() * 8) + 1) * 0.25
+    const b = (Math.floor(Math.random() * 6) + 1) * 0.25
+    numAnswer = Math.round((a + b) * 100) / 100
+    answerStr = numAnswer.toFixed(2).replace(/\.?0+$/, '')
+    question = `${a} + ${b}`
+  } else if (type === 'sub') {
+    const b = (Math.floor(Math.random() * 5) + 1) * 0.25
+    const numAns = (Math.floor(Math.random() * 6) + 2) * 0.25
+    const a = Math.round((numAns + b) * 100) / 100
+    numAnswer = numAns
+    answerStr = numAnswer.toFixed(2).replace(/\.?0+$/, '')
+    question = `${a} - ${b}`
+  } else {
+    const a = (Math.floor(Math.random() * 8) + 2) * 0.1
+    const b = Math.floor(Math.random() * 7) + 2
+    numAnswer = Math.round(a * b * 10) / 10
+    answerStr = numAnswer.toFixed(1)
+    question = `${a.toFixed(1)} × ${b}`
+  }
+
+  const optionsSet = new Set<string>([answerStr])
+  while (optionsSet.size < 4) {
+    const delta = (Math.floor(Math.random() * 5) - 2) * 0.25
+    const fakeNum = Math.max(0.25, Math.round((numAnswer + (delta === 0 ? 0.5 : delta)) * 100) / 100)
+    optionsSet.add(fakeNum.toFixed(2).replace(/\.?0+$/, ''))
+  }
+  const options = Array.from(optionsSet).sort(() => Math.random() - 0.5)
+  return {
+    question,
+    options,
+    answer: answerStr,
+  }
+}
+
+function generateGeometryQuestion(): GameQuestion {
+  const type = ['rect_area', 'rect_perim', 'square_area', 'square_perim'][Math.floor(Math.random() * 4)]
+  let question = ''
+  let answer = 0
+
+  if (type === 'rect_area') {
+    const l = Math.floor(Math.random() * 8) + 3
+    const w = Math.floor(Math.random() * 6) + 2
+    answer = l * w
+    question = `Area: Rect with length ${l}m, width ${w}m`
+  } else if (type === 'rect_perim') {
+    const l = Math.floor(Math.random() * 8) + 4
+    const w = Math.floor(Math.random() * 6) + 2
+    answer = 2 * (l + w)
+    question = `Perimeter: Rect with length ${l}m, width ${w}m`
+  } else if (type === 'square_area') {
+    const s = Math.floor(Math.random() * 8) + 3
+    answer = s * s
+    question = `Area: Square with side ${s}m`
+  } else {
+    const s = Math.floor(Math.random() * 9) + 4
+    answer = 4 * s
+    question = `Perimeter: Square with side ${s}m`
+  }
+
+  const optionsSet = new Set<number>([answer])
+  while (optionsSet.size < 4) {
+    const delta = Math.floor(Math.random() * 9) - 4
+    const fake = Math.max(4, answer + (delta === 0 ? 6 : delta))
+    optionsSet.add(fake)
+  }
+  const options = Array.from(optionsSet).sort(() => Math.random() - 0.5)
+  return {
+    question,
     options,
     answer,
   }
@@ -82,16 +286,26 @@ export default function MathArcade() {
   const [progress, setProgress] = useState<GamesProgressResponse | null>(null)
   const [activeGameId, setActiveGameId] = useState<string | null>(null)
 
+  // Game Mode Selection
+  const [selectedMode, setSelectedMode] = useState<GameMode>('blitz')
+
   // Active Game State
   const [gameTimeLeft, setGameTimeLeft] = useState(45)
+  const [zenElapsed, setZenElapsed] = useState(0)
   const [gameScore, setGameScore] = useState(0)
   const [gameStreak, setGameStreak] = useState(0)
+  const [maxStreak, setMaxStreak] = useState(0)
   const [currentQuestion, setCurrentQuestion] = useState<GameQuestion | null>(null)
   const [questionFeedback, setQuestionFeedback] = useState<'correct' | 'wrong' | null>(null)
   const [gameOver, setGameOver] = useState(false)
   const [starsEarned, setStarsEarned] = useState(0)
   const [isNewHighScore, setIsNewHighScore] = useState(false)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  // Reset Score Modal State
+  const [showResetModal, setShowResetModal] = useState(false)
+  const [targetResetGame, setTargetResetGame] = useState<GameLevel | null>(null)
+  const [isResetting, setIsResetting] = useState(false)
 
   const loadProgress = useCallback(async () => {
     if (!studentId) return
@@ -111,21 +325,43 @@ export default function MathArcade() {
   }, [loadProgress])
 
   const nextQuestionForGame = useCallback((gameId: string) => {
-    if (gameId === 'multiplier_matrix') {
-      setCurrentQuestion(generateMultiplicationQuestion())
-    } else if (gameId === 'division_dungeons') {
-      setCurrentQuestion(generateDivisionQuestion())
-    } else {
-      setCurrentQuestion(generateFractionQuestion())
+    switch (gameId) {
+      case 'multiplier_matrix':
+        setCurrentQuestion(generateMultiplicationQuestion())
+        break
+      case 'division_dungeons':
+        setCurrentQuestion(generateDivisionQuestion())
+        break
+      case 'two_step_runner':
+        setCurrentQuestion(generateTwoStepQuestion())
+        break
+      case 'fraction_fusion':
+        setCurrentQuestion(generateFractionQuestion())
+        break
+      case 'equation_alchemist':
+        setCurrentQuestion(generateEquationQuestion())
+        break
+      case 'decimal_dash':
+        setCurrentQuestion(generateDecimalQuestion())
+        break
+      case 'geometry_odyssey':
+        setCurrentQuestion(generateGeometryQuestion())
+        break
+      default:
+        setCurrentQuestion(generateMultiplicationQuestion())
+        break
     }
   }, [])
 
-  const startGame = (game: GameLevel) => {
+  const startGame = (game: GameLevel, mode: GameMode = selectedMode) => {
     if (!game.is_unlocked) return
+    setSelectedMode(mode)
     setActiveGameId(game.id)
     setGameScore(0)
     setGameStreak(0)
+    setMaxStreak(0)
     setGameTimeLeft(45)
+    setZenElapsed(0)
     setGameOver(false)
     setStarsEarned(0)
     setIsNewHighScore(false)
@@ -142,6 +378,7 @@ export default function MathArcade() {
 
   const handleGameOver = useCallback(async () => {
     setGameOver(true)
+    if (timerRef.current) clearInterval(timerRef.current)
     if (!activeGameId) return
 
     // Calculate stars: >= 800: 3 stars, >= 450: 2 stars, >= 150: 1 star
@@ -158,49 +395,70 @@ export default function MathArcade() {
     }
 
     try {
-      const updated = await recordGameScore(studentId, activeGameId, gameScore, earned)
+      const updated = await recordGameScore(
+        studentId,
+        activeGameId,
+        gameScore,
+        earned,
+        selectedMode,
+        maxStreak,
+      )
       setProgress(updated)
     } catch (err) {
       console.error('Failed to record game score:', err)
     }
-  }, [activeGameId, gameScore, progress?.levels, studentId])
+  }, [activeGameId, gameScore, progress?.levels, studentId, selectedMode, maxStreak])
 
-  // Game Countdown Timer
+  // Game Countdown Timer (Blitz) or Count-Up Timer (Zen)
   useEffect(() => {
     if (!activeGameId || gameOver) return
 
-    timerRef.current = setInterval(() => {
-      setGameTimeLeft((prev) => {
-        if (prev <= 1) {
-          if (timerRef.current) clearInterval(timerRef.current)
-          return 0
-        }
-        return prev - 1
-      })
-    }, 1000)
+    if (selectedMode === 'blitz') {
+      timerRef.current = setInterval(() => {
+        setGameTimeLeft((prev) => {
+          if (prev <= 1) {
+            if (timerRef.current) clearInterval(timerRef.current)
+            return 0
+          }
+          return prev - 1
+        })
+      }, 1000)
+    } else {
+      // Zen mode count-up
+      timerRef.current = setInterval(() => {
+        setZenElapsed((prev) => prev + 1)
+      }, 1000)
+    }
 
     return () => {
       if (timerRef.current) clearInterval(timerRef.current)
     }
-  }, [activeGameId, gameOver])
+  }, [activeGameId, gameOver, selectedMode])
 
-  // Trigger game over when countdown reaches zero
+  // Trigger game over when blitz countdown reaches zero
   useEffect(() => {
-    if (activeGameId && !gameOver && gameTimeLeft === 0) {
+    if (activeGameId && !gameOver && selectedMode === 'blitz' && gameTimeLeft === 0) {
       handleGameOver()
     }
-  }, [activeGameId, gameOver, gameTimeLeft, handleGameOver])
+  }, [activeGameId, gameOver, selectedMode, gameTimeLeft, handleGameOver])
 
-  const handleOptionSelect = (selected: number) => {
+  const handleOptionSelect = (selected: number | string) => {
     if (!currentQuestion || gameOver || questionFeedback) return
 
-    if (selected === currentQuestion.answer) {
+    // Normalize comparison for number or string matches
+    const isCorrect = String(selected).trim() === String(currentQuestion.answer).trim()
+
+    if (isCorrect) {
       // Correct answer!
       setQuestionFeedback('correct')
       const multiplier = Math.min(5, Math.floor(gameStreak / 3) + 1)
       const pointsAdded = 100 * multiplier
       setGameScore((s) => s + pointsAdded)
-      setGameStreak((st) => st + 1)
+      setGameStreak((st) => {
+        const nextStreak = st + 1
+        setMaxStreak((m) => Math.max(m, nextStreak))
+        return nextStreak
+      })
 
       setTimeout(() => {
         setQuestionFeedback(null)
@@ -219,7 +477,23 @@ export default function MathArcade() {
     }
   }
 
+  const handleConfirmReset = async () => {
+    try {
+      setIsResetting(true)
+      const updated = await resetGameScore(studentId, targetResetGame?.id)
+      setProgress(updated)
+      setShowResetModal(false)
+      setTargetResetGame(null)
+    } catch (err) {
+      console.error('Failed to reset score:', err)
+      alert('Could not reset game score. Please try again.')
+    } finally {
+      setIsResetting(false)
+    }
+  }
+
   const activeLevel = progress?.levels.find((l) => l.id === activeGameId)
+  const currentMultiplier = Math.min(5, Math.floor(gameStreak / 3) + 1)
 
   return (
     <div className="math-arcade-container">
@@ -264,11 +538,24 @@ export default function MathArcade() {
             <span className="stat-icon">🔓</span>
             <div className="stat-meta">
               <span className="stat-value">
-                {progress?.games_unlocked || 1} / {progress?.total_games || 5}
+                {progress?.games_unlocked || 1} / {progress?.total_games || 7}
               </span>
               <span className="stat-label">Unlocked</span>
             </div>
           </div>
+
+          {/* Quick Reset All High Scores Trigger */}
+          <button
+            type="button"
+            className="arcade-reset-scores-btn"
+            onClick={() => {
+              setTargetResetGame(null)
+              setShowResetModal(true)
+            }}
+            title="Reset high scores and start fresh"
+          >
+            Reset Scores 🔄
+          </button>
         </div>
 
         <div className="arcade-nav-right">
@@ -285,15 +572,36 @@ export default function MathArcade() {
         <main className="arcade-roadmap-view">
           {/* Motivation & Eagerness Header */}
           <section className="arcade-hero-section">
-            <div className="arcade-hero-badge">LEVEL PROGRESSION ROADMAP</div>
+            <div className="arcade-hero-badge">7-TIER LEVEL PROGRESSION ROADMAP</div>
             <h1 className="arcade-hero-title">
-              Complete Math Practice to <span className="neon-text">Unlock New Games</span>
+              Master Math Practice to <span className="neon-text">Unlock New Games</span>
             </h1>
             <p className="arcade-hero-desc">
               Solve problems and master curriculum standards in your practice sessions to unlock higher
               tiers. Every game you unlock, score you earn, and star you collect is permanently tied to
               your account and saved across logins!
             </p>
+
+            {/* Mode Pre-selector */}
+            <div className="hero-mode-selector">
+              <span className="mode-selector-label">Preferred Game Mode:</span>
+              <div className="mode-toggle-group">
+                <button
+                  type="button"
+                  className={`mode-toggle-btn ${selectedMode === 'blitz' ? 'active' : ''}`}
+                  onClick={() => setSelectedMode('blitz')}
+                >
+                  ⚡ Speed Blitz (45s Timer)
+                </button>
+                <button
+                  type="button"
+                  className={`mode-toggle-btn ${selectedMode === 'zen' ? 'active' : ''}`}
+                  onClick={() => setSelectedMode('zen')}
+                >
+                  🧘 Zen Practice (Untimed)
+                </button>
+              </div>
+            </div>
           </section>
 
           {loading ? (
@@ -345,6 +653,8 @@ export default function MathArcade() {
                               {lvl.theme === 'castle' && '🏰'}
                               {lvl.theme === 'kitchen' && '🍕'}
                               {lvl.theme === 'alchemy' && '⚖️'}
+                              {lvl.theme === 'cyber' && '⚡'}
+                              {lvl.theme === 'galaxy' && '🌌'}
                             </span>
                           </h3>
                           <span className="level-subtitle">{lvl.subtitle}</span>
@@ -403,17 +713,37 @@ export default function MathArcade() {
                             <span className="score-label">BEST:</span>
                             <span className="score-num">{lvl.high_score} PTS</span>
                           </div>
+                          {lvl.times_played > 0 && (
+                            <span className="metric-played">
+                              🎮 {lvl.times_played} {lvl.times_played === 1 ? 'play' : 'plays'}
+                            </span>
+                          )}
                         </div>
 
                         <div className="level-actions">
                           {isUnlocked ? (
-                            <button
-                              type="button"
-                              className="btn-play-game"
-                              onClick={() => startGame(lvl)}
-                            >
-                              Play Game 🎮
-                            </button>
+                            <>
+                              <button
+                                type="button"
+                                className="btn-play-game"
+                                onClick={() => startGame(lvl, selectedMode)}
+                              >
+                                Play Game 🎮
+                              </button>
+                              {lvl.high_score > 0 && (
+                                <button
+                                  type="button"
+                                  className="btn-reset-single"
+                                  onClick={() => {
+                                    setTargetResetGame(lvl)
+                                    setShowResetModal(true)
+                                  }}
+                                  title={`Reset high score for ${lvl.name}`}
+                                >
+                                  Reset 🔄
+                                </button>
+                              )}
+                            </>
                           ) : (
                             <button
                               type="button"
@@ -443,14 +773,18 @@ export default function MathArcade() {
 
             <div className="arena-title-group">
               <span className="arena-game-name">{activeLevel?.name}</span>
-              <span className="arena-game-mode">Curriculum Challenge Blitz</span>
+              <span className="arena-game-mode">
+                {selectedMode === 'blitz' ? '⚡ Speed Blitz (45s)' : '🧘 Zen Practice Mode'}
+              </span>
             </div>
 
             <div className="arena-stats-bar">
               <div className="arena-stat-item">
-                <span className="label">TIME</span>
-                <span className={`value time ${gameTimeLeft <= 10 ? 'urgent' : ''}`}>
-                  {gameTimeLeft}s
+                <span className="label">
+                  {selectedMode === 'blitz' ? 'TIME LEFT' : 'ELAPSED'}
+                </span>
+                <span className={`value time ${selectedMode === 'blitz' && gameTimeLeft <= 10 ? 'urgent' : ''}`}>
+                  {selectedMode === 'blitz' ? `${gameTimeLeft}s` : `${zenElapsed}s`}
                 </span>
               </div>
               <div className="arena-stat-item">
@@ -460,14 +794,30 @@ export default function MathArcade() {
               <div className="arena-stat-item">
                 <span className="label">STREAK</span>
                 <span className="value streak">
-                  {gameStreak}x {gameStreak >= 3 && '🔥'}
+                  {gameStreak}x {currentMultiplier > 1 && <span className="streak-multiplier">({currentMultiplier}x PTS 🔥)</span>}
                 </span>
               </div>
+              {selectedMode === 'zen' && (
+                <button
+                  type="button"
+                  className="arena-finish-btn"
+                  onClick={handleGameOver}
+                >
+                  Finish Round ✅
+                </button>
+              )}
             </div>
           </div>
 
           {!gameOver ? (
             <div className="arena-playfield">
+              {/* Combo Multiplier Alert */}
+              {currentMultiplier > 1 && (
+                <div className="streak-banner">
+                  <span>🔥 {currentMultiplier}x COMBO MULTIPLIER ACTIVE! (+{100 * currentMultiplier} PTS PER HIT)</span>
+                </div>
+              )}
+
               {/* Question Plasma Display */}
               <div className={`question-plasma-orb ${questionFeedback || ''}`}>
                 <div className="plasma-core">
@@ -494,7 +844,9 @@ export default function MathArcade() {
 
               {/* Feedback Flash */}
               {questionFeedback === 'correct' && (
-                <div className="feedback-badge correct">💥 CRITICAL HIT! +100 PTS</div>
+                <div className="feedback-badge correct">
+                  💥 CRITICAL HIT! +{100 * currentMultiplier} PTS
+                </div>
               )}
               {questionFeedback === 'wrong' && (
                 <div className="feedback-badge wrong">⚠️ MISSED! STREAK RESET</div>
@@ -504,12 +856,14 @@ export default function MathArcade() {
             /* Game Over / Victory Modal */
             <div className="game-over-modal-backdrop">
               <div className="game-over-modal">
-                <div className="modal-badge">ROUND COMPLETED</div>
+                <div className="modal-badge">
+                  {selectedMode === 'blitz' ? 'BLITZ ROUND COMPLETED' : 'ZEN PRACTICE FINISHED'}
+                </div>
                 <h2 className="modal-title">
                   {gameScore >= 500 ? '🎉 Stellar Performance!' : '⚡ Challenge Finished!'}
                 </h2>
                 <p className="modal-subtitle">
-                  Your score and stars have been permanently synced to your Veritas account.
+                  Your score and stars have been permanently saved to your Veritas account and Parent Portal.
                 </p>
 
                 {/* Stars Display */}
@@ -527,8 +881,18 @@ export default function MathArcade() {
 
                 <div className="modal-score-summary">
                   <div className="summary-item">
-                    <span className="sum-label">FINAL SCORE</span>
+                    <span className="sum-label">FINAL ROUND SCORE</span>
                     <span className="sum-val">{gameScore} PTS</span>
+                  </div>
+                  <div className="summary-item">
+                    <span className="sum-label">MAX STREAK</span>
+                    <span className="sum-val">{maxStreak}x 🔥</span>
+                  </div>
+                  <div className="summary-item">
+                    <span className="sum-label">BEST ALL-TIME</span>
+                    <span className="sum-val">
+                      {Math.max(gameScore, activeLevel?.high_score || 0)} PTS
+                    </span>
                   </div>
                   {isNewHighScore && (
                     <div className="new-high-badge">🏆 NEW ALL-TIME HIGH SCORE!</div>
@@ -540,7 +904,7 @@ export default function MathArcade() {
                     type="button"
                     className="btn btn-primary"
                     onClick={() => {
-                      if (activeLevel) startGame(activeLevel)
+                      if (activeLevel) startGame(activeLevel, selectedMode)
                     }}
                   >
                     Play Again 🔄
@@ -553,6 +917,43 @@ export default function MathArcade() {
             </div>
           )}
         </main>
+      )}
+
+      {/* Reset Confirmation Modal */}
+      {showResetModal && (
+        <div className="modal-backdrop" onClick={() => setShowResetModal(false)}>
+          <div className="reset-confirm-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="reset-modal-icon">🔄</div>
+            <h3 className="reset-modal-title">
+              {targetResetGame
+                ? `Reset ${targetResetGame.name} Scores?`
+                : 'Reset All Arcade High Scores?'}
+            </h3>
+            <p className="reset-modal-desc">
+              {targetResetGame
+                ? `This will clear your high score (${targetResetGame.high_score} pts), stars, and times played for ${targetResetGame.name} so you can practice from a clean slate.`
+                : 'This will reset your high scores, stars, and play logs across all games. Your curriculum skill mastery and practice problems will remain completely intact.'}
+            </p>
+            <div className="reset-modal-actions">
+              <button
+                type="button"
+                className="btn-cancel"
+                onClick={() => setShowResetModal(false)}
+                disabled={isResetting}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn-confirm-danger"
+                onClick={handleConfirmReset}
+                disabled={isResetting}
+              >
+                {isResetting ? 'Resetting…' : 'Confirm Reset'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

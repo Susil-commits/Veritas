@@ -15,6 +15,7 @@ load_dotenv()
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import BaseMessage, SystemMessage, HumanMessage, AIMessage
+from config import CHAT_MODEL_CASCADE
 
 from safety import (
     sanitize_input,
@@ -78,12 +79,7 @@ DEFAULT_SUGGESTIONS = [
 ]
 
 
-NEO_MODEL_CASCADE = [
-    os.environ.get("GEMINI_MODEL", "gemini-3.6-flash"),
-    "gemini-flash-latest",
-    "gemini-3.5-flash",
-    "gemini-3.5-flash-lite",
-]
+NEO_MODEL_CASCADE = CHAT_MODEL_CASCADE
 
 
 def build_neo_llm(model_name: str) -> ChatGoogleGenerativeAI:

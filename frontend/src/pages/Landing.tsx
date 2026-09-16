@@ -721,6 +721,8 @@ export default function Landing() {
     try {
       await demoSignIn(targetRole)
       setAuthScreen('form')
+      const targetPath = targetRole === 'parent' ? '/parent-dashboard' : '/student-session'
+      navigateToRoleWithWarmup(targetRole, targetPath)
     } catch (err: any) {
       console.error('Demo sign-in failed:', err)
       setAuthError(friendlyAuthError(err?.message || 'Could not log into demo. Please try again.'))

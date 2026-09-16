@@ -53,7 +53,7 @@ CREATE TABLE IF NOT EXISTS problems (
     difficulty      INTEGER CHECK (difficulty BETWEEN 1 AND 5) DEFAULT 1,
     expected_steps  JSONB DEFAULT '[]',
     source          TEXT DEFAULT 'hand_curated',  -- 'hand_curated' | 'gsm8k' | 'openstax'
-    embedding       vector(768),                   -- Gemini text-embedding-004 dimension
+    embedding       vector(768),                   -- Gemini gemini-embedding-001 dimension (768-dim)
     created_at      TIMESTAMPTZ DEFAULT now()
 );
 

@@ -7,6 +7,7 @@ import { getSkillMeta } from '../lib/skillsData'
 import ThemeToggle from '../components/ThemeToggle'
 import UserAvatar from '../components/UserAvatar'
 import AvatarModal from '../components/AvatarModal'
+import ConfirmLogoutModal from '../components/ConfirmLogoutModal'
 import './Dashboard.css'
 
 interface SkillMastery {
@@ -20,6 +21,7 @@ export default function Dashboard() {
   const navigate = useNavigate()
   const { role, avatar, updateAvatar, signOut } = useAuth()
   const [showAvatarModal, setShowAvatarModal] = useState(false)
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
   const [skills, setSkills] = useState<SkillMastery[]>([])
   const [summary, setSummary] = useState('')
   const [loading, setLoading] = useState(true)
@@ -151,11 +153,7 @@ export default function Dashboard() {
           <button
             type="button"
             className="btn btn-ghost btn-sm"
-            onClick={() => {
-              signOut()
-                .then(() => navigate('/'))
-                .catch(() => navigate('/'))
-            }}
+            onClick={() => setShowLogoutConfirm(true)}
             title="Log out of Veritas"
           >
             Log Out
@@ -302,6 +300,25 @@ export default function Dashboard() {
         currentAvatar={avatar}
         name={studentName}
         role={role}
+      />
+
+      {/* Log Out Confirmation Modal */}
+      <ConfirmLogoutModal
+        isOpen={showLogoutConfirm}
+        onClose={() => setShowLogoutConfirm(false)}
+        onConfirm={async () => {
+          try {
+            await signOut()
+            navigate('/')
+          } catch (err) {
+            console.error('Sign out error:', err)
+            navigate('/')
+          }
+        }}
+        title="Log Out of Veritas?"
+        message="Are you sure you want to log out? Your skill progress, completed problems, and stars are safely saved."
+        confirmText="Yes, Log Out"
+        cancelText="Cancel"
       />
     </div>
   )

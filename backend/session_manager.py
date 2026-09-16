@@ -1,7 +1,7 @@
 """
 Session Manager — Resilient Session State Persistence for Veritas Tutor.
-Eliminates in-memory fragility: Active sessions survive Render restarts, worker reloads,
-and redeployments during Demo Day by persisting state to Supabase with in-memory caching.
+Supabase-backed session state allows recovery across application-instance restarts;
+local disk is a best-effort development fallback, backed by an LRU in-memory cache.
 """
 import os
 import uuid
@@ -20,55 +20,72 @@ DATA_DIR = Path(__file__).resolve().parent / "data"
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 SESSIONS_STORE_PATH = DATA_DIR / "sessions_store.json"
 _disk_lock = threading.Lock()
+_disk_sessions_memory: dict[str, Any] | None = None
 
 
 def _load_sessions_from_disk() -> dict[str, Any]:
+    global _disk_sessions_memory
     with _disk_lock:
+        if _disk_sessions_memory is not None:
+            return _disk_sessions_memory
         if not SESSIONS_STORE_PATH.exists():
-            return {}
+            _disk_sessions_memory = {}
+            return _disk_sessions_memory
         try:
             with open(SESSIONS_STORE_PATH, "r", encoding="utf-8") as f:
-                return json.load(f)
+                _disk_sessions_memory = json.load(f)
+                return _disk_sessions_memory
         except Exception as e:
             print(f"[WARN] SessionManager: Failed to read sessions from disk: {e}")
-            return {}
+            _disk_sessions_memory = {}
+            return _disk_sessions_memory
 
 
 def _write_session_to_disk(session_id: str, state: dict[str, Any]) -> None:
+    global _disk_sessions_memory
     with _disk_lock:
         try:
-            current = {}
-            if SESSIONS_STORE_PATH.exists():
-                try:
-                    with open(SESSIONS_STORE_PATH, "r", encoding="utf-8") as f:
-                        current = json.load(f)
-                except Exception:
-                    current = {}
-            current[session_id] = state
-            # Atomic file write via temp file
+            if _disk_sessions_memory is None:
+                if SESSIONS_STORE_PATH.exists():
+                    try:
+                        with open(SESSIONS_STORE_PATH, "r", encoding="utf-8") as f:
+                            _disk_sessions_memory = json.load(f)
+                    except Exception:
+                        _disk_sessions_memory = {}
+                else:
+                    _disk_sessions_memory = {}
+            _disk_sessions_memory[session_id] = state
+            # Atomic file write via temp file with fast serialization
             temp_path = SESSIONS_STORE_PATH.with_suffix(".tmp")
             with open(temp_path, "w", encoding="utf-8") as f:
-                json.dump(current, f, indent=2)
+                json.dump(_disk_sessions_memory, f, separators=(",", ":"))
             temp_path.replace(SESSIONS_STORE_PATH)
         except Exception as e:
             print(f"[WARN] SessionManager: Failed to write session {session_id} to disk: {e}")
 
 
 def _remove_session_from_disk(session_id: str) -> None:
+    global _disk_sessions_memory
     with _disk_lock:
         try:
-            if not SESSIONS_STORE_PATH.exists():
-                return
-            with open(SESSIONS_STORE_PATH, "r", encoding="utf-8") as f:
-                current = json.load(f)
-            if session_id in current:
-                del current[session_id]
+            if _disk_sessions_memory is None:
+                if SESSIONS_STORE_PATH.exists():
+                    try:
+                        with open(SESSIONS_STORE_PATH, "r", encoding="utf-8") as f:
+                            _disk_sessions_memory = json.load(f)
+                    except Exception:
+                        _disk_sessions_memory = {}
+                else:
+                    _disk_sessions_memory = {}
+            if session_id in _disk_sessions_memory:
+                del _disk_sessions_memory[session_id]
                 temp_path = SESSIONS_STORE_PATH.with_suffix(".tmp")
                 with open(temp_path, "w", encoding="utf-8") as f:
-                    json.dump(current, f, indent=2)
+                    json.dump(_disk_sessions_memory, f, separators=(",", ":"))
                 temp_path.replace(SESSIONS_STORE_PATH)
         except Exception as e:
             print(f"[WARN] SessionManager: Failed to remove session {session_id} from disk: {e}")
+
 
 # Per-session asyncio.Lock registry to serialize concurrent read-modify-write operations
 _session_locks: dict[str, asyncio.Lock] = {}
@@ -338,6 +355,39 @@ def evict_session(session_id: str) -> None:
             _session_locks.pop(session_id, None)
     except Exception:
         pass
+
+
+def evict_student_sessions(student_id: str) -> None:
+    """Evict all cached and disk-persisted sessions belonging to a specific student."""
+    try:
+        keys_to_evict = []
+        for sid in _sessions_cache.keys_list():
+            sess = _sessions_cache.get(sid)
+            if isinstance(sess, dict) and sess.get("student_id") == student_id:
+                keys_to_evict.append(sid)
+        for sid in keys_to_evict:
+            evict_session(sid)
+    except Exception as e:
+        print(f"[WARN] SessionManager: Failed to evict student sessions from cache: {e}")
+
+    global _disk_sessions_memory
+    with _disk_lock:
+        try:
+            if _disk_sessions_memory:
+                disk_to_evict = [
+                    sid for sid, sess in _disk_sessions_memory.items()
+                    if isinstance(sess, dict) and sess.get("student_id") == student_id
+                ]
+                if disk_to_evict:
+                    for sid in disk_to_evict:
+                        del _disk_sessions_memory[sid]
+                    temp_path = SESSIONS_STORE_PATH.with_suffix(".tmp")
+                    with open(temp_path, "w", encoding="utf-8") as f:
+                        json.dump(_disk_sessions_memory, f, separators=(",", ":"))
+                    temp_path.replace(SESSIONS_STORE_PATH)
+        except Exception as e:
+            print(f"[WARN] SessionManager: Failed to remove student sessions from disk: {e}")
+
 
 
 def record_session_event(

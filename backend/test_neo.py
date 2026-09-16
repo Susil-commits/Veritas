@@ -175,7 +175,16 @@ def test_fastapi_http_endpoints():
     assert auth_data["guardrailed"] is False
     assert auth_data["user_role"] == "student"
     assert len(auth_data["reply"]) > 10
-    print(f"   ✓ POST /neo/chat authenticated student succeeded (role: {auth_data['user_role']})")
+    # 4. Test X-Parent-Id spoofing resistance (privilege escalation defense)
+    spoof_res = client.post(
+        "/neo/chat",
+        json={"message": "How do I check my student progress?", "history": []},
+        headers={"X-Parent-Id": "victim-parent-uuid"},
+    )
+    assert spoof_res.status_code == 200
+    spoof_data = spoof_res.json()
+    assert spoof_data["user_role"] == "visitor", "X-Parent-Id should NOT grant authenticated parent role without cryptographic token!"
+    print("   ✓ Spoofed X-Parent-Id rejected: caller strictly kept as unauthenticated visitor")
     print("✅ [NEO TEST 6 PASSED]\n")
 
 

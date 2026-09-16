@@ -167,12 +167,13 @@ export default function WorkUpload({ sessionId, onThinking, onDiagnosis }: Props
           <img src={preview} alt="Your work" className="work-preview" />
 
           {/* Visual mistake-highlight overlay directly on top of handwritten work */}
-          {diagnosis && !diagnosis.is_correct && (() => {
+          {diagnosis && !diagnosis.is_correct && Boolean(diagnosis.bounding_hint || diagnosis.bounding_box) && (() => {
             const b = diagnosis.bounding_hint || diagnosis.bounding_box
-            const x = b ? ('x' in b && b.x !== undefined ? b.x : (b.left ?? 10)) : 10
-            const y = b ? ('y' in b && b.y !== undefined ? b.y : (b.top ?? 35)) : 35
-            const w = b?.width ?? 80
-            const h = b?.height ?? 22
+            if (!b) return null
+            const x = 'x' in b && b.x !== undefined ? b.x : (b.left ?? 10)
+            const y = 'y' in b && b.y !== undefined ? b.y : (b.top ?? 35)
+            const w = b.width ?? 80
+            const h = b.height ?? 22
 
             return (
               <div

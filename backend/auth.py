@@ -11,7 +11,7 @@ import base64
 import time
 import secrets
 from typing import Optional, Any
-from fastapi import Header, HTTPException, status
+from fastapi import Header, HTTPException, status, Query
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -30,37 +30,25 @@ def _get_secret_key() -> bytes:
     """
     Derives secret key for signing HMAC-SHA256 session tokens.
     Priority:
-    1. SESSION_SECRET_KEY (from Render dashboard / .env)
-    2. SUPABASE_SERVICE_ROLE_KEY (fallback)
-    3. Production safeguard: Generate an ephemeral 256-bit random key per container instance
-       to prevent forged tokens signed with public repository defaults.
-    4. Development fallback: 'veritas-socratic-tutor-secret-key-salt' (local dev only).
+    1. SESSION_SECRET_KEY (from environment)
+    2. In production (ENVIRONMENT=production or RENDER): fail fast with RuntimeError.
+       Never use service role credentials as session-signing secrets.
+    3. In local development: safe development salt.
     """
-    global _EPHEMERAL_KEY
     key = os.getenv("SESSION_SECRET_KEY")
     if key:
         return key.encode("utf-8")
 
-    # Fallback to Supabase service role key if available
-    service_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
-    if service_key:
-        print("[WARN] auth: SESSION_SECRET_KEY is not set. Falling back to SUPABASE_SERVICE_ROLE_KEY.")
-        return service_key.encode("utf-8")
-
-    # Check if running in production or on Render
+    # Strict production requirement
     is_prod = (
         os.getenv("ENVIRONMENT", "").lower() == "production"
         or os.getenv("RENDER") is not None
     )
     if is_prod:
-        if not _EPHEMERAL_KEY:
-            _EPHEMERAL_KEY = secrets.token_urlsafe(32)
-            print(
-                "[CRITICAL SECURITY WARNING] Neither SESSION_SECRET_KEY nor SUPABASE_SERVICE_ROLE_KEY "
-                "is set in PRODUCTION! Generated ephemeral 256-bit random key for this container. "
-                "Configure SESSION_SECRET_KEY in Render dashboard -> Environment to persist keys across restarts."
-            )
-        return _EPHEMERAL_KEY.encode("utf-8")
+        raise RuntimeError(
+            "CRITICAL SECURITY CONFIGURATION ERROR: SESSION_SECRET_KEY environment variable "
+            "must be configured in production. Fallback to service-role keys is prohibited."
+        )
 
     # Local development fallback
     return b"veritas-socratic-tutor-secret-key-salt"
@@ -316,7 +304,7 @@ async def verify_student_access(
     student_id: str,
     authorization: Optional[str] = Header(None),
     x_session_token: Optional[str] = Header(None),
-    x_parent_id: Optional[str] = Header(None),
+    x_parent_id: Optional[str] = Header(None, alias="X-Parent-Id"),
 ) -> dict:
     """
     FastAPI dependency to secure student data routes.
@@ -444,4 +432,55 @@ async def verify_parent_caller(
         )
 
     return payload
+
+
+async def verify_session_access(
+    session_id: Optional[str] = Query(None),
+    authorization: Optional[str] = Header(None),
+    x_session_token: Optional[str] = Header(None),
+) -> dict:
+    """
+    FastAPI dependency to secure active tutoring session routes (/session/message, /session/next-problem, /session/upload-work, /session/reset).
+    Guarantees:
+    1. Caller provides a cryptographically valid, unexpired session token or Supabase JWT.
+    2. If session_id is supplied in query string, the token's 'sid' claim must match.
+    """
+    token = _extract_token(authorization, x_session_token)
+
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required: missing session token in Authorization or X-Session-Token header",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    payload = verify_session_token(token)
+    token_sid = payload.get("sid")
+    if session_id and token_sid and token_sid != session_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Session mismatch: token was issued for session {token_sid}, not {session_id}",
+        )
+    return payload
+
+
+async def verify_student_caller(
+    authorization: Optional[str] = Header(None),
+    x_session_token: Optional[str] = Header(None),
+) -> dict:
+    """
+    FastAPI dependency to authenticate requests where student_id is in request body
+    (e.g., POST /games/score, POST /games/reset, POST /session/reset).
+    """
+    token = _extract_token(authorization, x_session_token)
+
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required: missing token in Authorization or X-Session-Token header",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    return verify_session_token(token)
+
 

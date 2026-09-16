@@ -58,7 +58,7 @@ def main():
     width = 76
 
     print("\n" + "=" * width)
-    print("DEMO DAY TEST EXECUTION SUMMARY".center(width))
+    print("APPLICATION TEST EXECUTION SUMMARY".center(width))
     print("=" * width)
     print(f" {'#':<2} | {'TEST SUITE':<47} | {'STATUS':<10} | {'TIME':>7}")
     print("-" * width)
@@ -69,7 +69,7 @@ def main():
 
     if passed_count == total_count:
         print(f"  ALL {passed_count}/{total_count} TEST SUITES PASSED IN {total_time:.2f}s!")
-        print("  STATUS: 100% PRODUCTION READY & DEMO-DAY BULLETPROOF")
+        print("  STATUS: ALL 8 APPLICATION TEST SUITES PASSED")
         print("=" * width + "\n")
         sys.exit(0)
     else:

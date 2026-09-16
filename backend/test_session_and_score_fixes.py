@@ -13,7 +13,7 @@ from main import app
 client = TestClient(app)
 
 def test_score_inflation_prevention_and_title_clean():
-    print("\n[TEST 1] Testing Next-Problem Score Inflation Prevention...")
+    print("\n[TEST 1] Testing Next-Problem Score Inflation Prevention & Auth Enforcement...")
     test_student_id = str(uuid.uuid4())
     start_resp = client.post("/session/start", json={
         "student_name": "TestStudent",
@@ -23,18 +23,31 @@ def test_score_inflation_prevention_and_title_clean():
     assert start_resp.status_code == 200, f"Failed to start session: {start_resp.text}"
     session_data = start_resp.json()
     session_id = session_data["session_id"]
+    session_token = session_data["session_token"]
     initial_mastery = dict(session_data["mastery_state"])
     current_problem = session_data["current_problem"]
+
+    # Verify unauthenticated call to /session/next-problem is blocked with 401
+    unauth_next = client.post("/session/next-problem", json={
+        "session_id": session_id,
+        "mark_previous_correct": False,
+    })
+    assert unauth_next.status_code == 401, "Calling next-problem without auth token must return HTTP 401!"
+    print("   [OK] Unauthenticated call to /session/next-problem blocked with HTTP 401.")
 
     # Verify title is cleaned of GSM8K:
     assert not current_problem.get("title", "").startswith("GSM8K:"), f"Title still contains GSM8K: prefix: {current_problem.get('title')}"
     print("   [OK] Title cleaned:", current_problem.get("title"))
 
     # Advance to next problem WITHOUT solving (mark_previous_correct=False, the default)
-    next_resp = client.post("/session/next-problem", json={
-        "session_id": session_id,
-        "mark_previous_correct": False,
-    })
+    next_resp = client.post(
+        "/session/next-problem",
+        json={
+            "session_id": session_id,
+            "mark_previous_correct": False,
+        },
+        headers={"Authorization": f"Bearer {session_token}"},
+    )
     assert next_resp.status_code == 200, f"Next problem failed: {next_resp.text}"
     next_data = next_resp.json()
     new_mastery = next_data["mastery_state"]
@@ -45,10 +58,14 @@ def test_score_inflation_prevention_and_title_clean():
     print("   [OK] Score did not jump: mastery stayed at baseline (30%) on next problem without answer.")
 
     # Now verify advancing WITH solved problem credits mastery
-    next_solved_resp = client.post("/session/next-problem", json={
-        "session_id": session_id,
-        "mark_previous_correct": True,
-    })
+    next_solved_resp = client.post(
+        "/session/next-problem",
+        json={
+            "session_id": session_id,
+            "mark_previous_correct": True,
+        },
+        headers={"Authorization": f"Bearer {session_token}"},
+    )
     assert next_solved_resp.status_code == 200
     solved_mastery = next_solved_resp.json()["mastery_state"]
     # At least one skill increased
@@ -58,7 +75,7 @@ def test_score_inflation_prevention_and_title_clean():
 
 
 def test_session_resumption_and_reset():
-    print("\n[TEST 2] Testing Session Resumption and Reset...")
+    print("\n[TEST 2] Testing Session Resumption, Student Minting Protection, and Reset IDOR Defense...")
     test_student_id = str(uuid.uuid4())
     # Start first session
     s1 = client.post("/session/start", json={
@@ -68,23 +85,65 @@ def test_session_resumption_and_reset():
     }).json()
     s1_id = s1["session_id"]
     s1_problem_id = s1["current_problem"]["id"]
+    s1_token = s1["session_token"]
 
-    # Start again with same student_id — should resume s1!
-    s2 = client.post("/session/start", json={
-        "student_name": "ResumingStudent",
+    # 1. Unauthenticated claim of an existing registered student ID must be REJECTED with 401
+    unauth_resume = client.post("/session/start", json={
+        "student_name": "ImposterStudent",
         "student_id": test_student_id,
-        "student_email": f"resume_{test_student_id[:8]}@example.com",
-    }).json()
+        "student_email": f"hacker_{test_student_id[:8]}@example.com",
+    })
+    assert unauth_resume.status_code == 401, "Unauthenticated claim of existing student ID must be rejected with 401!"
+    print("   [OK] Arbitrary existing student ID claim without auth token rejected with HTTP 401.")
+
+    # 2. Legitimate authenticated caller presenting their valid session token succeeds and resumes s1
+    s2 = client.post(
+        "/session/start",
+        json={
+            "student_name": "ResumingStudent",
+            "student_id": test_student_id,
+            "student_email": f"resume_{test_student_id[:8]}@example.com",
+        },
+        headers={"Authorization": f"Bearer {s1_token}"},
+    ).json()
     assert s2["session_id"] == s1_id, "Session was not resumed!"
     assert s2["current_problem"]["id"] == s1_problem_id, "Current problem did not match resumed session!"
     assert s2.get("resumed") is True, "Resumed flag was not True"
-    print("   [OK] Session resumption succeeded (retained session ID & problem).")
+    print("   [OK] Authenticated session resumption succeeded (retained session ID & problem).")
 
-    # Now call /session/reset
-    reset_resp = client.post("/session/reset", json={
-        "student_id": test_student_id,
-        "session_id": s1_id,
-    })
+    # 3. IDOR Defense: Attacker trying to reset victim's account with attacker's token is blocked with 403
+    victim_id = str(uuid.uuid4())
+    idor_resp = client.post(
+        "/session/reset",
+        json={
+            "student_id": victim_id,
+            "session_id": s1_id,
+        },
+        headers={"Authorization": f"Bearer {s1_token}"},
+    )
+    assert idor_resp.status_code == 403, "IDOR reset attempt on other student must be blocked with HTTP 403!"
+    print("   [OK] Destructive IDOR reset attempt blocked with HTTP 403.")
+
+    # 3b. Unauthenticated call to /session/reset must return 401
+    unauth_reset = client.post(
+        "/session/reset",
+        json={
+            "student_id": test_student_id,
+            "session_id": s1_id,
+        },
+    )
+    assert unauth_reset.status_code == 401, "Unauthenticated /session/reset must return 401!"
+    print("   [OK] Unauthenticated /session/reset blocked with HTTP 401.")
+
+    # 4. Legitimate student calls /session/reset with their own token
+    reset_resp = client.post(
+        "/session/reset",
+        json={
+            "student_id": test_student_id,
+            "session_id": s1_id,
+        },
+        headers={"Authorization": f"Bearer {s1_token}"},
+    )
     assert reset_resp.status_code == 200, f"Reset failed: {reset_resp.text}"
     reset_data = reset_resp.json()
     assert reset_data["session_id"] != s1_id, "Reset should yield a new session ID"

@@ -1,12 +1,30 @@
 // API client for the FastAPI backend
 import axios from 'axios'
+import { supabase } from './supabase'
 
 const rawUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 export const BASE_URL = rawUrl.replace(/\/+$/, '')
 
 export const api = axios.create({ baseURL: BASE_URL })
 
-api.interceptors.request.use((config) => {
+let activeSupabaseToken: string | null = null
+
+// Initialize from current Supabase session and subscribe to session changes
+supabase.auth.getSession().then(({ data }) => {
+  activeSupabaseToken = data.session?.access_token || null
+}).catch(() => {})
+
+supabase.auth.onAuthStateChange((_event, session) => {
+  activeSupabaseToken = session?.access_token || null
+})
+
+api.interceptors.request.use(async (config) => {
+  if (!activeSupabaseToken) {
+    try {
+      const { data } = await supabase.auth.getSession()
+      activeSupabaseToken = data.session?.access_token || null
+    } catch {}
+  }
   const authHeaders = getAuthHeaders()
   for (const [key, value] of Object.entries(authHeaders)) {
     if (!config.headers.has(key)) {
@@ -35,36 +53,8 @@ export interface SessionData {
   welcome_message: string
 }
 
-let cachedSupabaseKey: string | null = null
-
 function getSupabaseAuthToken(): string | null {
-  try {
-    if (cachedSupabaseKey) {
-      const raw = localStorage.getItem(cachedSupabaseKey)
-      if (raw) {
-        const parsed = JSON.parse(raw)
-        const token = parsed?.access_token || parsed?.session?.access_token
-        if (token && typeof token === 'string') return token
-      }
-      cachedSupabaseKey = null
-    }
-
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i)
-      if (key && key.startsWith('sb-') && key.endsWith('-auth-token')) {
-        const raw = localStorage.getItem(key)
-        if (raw) {
-          const parsed = JSON.parse(raw)
-          const token = parsed?.access_token || parsed?.session?.access_token
-          if (token && typeof token === 'string') {
-            cachedSupabaseKey = key
-            return token
-          }
-        }
-      }
-    }
-  } catch {}
-  return null
+  return activeSupabaseToken
 }
 
 export function getAuthHeaders(): Record<string, string> {
@@ -505,6 +495,14 @@ export interface GameLevel {
   high_score: number
   stars: number
   times_played: number
+  last_played?: string | null
+  history?: Array<{
+    score: number
+    stars: number
+    mode?: string
+    streak_max?: number
+    timestamp: string
+  }>
 }
 
 export interface GamesProgressResponse {
@@ -519,6 +517,7 @@ export interface GamesProgressResponse {
 export async function getGamesProgress(studentId: string): Promise<GamesProgressResponse> {
   const { data } = await api.get<GamesProgressResponse>(`/games/progress`, {
     params: { student_id: studentId },
+    headers: getAuthHeaders(),
   })
   return data
 }
@@ -528,13 +527,36 @@ export async function recordGameScore(
   gameId: string,
   score: number,
   stars: number,
+  mode?: string,
+  streakMax?: number,
 ): Promise<GamesProgressResponse> {
-  const { data } = await api.post<GamesProgressResponse>(`/games/score`, {
-    student_id: studentId,
-    game_id: gameId,
-    score,
-    stars,
-  })
+  const { data } = await api.post<GamesProgressResponse>(
+    `/games/score`,
+    {
+      student_id: studentId,
+      game_id: gameId,
+      score,
+      stars,
+      mode: mode || 'blitz',
+      streak_max: streakMax || 0,
+    },
+    { headers: getAuthHeaders() },
+  )
+  return data
+}
+
+export async function resetGameScore(
+  studentId: string,
+  gameId?: string,
+): Promise<GamesProgressResponse> {
+  const { data } = await api.post<GamesProgressResponse>(
+    `/games/reset`,
+    {
+      student_id: studentId,
+      game_id: gameId || null,
+    },
+    { headers: getAuthHeaders() },
+  )
   return data
 }
 

@@ -1,6 +1,6 @@
 """
 Tutor Agent — Socratic dialogue, never gives the answer.
-Uses Gemini 2.0 Flash via LangChain.
+Uses Google Gemini via centralized config.
 """
 # pyright: reportMissingImports=false, reportMissingModuleSource=false
 import os
@@ -8,6 +8,7 @@ import json
 import re
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import BaseMessage, SystemMessage, HumanMessage, AIMessage
+from config import CHAT_MODEL, CHAT_MODEL_CASCADE
 
 
 def _parse_tutor_response(raw: str, fallback_text: str) -> dict:
@@ -92,12 +93,7 @@ FEW_SHOT_EXAMPLES = [
 ]
 
 
-MODEL_CASCADE = [
-    os.environ.get("GEMINI_MODEL", "gemini-3.6-flash"),
-    "gemini-flash-latest",
-    "gemini-3.5-flash",
-    "gemini-3.5-flash-lite",
-]
+MODEL_CASCADE = CHAT_MODEL_CASCADE
 
 
 def build_tutor_llm(model_name: str) -> ChatGoogleGenerativeAI:
@@ -121,10 +117,10 @@ def _intelligent_socratic_fallback(
     
     # Check for common stuck cues
     if any(w in clean for w in ["stuck", "don't know", "dont know", "hint", "help", "what next", "lost"]):
-        if current_problem and current_problem.get("expected_steps"):
-            first_step = current_problem["expected_steps"][0]
-            return f"That's completely okay — let's break it down together! Here's a starting point: {first_step} Can you tell me what information the problem gives us from there?"
-        return "No worries at all, math takes step-by-step thinking! What is the very first number or quantity you see in the problem?"
+        return (
+            "Let's take this one piece at a time. "
+            "What information does the problem give you first?"
+        )
 
     # Check if student gave a number / answer
     has_digit = any(c.isdigit() for c in clean)

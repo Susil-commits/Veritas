@@ -32,3 +32,10 @@ frontend/.vite/
 
 # Supabase local
 .supabase/
+
+# Runtime data stores
+backend/data/*.json
+backend/data/*.tmp
+data/children_store.json
+!backend/data/.gitkeep
+
