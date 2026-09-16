@@ -11,6 +11,7 @@ import './index.css'
 const TutorSession = lazy(() => import('./pages/TutorSession'))
 const Dashboard = lazy(() => import('./pages/Dashboard'))
 const ParentDashboard = lazy(() => import('./pages/ParentDashboard'))
+const MathArcade = lazy(() => import('./pages/MathArcade'))
 
 function HomeOnlyNeoChat() {
   const location = useLocation()
@@ -80,6 +81,15 @@ export default function App() {
                   </ProtectedRoute>
                 }
               />
+              <Route
+                path="/arcade"
+                element={
+                  <ProtectedRoute>
+                    <MathArcade />
+                  </ProtectedRoute>
+                }
+              />
+              <Route path="/games" element={<Navigate to="/arcade" replace />} />
               <Route
                 path="/dashboard/:studentId"
                 element={

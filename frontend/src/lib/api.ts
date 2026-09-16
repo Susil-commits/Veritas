@@ -469,3 +469,51 @@ export async function getNeoSuggestions(): Promise<string[]> {
   }
 }
 
+export interface GameLevel {
+  id: string
+  level: number
+  name: string
+  subtitle: string
+  theme: string
+  skill_required: string
+  skill_name: string
+  unlock_requirement: string
+  description: string
+  is_unlocked: boolean
+  progress_percent: number
+  high_score: number
+  stars: number
+  times_played: number
+}
+
+export interface GamesProgressResponse {
+  student_id: string
+  levels: GameLevel[]
+  total_stars: number
+  total_score: number
+  games_unlocked: number
+  total_games: number
+}
+
+export async function getGamesProgress(studentId: string): Promise<GamesProgressResponse> {
+  const { data } = await api.get<GamesProgressResponse>(`/games/progress`, {
+    params: { student_id: studentId },
+  })
+  return data
+}
+
+export async function recordGameScore(
+  studentId: string,
+  gameId: string,
+  score: number,
+  stars: number,
+): Promise<GamesProgressResponse> {
+  const { data } = await api.post<GamesProgressResponse>(`/games/score`, {
+    student_id: studentId,
+    game_id: gameId,
+    score,
+    stars,
+  })
+  return data
+}
+

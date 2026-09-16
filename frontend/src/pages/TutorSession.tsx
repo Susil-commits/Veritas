@@ -519,6 +519,25 @@ export default function TutorSession() {
             <button
               type="button"
               className="btn btn-ghost"
+              style={{
+                padding: '5px 8px',
+                fontSize: '0.74rem',
+                background: 'rgba(124, 93, 250, 0.15)',
+                border: '1px solid rgba(124, 93, 250, 0.35)',
+                color: 'var(--violet-light, #A78BFA)',
+                fontWeight: 700,
+              }}
+              onClick={() => {
+                stop()
+                navigate('/arcade')
+              }}
+              title="Open Math Arcade games"
+            >
+              🎮 Arcade
+            </button>
+            <button
+              type="button"
+              className="btn btn-ghost"
               style={{ padding: '5px 8px', fontSize: '0.74rem', color: '#F87171' }}
               onClick={() => setShowResetModal(true)}
               aria-label="Reset learning progress and start fresh"
@@ -656,6 +675,25 @@ export default function TutorSession() {
               title="Return to Home Landing Page"
             >
               ← Home
+            </button>
+            <button
+              type="button"
+              className="btn btn-ghost"
+              style={{
+                padding: '5px 10px',
+                fontSize: '0.78rem',
+                background: 'rgba(124, 93, 250, 0.15)',
+                border: '1px solid rgba(124, 93, 250, 0.35)',
+                color: 'var(--violet-light, #A78BFA)',
+                fontWeight: 700,
+              }}
+              onClick={() => {
+                stop()
+                navigate('/arcade')
+              }}
+              title="Open Math Arcade games"
+            >
+              🎮 Math Arcade
             </button>
             <button
               type="button"
@@ -804,19 +842,50 @@ export default function TutorSession() {
             )
           ))}
           {problemSolved && (
-            <div className="problem-solved-banner animate-fadein">
-              <div className="solved-banner-info">
-                <span className="solved-banner-badge">🎉 Problem Solved!</span>
-                <p className="solved-banner-text">Great math thinking! Ready to take on the next challenge?</p>
+            <div className="problem-solved-banner animate-fadein" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', flexWrap: 'wrap', gap: '10px' }}>
+                <div className="solved-banner-info">
+                  <span className="solved-banner-badge">🎉 Problem Solved!</span>
+                  <p className="solved-banner-text">Great math thinking! Ready to take on the next challenge?</p>
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-primary solved-banner-action"
+                  onClick={() => handleNextProblem(true)}
+                  disabled={isLoadingNextProblem}
+                >
+                  {isLoadingNextProblem ? <span className="spinner" /> : 'Next Problem →'}
+                </button>
               </div>
-              <button
-                type="button"
-                className="btn btn-primary solved-banner-action"
-                onClick={() => handleNextProblem(true)}
-                disabled={isLoadingNextProblem}
-              >
-                {isLoadingNextProblem ? <span className="spinner" /> : 'Next Problem →'}
-              </button>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                background: 'rgba(124, 93, 250, 0.12)',
+                border: '1px solid rgba(124, 93, 250, 0.3)',
+                borderRadius: '8px',
+                padding: '8px 14px',
+                width: '100%',
+                gap: '10px',
+                flexWrap: 'wrap',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.86rem', color: 'var(--text-primary)' }}>
+                  <span style={{ fontSize: '1.2rem' }}>🎮</span>
+                  <span><strong>Math Arcade Challenge:</strong> You earned progress toward game unlocks!</span>
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-sm btn-violet"
+                  style={{ fontWeight: 700, padding: '4px 12px', fontSize: '0.8rem' }}
+                  onClick={() => {
+                    stop()
+                    navigate('/arcade')
+                  }}
+                  title="Play unlocked games in Math Arcade"
+                >
+                  Play Arcade 🕹️
+                </button>
+              </div>
             </div>
           )}
           <div ref={chatEndRef} />

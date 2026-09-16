@@ -7,11 +7,68 @@ import os
 import uuid
 import asyncio
 import threading
+import json
+from pathlib import Path
 from collections import OrderedDict
 from typing import Any
 from db.supabase_client import get_supabase
 from bkt.tracker import initialize_mastery, get_next_skill
 from agents.content_agent import get_next_problem
+
+# Persistent storage directory
+DATA_DIR = Path(__file__).resolve().parent / "data"
+DATA_DIR.mkdir(parents=True, exist_ok=True)
+SESSIONS_STORE_PATH = DATA_DIR / "sessions_store.json"
+_disk_lock = threading.Lock()
+
+
+def _load_sessions_from_disk() -> dict[str, Any]:
+    with _disk_lock:
+        if not SESSIONS_STORE_PATH.exists():
+            return {}
+        try:
+            with open(SESSIONS_STORE_PATH, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception as e:
+            print(f"[WARN] SessionManager: Failed to read sessions from disk: {e}")
+            return {}
+
+
+def _write_session_to_disk(session_id: str, state: dict[str, Any]) -> None:
+    with _disk_lock:
+        try:
+            current = {}
+            if SESSIONS_STORE_PATH.exists():
+                try:
+                    with open(SESSIONS_STORE_PATH, "r", encoding="utf-8") as f:
+                        current = json.load(f)
+                except Exception:
+                    current = {}
+            current[session_id] = state
+            # Atomic file write via temp file
+            temp_path = SESSIONS_STORE_PATH.with_suffix(".tmp")
+            with open(temp_path, "w", encoding="utf-8") as f:
+                json.dump(current, f, indent=2)
+            temp_path.replace(SESSIONS_STORE_PATH)
+        except Exception as e:
+            print(f"[WARN] SessionManager: Failed to write session {session_id} to disk: {e}")
+
+
+def _remove_session_from_disk(session_id: str) -> None:
+    with _disk_lock:
+        try:
+            if not SESSIONS_STORE_PATH.exists():
+                return
+            with open(SESSIONS_STORE_PATH, "r", encoding="utf-8") as f:
+                current = json.load(f)
+            if session_id in current:
+                del current[session_id]
+                temp_path = SESSIONS_STORE_PATH.with_suffix(".tmp")
+                with open(temp_path, "w", encoding="utf-8") as f:
+                    json.dump(current, f, indent=2)
+                temp_path.replace(SESSIONS_STORE_PATH)
+        except Exception as e:
+            print(f"[WARN] SessionManager: Failed to remove session {session_id} from disk: {e}")
 
 # Per-session asyncio.Lock registry to serialize concurrent read-modify-write operations
 _session_locks: dict[str, asyncio.Lock] = {}
@@ -79,8 +136,16 @@ class BoundedSessionCache(OrderedDict):
             return list(super().keys())
 
 
-# In-memory session cache with LRU size cap for microsecond response times
+# In-memory session cache pre-seeded from persistent disk storage
 _sessions_cache: BoundedSessionCache = BoundedSessionCache(max_size=MAX_SESSIONS_CACHE_SIZE)
+try:
+    _initial_disk_sessions = _load_sessions_from_disk()
+    for s_id, s_state in _initial_disk_sessions.items():
+        _sessions_cache[s_id] = s_state
+    if _initial_disk_sessions:
+        print(f"[INFO] SessionManager: Rehydrated {len(_initial_disk_sessions)} active sessions from persistent disk store.")
+except Exception as e:
+    print(f"[WARN] SessionManager: Initial disk session rehydration notice: {e}")
 
 
 def _clean_state_for_persistence(state: Any) -> dict[str, Any]:
@@ -96,18 +161,26 @@ def _clean_state_for_persistence(state: Any) -> dict[str, Any]:
 
 def get_session(session_id: str) -> dict[str, Any] | None:
     """
-    Retrieve session state with dual-tier storage:
+    Retrieve session state with multi-tier storage:
     1. In-memory cache hit (0ms).
-    2. Supabase `sessions.state` JSONB restoration on cache miss (e.g. Render redeploy).
-    3. Automatic database rehydration fallback from `sessions` + `session_events` + `student_skill_mastery`.
+    2. Persistent disk store hit (survives worker/server restarts).
+    3. Supabase `sessions.state` JSONB restoration on cache miss.
+    4. Automatic database rehydration fallback from `sessions` + `session_events` + `student_skill_mastery`.
     """
     # 1. Fast in-memory cache lookup
     if session_id in _sessions_cache:
         return _sessions_cache[session_id]
 
+    # 2. Check local disk store
+    disk_sessions = _load_sessions_from_disk()
+    if session_id in disk_sessions:
+        state = disk_sessions[session_id]
+        _sessions_cache[session_id] = state
+        return state
+
     supabase = get_supabase()
 
-    # 2. Query Supabase sessions table
+    # 3. Query Supabase sessions table
     try:
         sess_res = (
             supabase.table("sessions")
@@ -228,29 +301,36 @@ def get_session(session_id: str) -> dict[str, Any] | None:
 
 def save_session(session_id: str, state: Any) -> None:
     """
-    Persist session state in RAM cache and sync to Supabase sessions table.
+    Persist session state in RAM cache, disk store, and sync to Supabase sessions table.
     """
     # 1. Update in-memory cache immediately
     _sessions_cache[session_id] = state
 
-    # 2. Persist to Supabase sessions table
+    # 2. Persist to local disk store (ensures session survives restarts even if DB schema lacks state column)
+    cleaned_state = _clean_state_for_persistence(state)
+    _write_session_to_disk(session_id, cleaned_state)
+
+    # 3. Persist to Supabase sessions table
     try:
         supabase = get_supabase()
-        cleaned_state = _clean_state_for_persistence(state)
         supabase.table("sessions").update({"state": cleaned_state}).eq("id", session_id).execute()
     except Exception as e:
         # If the `state` column is not yet present on remote DB, fallback silently
         err_str = str(e)
         if "PGRST204" in err_str or "state" in err_str:
-            pass  # Migration day 3 not run yet; rehydration fallback handles recovery
+            pass  # Migration day 3 not run yet; disk store and rehydration fallback handle recovery
         else:
             print(f"[WARN] SessionManager: Failed to persist session state to Supabase: {e}")
 
 
 def evict_session(session_id: str) -> None:
-    """Evict session state from RAM cache."""
+    """Evict session state from RAM cache and disk store."""
     try:
         _sessions_cache.pop(session_id, None)
+    except Exception:
+        pass
+    try:
+        _remove_session_from_disk(session_id)
     except Exception:
         pass
 
