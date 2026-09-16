@@ -24,10 +24,13 @@ def _parse_tutor_response(raw: str, fallback_text: str) -> dict:
         data = json.loads(clean_json)
         if not isinstance(data, dict) or not data.get("reply"):
             raise ValueError("Missing reply field")
+        extracted_ans = data.get("extracted_student_answer")
         return {
             "reply": str(data["reply"]).strip(),
             "problem_solved": bool(data.get("problem_solved", False)),
             "is_final_attempt": bool(data["is_final_attempt"]) if "is_final_attempt" in data and data["is_final_attempt"] is not None else None,
+            "extracted_student_answer": str(extracted_ans).strip() if extracted_ans else None,
+            "student_reasoning": str(data.get("student_reasoning", "")).strip() or None,
         }
     except Exception as parse_err:
         print(f"[WARN] Failed to parse tutor JSON: {parse_err}. Raw text: {raw[:150]}")
@@ -43,6 +46,8 @@ def _parse_tutor_response(raw: str, fallback_text: str) -> dict:
             "reply": fallback_text,
             "problem_solved": any(s in resp_lower for s in congrats_signals),
             "is_final_attempt": None,
+            "extracted_student_answer": None,
+            "student_reasoning": None,
         }
 
 
@@ -71,6 +76,8 @@ Remember: Guide, don't tell. Questions, not answers.
 RESPONSE FORMAT: Respond with ONLY a JSON object, no other text, in this exact shape:
 {
   "reply": "<your Socratic response to the student, 1-3 sentences plus a guiding question>",
+  "extracted_student_answer": "<string of student's proposed answer if any, or null if discussing steps/asking questions>",
+  "student_reasoning": "<brief 1-sentence description of student's reasoning/strategy>",
   "problem_solved": <true if the student's final answer to THIS problem is now fully correct and complete, false otherwise — false if they only made partial progress, a good step, or a correct intermediate calculation that isn't the final answer>,
   "is_final_attempt": <true if the student explicitly asserted or proposed a final answer to the problem, false if they are asking a question, discussing intermediate steps, or stuck>
 }

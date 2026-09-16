@@ -104,10 +104,29 @@ def test_exploratory_messages():
     print("   [OK] Exploratory non-attempt questions safely distinguished.")
 
 
+def test_attempt_type_differentiation():
+    print("\n[TEST 6] Testing Pedagogical Attempt-Type Differentiation in BKT...")
+    from bkt.tracker import update_mastery
+
+    initial_m = 0.30
+    skill_id = "4.NF.B.3"
+
+    m_independent = update_mastery(initial_m, True, skill_id, attempt_type="independent_attempt")
+    m_corrected = update_mastery(initial_m, True, skill_id, attempt_type="corrected_after_feedback")
+    m_hinted = update_mastery(initial_m, True, skill_id, attempt_type="hinted_attempt")
+
+    assert m_independent > initial_m, "Independent correct attempt must increase mastery"
+    assert m_corrected > initial_m, "Corrected after feedback must increase mastery"
+    assert m_hinted > initial_m, "Hinted correct attempt must increase mastery"
+    assert m_independent > m_corrected, f"Independent ({m_independent}) should exceed corrected ({m_corrected})"
+    print(f"   [OK] Attempt types verified: Independent={m_independent*100:.1f}%, Hinted={m_hinted*100:.1f}%, Corrected={m_corrected*100:.1f}%.")
+
+
 if __name__ == "__main__":
     test_arithmetic_evaluation()
     test_fraction_and_decimal_equivalence()
     test_mixed_fractions()
     test_algebraic_equations()
     test_exploratory_messages()
+    test_attempt_type_differentiation()
     print("\n=== ALL OBJECTIVE MATH EVALUATOR TESTS PASSED! ===")

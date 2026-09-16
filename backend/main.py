@@ -101,7 +101,7 @@ async def db_exec(query: Any) -> Any:
     return await asyncio.to_thread(query.execute)
 
 
-async def _update_mastery_for_skill(session_state: dict, skill_id: str) -> None:
+async def _update_mastery_for_skill(session_state: dict, skill_id: str, attempt_type: str = "independent_attempt") -> None:
     """Update BKT mastery for a solved skill and persist to Supabase. Safe to call from any async route."""
     if not skill_id:
         return
@@ -115,7 +115,7 @@ async def _update_mastery_for_skill(session_state: dict, skill_id: str) -> None:
 
     session_state["current_problem_credited"] = True
     old_m = session_state.get("mastery_state", {}).get(skill_id, 0.3)
-    new_m = update_mastery(old_m, True, skill_id)
+    new_m = update_mastery(old_m, True, skill_id, attempt_type=attempt_type)
     session_state.setdefault("mastery_state", {})[skill_id] = round(new_m, 4)
     try:
         supabase = get_supabase()

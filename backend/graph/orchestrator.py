@@ -103,14 +103,24 @@ async def tutor_node(state: TutorState) -> dict:
         response = tutor_result.get("reply", "")
         problem_solved = bool(tutor_result.get("problem_solved", False))
         is_final_attempt = tutor_result.get("is_final_attempt")
+        extracted_answer = tutor_result.get("extracted_student_answer")
     else:
         response = str(tutor_result)
         problem_solved = False
         is_final_attempt = None
+        extracted_answer = None
 
     # Deterministic Objective Math Validator: Verify student candidate mathematically
+    # Conceptual path: Student answer -> LLM extracts answer/reasoning -> deterministic math evaluator -> correct/incorrect -> BKT
     if latest_input and current_prob:
-        math_eval = evaluate_student_solution(latest_input, current_prob)
+        # Check extracted answer first, with fallback to full input
+        eval_input = extracted_answer or latest_input
+        math_eval = evaluate_student_solution(eval_input, current_prob)
+        if not math_eval.get("objective_solved") and extracted_answer:
+            raw_eval = evaluate_student_solution(latest_input, current_prob)
+            if raw_eval.get("objective_solved"):
+                math_eval = raw_eval
+
         if math_eval.get("eval_type") != "none":
             if math_eval.get("objective_solved"):
                 problem_solved = True
@@ -140,12 +150,32 @@ async def tutor_node(state: TutorState) -> dict:
 
     steps.append("Problem solved! Ready for next challenge." if problem_solved else "Thinking of a guiding question...")
 
-    # If problem solved, credit mastery
+    # Determine attempt_type:
+    # - "corrected_after_feedback": if previous student turns exist on this problem
+    # - "hinted_attempt": if student message requested a hint
+    # - "independent_attempt": first attempt unassisted
+    student_turns_on_prob = [
+        m for m in conversation_history if m.get("role") == "student"
+    ]
+    is_hint_requested = any("hint" in str(m.get("content", "")).lower() for m in student_turns_on_prob) or ("hint" in latest_input.lower())
+    if is_hint_requested:
+        attempt_type = "hinted_attempt"
+    elif len(student_turns_on_prob) > 0:
+        attempt_type = "corrected_after_feedback"
+    else:
+        attempt_type = "independent_attempt"
+
+    # If problem solved, credit mastery with pedagogical attempt-type weighting
     mastery_state = dict(state.get("mastery_state") or {})
     curr_skill = current_prob.get("skill_id") or state.get("current_skill_id")
     credited = state.get("current_problem_credited", False)
     if problem_solved and curr_skill and not credited:
-        new_m = update_mastery(mastery_state.get(curr_skill, 0.3), True, curr_skill)
+        new_m = update_mastery(
+            current_mastery=mastery_state.get(curr_skill, 0.3),
+            is_correct=True,
+            skill_id=curr_skill,
+            attempt_type=attempt_type,
+        )
         mastery_state[curr_skill] = round(new_m, 4)
         student_id = state.get("student_id")
         if student_id:

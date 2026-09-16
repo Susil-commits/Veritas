@@ -35,15 +35,35 @@ def get_all_skills() -> list[dict]:
     return list(_SKILL_PARAMS.values())
 
 
-def update_mastery(current_mastery: float, is_correct: bool, skill_id: str) -> float:
+VALID_ATTEMPT_TYPES = {
+    "independent_attempt",
+    "corrected_after_feedback",
+    "hinted_attempt",
+}
+
+
+def update_mastery(
+    current_mastery: float,
+    is_correct: bool,
+    skill_id: str,
+    attempt_type: str = "independent_attempt",
+) -> float:
     """
-    BKT update equation.
+    BKT update equation with pedagogical attempt-type differentiation.
 
     Given:
         P(L_t)   = current_mastery (probability student knows the skill)
         P(T)     = learn rate
         P(G)     = guess rate (P(correct | not knowing))
         P(S)     = slip rate  (P(incorrect | knowing))
+        attempt_type = 'independent_attempt' | 'corrected_after_feedback' | 'hinted_attempt'
+
+    Pedagogical semantics:
+    - independent_attempt: Full Bayesian update reflecting independent recall/synthesis.
+    - corrected_after_feedback: Student corrected their response after tutor Socratic feedback.
+      Learning transition applies, but positive likelihood is tempered to reflect assisted mastery.
+    - hinted_attempt: Student used an explicit hint prior to answering.
+      Moderate learning progress without credit for unassisted discovery.
 
     Returns:
         P(L_{t+1}) — updated mastery probability
@@ -60,6 +80,14 @@ def update_mastery(current_mastery: float, is_correct: bool, skill_id: str) -> f
         p_correct_not_knowing = p_g
         p_correct = p_l * p_correct_knowing + (1 - p_l) * p_correct_not_knowing
         p_l_given_obs = (p_l * p_correct_knowing) / p_correct if p_correct > 0 else p_l
+
+        # Pedagogical discount for assisted vs unassisted mastery
+        if attempt_type == "corrected_after_feedback":
+            # Scaffolding assisted the answer: blend 50% posterior jump + learning transition
+            p_l_given_obs = p_l + 0.50 * (p_l_given_obs - p_l)
+        elif attempt_type == "hinted_attempt":
+            # Explicit hint assisted the answer: blend 60% posterior jump
+            p_l_given_obs = p_l + 0.60 * (p_l_given_obs - p_l)
     else:
         # P(L | incorrect) via Bayes
         p_wrong_knowing    = p_s
