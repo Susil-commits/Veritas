@@ -14,11 +14,16 @@ from agents.diagnostic_agent import run_diagnostic_agent
 from agents.content_agent import get_next_problem
 from bkt.tracker import update_mastery, get_next_skill
 from db.supabase_client import get_supabase
+from safety import (
+    SOCRATIC_BOUNDARY_RESPONSE,
+    SAFE_SUPPORT_RESPONSE,
+    is_answer_leaked,
+)
 
 
 # ── State Schema ────────────────────────────────────────────────────────────
 
-class TutorState(TypedDict):
+class TutorState(TypedDict, total=False):
     # Session metadata
     student_id: str
     student_name: str
@@ -44,27 +49,69 @@ class TutorState(TypedDict):
     # Agent output
     agent_response: str
     thinking_steps: list[str]           # streamed to UI for transparency
+    problem_solved: bool
 
-    # Routing
-    next_action: Literal["tutor", "diagnose", "select_problem", "end"] | None
+    # Routing & Safety
+    safety_flag: Literal["harmful", "injection"] | None
+    next_action: Literal["safety", "tutor", "diagnose", "select_problem", "end"] | None
 
 
 # ── Node Functions ───────────────────────────────────────────────────────────
 
+def safety_node(state: TutorState) -> dict:
+    """Safety boundary agent — intercepts harmful or jailbreak prompts with pedagogical redirection."""
+    flag = state.get("safety_flag")
+    if flag == "harmful":
+        response = SAFE_SUPPORT_RESPONSE
+    else:
+        response = SOCRATIC_BOUNDARY_RESPONSE
+
+    steps = list(state.get("thinking_steps") or [])
+    steps.append("Safety shield: intercepted prompt and applied pedagogical boundary")
+
+    history = list(state.get("conversation_history") or [])
+    if state.get("latest_input"):
+        history.append({"role": "student", "content": state.get("latest_input", "")})
+    history.append({"role": "tutor", "content": response})
+
+    return {
+        "agent_response": response,
+        "conversation_history": history,
+        "thinking_steps": steps,
+        "problem_solved": False,
+        "next_action": None,
+    }
+
+
 def tutor_node(state: TutorState) -> dict:
-    """Socratic tutor — responds to student text messages."""
+    """Socratic tutor — responds to student text messages using Socratic inquiry."""
     steps = list(state.get("thinking_steps") or [])
     steps.append("Tutor agent: formulating Socratic response...")
 
     latest_input = state.get("latest_input", "")
     conversation_history = list(state.get("conversation_history") or [])
+    current_prob = state.get("current_problem") or {}
 
     tutor_result = run_tutor_agent(
         student_message=latest_input,
         conversation_history=conversation_history,
-        current_problem=state.get("current_problem"),
+        current_problem=current_prob,
     )
-    response = tutor_result["reply"] if isinstance(tutor_result, dict) else str(tutor_result)
+    if isinstance(tutor_result, dict):
+        response = tutor_result.get("reply", "")
+        problem_solved = bool(tutor_result.get("problem_solved", False))
+    else:
+        response = str(tutor_result)
+        problem_solved = False
+
+    # Secondary safety check: Prevent accidental final answer disclosure
+    prob_ans = current_prob.get("answer") or ""
+    if prob_ans and is_answer_leaked(response, str(prob_ans)):
+        response = (
+            "That's a great direction! Let's pause right before the final calculation: "
+            "what math property explains why this step works?"
+        )
+        problem_solved = False
 
     # Update conversation history
     history = conversation_history + [
@@ -72,12 +119,27 @@ def tutor_node(state: TutorState) -> dict:
         {"role": "tutor", "content": response},
     ]
 
-    steps.append("Tutor response ready")
+    steps.append("Problem solved! Ready for next challenge." if problem_solved else "Thinking of a guiding question...")
+
+    # If problem solved, credit mastery
+    mastery_state = dict(state.get("mastery_state") or {})
+    curr_skill = current_prob.get("skill_id") or state.get("current_skill_id")
+    credited = state.get("current_problem_credited", False)
+    if problem_solved and curr_skill and not credited:
+        new_m = update_mastery(mastery_state.get(curr_skill, 0.3), True, curr_skill)
+        mastery_state[curr_skill] = round(new_m, 4)
+        student_id = state.get("student_id")
+        if student_id:
+            _save_mastery(student_id, curr_skill, new_m)
+        credited = True
 
     return {
         "agent_response": response,
         "conversation_history": history,
         "thinking_steps": steps,
+        "problem_solved": problem_solved,
+        "mastery_state": mastery_state,
+        "current_problem_credited": credited,
         "next_action": None,
     }
 
@@ -185,7 +247,9 @@ def select_problem_node(state: TutorState) -> dict:
 # ── Routing ─────────────────────────────────────────────────────────────────
 
 def entry_router(state: TutorState) -> str:
-    """Route from START to either photo diagnosis or text tutor based on payload."""
+    """Route from START based on safety signals, photo presence, or text message."""
+    if state.get("safety_flag") in ("harmful", "injection"):
+        return "safety"
     if state.get("latest_image_bytes") or state.get("next_action") == "diagnose":
         return "diagnose"
     return "tutor"
@@ -205,9 +269,13 @@ def route(state: TutorState) -> str:
 def build_graph() -> Any:
     builder = StateGraph(TutorState)
 
+    builder.add_node("safety", safety_node)
     builder.add_node("tutor", tutor_node)
     builder.add_node("diagnose", diagnose_node)
     builder.add_node("select_problem", select_problem_node)
+
+    # Safety: always ends (redirection returned to frontend)
+    builder.add_edge("safety", END)
 
     # Tutor: always ends (response returned to frontend)
     builder.add_edge("tutor", END)
@@ -221,8 +289,9 @@ def build_graph() -> Any:
     # Select problem: always ends
     builder.add_edge("select_problem", END)
 
-    # Entry point: dynamic routing based on message vs uploaded photo
+    # Entry point: dynamic routing based on safety signals, uploaded photo, or message
     builder.add_conditional_edges(START, entry_router, {
+        "safety": "safety",
         "tutor": "tutor",
         "diagnose": "diagnose",
     })

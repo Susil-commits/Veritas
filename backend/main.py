@@ -133,10 +133,18 @@ SSE_HEADERS = {
 }
 
 
+def get_orchestrator_graph():
+    """Returns the singleton compiled LangGraph state machine orchestrator, building it on first access."""
+    global _graph
+    if _graph is None:
+        _graph = build_graph()
+    return _graph
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global _graph
-    _graph = build_graph()
+    _graph = get_orchestrator_graph()
     if is_session_secret_configured():
         print("[INFO] Auth: Dedicated SESSION_SECRET_KEY detected and active.")
     else:
@@ -486,9 +494,8 @@ async def send_message(req: MessageRequest):
                 # Emit thinking steps as they happen
                 yield f"data: {json.dumps({'type': 'thinking', 'content': 'Tutor thinking...'})}\n\n"
 
-                thinking_steps = []
-                thinking_steps.append("Reading your thought...")
-                yield f"data: {json.dumps({'type': 'thinking', 'content': thinking_steps[-1]})}\n\n"
+                thinking_step_initial = "Reading your thought..."
+                yield f"data: {json.dumps({'type': 'thinking', 'content': thinking_step_initial})}\n\n"
                 await asyncio.sleep(0.1)
 
                 # Re-fetch latest session state inside lock
@@ -496,46 +503,46 @@ async def send_message(req: MessageRequest):
                 current_state = latest_state or session_state
                 current_prob = current_state.get("current_problem") or {}
 
-                # Route through safety boundary if flagged, otherwise invoke Socratic tutor
-                problem_solved = False
-                if is_harmful:
-                    response = SAFE_SUPPORT_RESPONSE
-                elif is_injection:
-                    response = SOCRATIC_BOUNDARY_RESPONSE
-                else:
-                    tutor_result = await asyncio.to_thread(
-                        run_tutor_agent,
-                        clean_message,
-                        current_state["conversation_history"],
-                        current_prob,
-                    )
-                    response = tutor_result["reply"]
-                    problem_solved = tutor_result["problem_solved"]
+                # Prepare state for LangGraph orchestrator execution
+                safety_flag = "harmful" if is_harmful else ("injection" if is_injection else None)
+                graph_input: TutorState = {
+                    "student_id": current_state.get("student_id", ""),
+                    "student_name": current_state.get("student_name", ""),
+                    "session_id": req.session_id,
+                    "conversation_history": list(current_state.get("conversation_history") or []),
+                    "latest_input": clean_message,
+                    "latest_image_bytes": None,
+                    "current_problem": current_prob,
+                    "current_problem_credited": current_state.get("current_problem_credited", False),
+                    "problems_attempted": list(current_state.get("problems_attempted") or []),
+                    "mastery_state": dict(current_state.get("mastery_state") or {}),
+                    "current_skill_id": current_prob.get("skill_id") or current_state.get("current_skill_id", ""),
+                    "diagnosis": current_state.get("diagnosis"),
+                    "agent_response": "",
+                    "thinking_steps": [thinking_step_initial],
+                    "safety_flag": safety_flag,
+                    "next_action": None,
+                }
 
-                    # Secondary safety check: Prevent accidental final answer disclosure
-                    prob_ans = current_prob.get("answer") or ""
-                    if prob_ans and is_answer_leaked(response, str(prob_ans)):
-                        response = (
-                            "That's a great direction! Let's pause right before the final calculation: "
-                            "what math property explains why this step works?"
-                        )
-                        problem_solved = False
+                # Execute LangGraph state machine orchestrator
+                graph = get_orchestrator_graph()
+                graph_output = await graph.ainvoke(graph_input)
 
-                curr_skill = current_prob.get("skill_id") or current_state.get("current_skill_id")
-                if problem_solved and curr_skill and curr_skill in current_state.get("mastery_state", {}):
-                    await _update_mastery_for_skill(current_state, curr_skill)
+                response = graph_output.get("agent_response", "")
+                problem_solved = bool(graph_output.get("problem_solved", False))
+                steps = graph_output.get("thinking_steps") or []
+                for step_content in steps:
+                    if step_content != thinking_step_initial:
+                        yield f"data: {json.dumps({'type': 'thinking', 'content': step_content})}\n\n"
 
-                thinking_steps.append("Thinking of a guiding question..." if not problem_solved else "Problem solved! Ready for next challenge.")
-                yield f"data: {json.dumps({'type': 'thinking', 'content': thinking_steps[-1]})}\n\n"
-
-                # Update state & persist
+                # Sync back state produced by LangGraph
                 current_state["latest_input"] = clean_message
                 current_state["latest_image_bytes"] = None
-                current_state["conversation_history"] = current_state["conversation_history"] + [
-                    {"role": "student", "content": clean_message},
-                    {"role": "tutor", "content": response},
-                ]
-                current_state["thinking_steps"] = thinking_steps
+                current_state["conversation_history"] = graph_output.get("conversation_history", current_state.get("conversation_history", []))
+                current_state["thinking_steps"] = steps
+                current_state["mastery_state"] = graph_output.get("mastery_state", current_state.get("mastery_state", {}))
+                current_state["current_problem_credited"] = graph_output.get("current_problem_credited", current_state.get("current_problem_credited", False))
+
                 await asyncio.to_thread(save_session, req.session_id, current_state)
                 await asyncio.to_thread(
                     record_session_event,
