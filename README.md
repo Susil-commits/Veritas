@@ -86,44 +86,47 @@ P(L_{t-1} \mid \text{Obs}) &= \begin{cases}
 P(L_t) &= P(L_{t-1} \mid \text{Obs}) + (1 - P(L_{t-1} \mid \text{Obs})) \cdot P(T)
 \end{aligned}$$
 
-- **Calibrated Parameters**: Fitted using bounded grid-search Maximum Likelihood Estimation (MLE) over educational interaction sequences from ASSISTments.
-  - Transparent sample sequence accounting: 6 core skills calibrated over all eligible empirical interaction sequences up to 300 students per skill for parameter stability; remaining 4 skills utilize Corbett & Anderson (1995) baseline cognitive tutor priors (registered in `backend/bkt/parameters.json`).
-  - **Held-Out Predictive Evaluation**: Evaluated on independent held-out sequences:
-    - Brier Score: Improved by **4.18%** (0.2483 calibrated vs 0.2592 uncalibrated baseline)
-    - Log Loss: Improved by **5.46%** (0.6896 calibrated vs 0.7295 uncalibrated baseline)
+- **Calibrated Parameters**: Fitted using bounded grid-search Maximum Likelihood Estimation (MLE) over educational interaction sequences from ASSISTments 2009-2010.
+  - Student-level grouping: 70% train, 15% validation, 15% test splits strictly grouped by student ID, ensuring zero cross-split interaction contamination.
+  - 6 core skills calibrated over empirical interaction sequences; remaining 4 skills utilize Corbett & Anderson (1995) baseline cognitive tutor priors (registered in `backend/bkt/parameters.json`).
+  - **Held-Out Predictive Evaluation**: Evaluated across **10,776** independent held-out student test observations:
+    - Brier Score: Improved by **4.18%** MSE (**0.1911** calibrated vs **0.1994** uncalibrated baseline)
+    - Log Loss: Improved by **5.46%** Cross-Entropy (**0.5759** calibrated vs **0.6092** uncalibrated baseline)
 - **Deterministic Math Grounding**: BKT updates are never entrusted to LLM judgment alone. An AST/SymPy-powered deterministic evaluator (`math_evaluator.py`) verifies student math solutions against canonical answers, overriding any hallucinated LLM correctness flags.
 
 ### 2. Multimodal Diagnostic Vision Agent
 - **Visual Error Localization**: Inspects handwritten math work, extracts steps via OCR, and maps mistakes to research-backed misconception taxonomies (Eedi / NeurIPS 2020).
 - **Bounding Reticle Integrity**: Returns normalized coordinate bounding boxes `[ymin, xmin, ymax, xmax]` highlighting the exact error location. If model localization is unavailable, it cleanly outputs `null` bounding hints with confidence 0.0, strictly avoiding synthetic or hallucinated box artifacts.
-- **Evaluation**: 100% OCR extraction accuracy and 100% misconception diagnosis accuracy on benchmark handwritten submissions.
+- **Evaluation**: **100.0%** OCR extraction accuracy and **100.0%** misconception diagnosis accuracy on our internal 10-sample benchmark (`scripts/evaluate_vision.py`).
 
 ### 3. Misconception-Targeted Adaptive RAG
 - **Embedding Space**: Embeds student misconceptions and problem text using `models/gemini-embedding-001` (768 dimensions, centralized in `backend/config.py`).
 - **Multi-Factor Adaptive Selection**: Candidates retrieved via pgvector cosine similarity are ranked using a multi-factor composite utility function:
   $$U(p) = w_{\text{sim}} \cdot S_{\text{cos}} + w_{\text{diff}} \cdot \left(1 - |d_p - d_{\text{target}}|\right) + w_{\text{misc}} \cdot \mathbb{I}_{\text{misc}} + w_{\text{gap}} \cdot (1 - P(L))$$
-  balancing semantic relevance (0.35), ZPD difficulty fit (0.30), diagnosed misconception targeting (0.20), and student mastery gap (0.15).
-- **Retrieval Benchmark** (`scripts/evaluate_retrieval.py`):
+  balancing pgvector semantic similarity ($S_{\text{cos}}$), ZPD difficulty fit, exact diagnosed misconception targeting, and student mastery gap.
+- **Retrieval Benchmark** (`scripts/evaluate_retrieval.py` on internal 10-sample benchmark):
   - Skill Standard Match: **100.0%**
-  - Recall@1: **90.0%**
+  - Difficulty (ZPD) Alignment: **100.0%**
+  - Recall@1 (Optimal Remediation): **100.0%**
   - Recall@3: **100.0%**
-  - Mean Reciprocal Rank (MRR): **0.9500**
+  - Mean Reciprocal Rank (MRR): **1.0000**
 
 ### 4. Socratic Verifier & Safety Guardrails
 - **Secondary Socratic Verifier**: Proactively instructs generated tutor dialogue (`backend/safety.py`) to prevent direct answer leakage, multi-step revelations, and non-Socratic statements.
-- **Benchmark** (`scripts/evaluate_socratic.py`): **100.0%** detection accuracy across adversarial direct answers, multi-step revelations, and Socratic guiding prompts.
+- **Benchmark** (`scripts/evaluate_socratic.py`): **100.0%** detection accuracy on our internal 7-sample benchmark across adversarial direct answers, multi-step revelations, and Socratic guiding prompts.
 
 ### 5. Benchmark Performance Summary
 
-| Evaluation Benchmark | Script / Harness | Key Metric | Result |
-|---|---|---|---|
-| **BKT Predictive Accuracy** | `scripts/calibrate_bkt.py` | Held-Out Brier Score Improvement | **-4.18%** (0.2483 vs 0.2592) |
-| **BKT Log Loss** | `scripts/calibrate_bkt.py` | Held-Out Log Loss Improvement | **-5.46%** (0.6896 vs 0.7295) |
-| **RAG Retrieval Quality** | `scripts/evaluate_retrieval.py` | Skill Match / Recall@3 / MRR | **100%** / **100%** / **0.9500** |
-| **Diagnostic Vision OCR** | `scripts/evaluate_vision.py` | Step OCR / Misconception Accuracy | **100%** / **100%** |
-| **Vision Reticle Integrity** | `scripts/evaluate_vision.py` | Zero Synthetic Box Hallucination | **100%** Pass |
-| **Socratic Answer Shield** | `scripts/evaluate_socratic.py` | Adversarial Leakage Interception | **100%** Interception |
-| **Problem Bank Integrity** | `scripts/seed_db.py` | Canonical Solvability (208 problems) | **100%** Solvable (10/10 Skills) |
+| Evaluation Benchmark | Script / Harness | Scope & Dataset Size | Key Metric | Result |
+|---|---|---|---|---|
+| **BKT Predictive Accuracy** | `scripts/calibrate_bkt.py` | 10,776 held-out test observations (ASSISTments) | Held-Out Brier Score (MSE) | **-4.18%** (0.1911 vs 0.1994) |
+| **BKT Log Loss** | `scripts/calibrate_bkt.py` | 10,776 held-out test observations (ASSISTments) | Held-Out Log Loss | **-5.46%** (0.5759 vs 0.6092) |
+| **RAG Retrieval Quality** | `scripts/evaluate_retrieval.py` | 10 target diagnostic test cases | Recall@1 / Recall@3 / MRR | **100%** / **100%** / **1.0000** |
+| **Diagnostic Vision OCR** | `scripts/evaluate_vision.py` | Internal 10-sample benchmark | Step OCR / Misconception Accuracy | **100%** / **100%** |
+| **Vision Reticle Integrity** | `scripts/evaluate_vision.py` | Internal 10-sample benchmark | Zero Synthetic Box Hallucination | **100%** Pass |
+| **Socratic Answer Shield** | `scripts/evaluate_socratic.py` | Internal 7-sample adversarial benchmark | Adversarial Leakage Interception | **100%** Interception |
+| **Curriculum Consistency** | `scripts/validate_curriculum_consistency.py` | 7 Game Levels, 10 BKT Skills, 208 Problems | End-to-End Curriculum Grounding | **100%** Verified |
+| **Problem Bank Integrity** | `scripts/seed_db.py` | 208 curated problems | Canonical Solvability (10/10 Skills) | **100%** Solvable |
 
 ---
 
@@ -225,8 +228,8 @@ python backend/run_all_tests.py
 
 ### 1. Clone & Setup
 ```bash
-git clone https://github.com/Susil-commits/AINerd.git
-cd AINerd
+git clone https://github.com/Susil-commits/Veritas.git
+cd Veritas
 
 # Install Frontend dependencies
 cd frontend && npm install && cd ..

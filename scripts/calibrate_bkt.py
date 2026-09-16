@@ -37,7 +37,12 @@ def split_sequences(
     val_ratio: float = 0.15,
     test_ratio: float = 0.15,
 ) -> tuple[list[list[int]], list[list[int]], list[list[int]]]:
-    """Split response sequences into deterministic train (70%), validation (15%), and held-out test (15%) splits."""
+    """
+    Student-level split: 70% Train, 15% Validation, 15% Held-out Test.
+    Each element in `sequences` is the complete chronological response history of ONE distinct student.
+    Grouping by student sequence guarantees that no individual interactions from the same student
+    are split across train and test sets.
+    """
     n = len(sequences)
     n_train = int(n * train_ratio)
     n_val = int(n * val_ratio)
