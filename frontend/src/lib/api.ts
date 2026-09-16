@@ -240,7 +240,7 @@ export async function deleteParentData(parentId: string): Promise<{
 
 export async function fetchNextProblem(
   sessionId: string,
-  markPreviousCorrect: boolean = true,
+  markPreviousCorrect: boolean = false,
 ): Promise<{
   status: string
   current_problem: Problem
@@ -252,6 +252,21 @@ export async function fetchNextProblem(
     {
       session_id: sessionId,
       mark_previous_correct: markPreviousCorrect,
+    },
+    { headers: getAuthHeaders() },
+  )
+  return data
+}
+
+export async function resetSession(
+  studentId: string,
+  sessionId?: string,
+): Promise<SessionData> {
+  const { data } = await api.post<SessionData>(
+    '/session/reset',
+    {
+      student_id: studentId,
+      session_id: sessionId,
     },
     { headers: getAuthHeaders() },
   )

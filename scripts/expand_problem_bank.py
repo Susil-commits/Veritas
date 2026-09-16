@@ -162,7 +162,7 @@ def main():
             steps = clean_gsm8k_steps(a)
             if len(steps) >= 2:
                 prob = {
-                    "title": f"GSM8K: {title}",
+                    "title": title,
                     "text": q,
                     "skill_id": skill_id,
                     "difficulty": diff,

@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react'
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import Landing from './pages/Landing'
 import ShiningDots from './components/ShiningDots'
 import NeoChat from './components/NeoChat'
@@ -11,6 +11,12 @@ import './index.css'
 const TutorSession = lazy(() => import('./pages/TutorSession'))
 const Dashboard = lazy(() => import('./pages/Dashboard'))
 const ParentDashboard = lazy(() => import('./pages/ParentDashboard'))
+
+function HomeOnlyNeoChat() {
+  const location = useLocation()
+  if (location.pathname !== '/') return null
+  return <NeoChat />
+}
 
 function PageFallback() {
   return (
@@ -85,7 +91,7 @@ export default function App() {
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </Suspense>
-          <NeoChat />
+          <HomeOnlyNeoChat />
         </AuthProvider>
       </BrowserRouter>
     </ThemeProvider>

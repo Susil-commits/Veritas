@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { streamMessage, startSession, fetchNextProblem } from '../lib/api'
+import { streamMessage, startSession, fetchNextProblem, resetSession } from '../lib/api'
 import { useSpeechInput, useTTS } from '../hooks/useVoice'
 import { useAuth } from '../context/AuthContext'
 import WorkUpload from '../components/WorkUpload'
@@ -17,6 +17,11 @@ interface Message {
   role: 'student' | 'tutor' | 'system'
   content: string
   timestamp: Date
+}
+
+function cleanProblemTitle(title?: string): string {
+  if (!title) return ''
+  return title.replace(/^GSM8K:\s*/i, '').trim()
 }
 
 function formatSkillName(id: string): string {
@@ -86,6 +91,9 @@ export default function TutorSession() {
   const [sessionError, setSessionError] = useState<string | null>(null)
   const [sessionRetryCount, setSessionRetryCount] = useState(0)
   const [mobileTab, setMobileTab] = useState<'chat' | 'problem' | 'progress'>('chat')
+  const [showResetModal, setShowResetModal] = useState(false)
+  const [isResetting, setIsResetting] = useState(false)
+  const [copiedCode, setCopiedCode] = useState(false)
   const chatEndRef = useRef<HTMLDivElement>(null)
 
   const { isSpeaking, speak, stop } = useTTS()
@@ -96,6 +104,41 @@ export default function TutorSession() {
   const { isListening, interimText, startListening, stopListening, isSupported } = useSpeechInput(
     (text) => { setInput(text) }
   )
+
+  const handleCopyCode = useCallback(() => {
+    const code = session?.student_id || ''
+    if (!code) return
+    navigator.clipboard.writeText(code)
+    setCopiedCode(true)
+    setTimeout(() => setCopiedCode(false), 2000)
+  }, [session?.student_id])
+
+  const handleResetProgress = useCallback(async () => {
+    if (!session?.student_id) return
+    setIsResetting(true)
+    try {
+      const fresh = await resetSession(session.student_id, session.session_id)
+      if (session?.session_id) {
+        sessionStorage.removeItem(`veritas_chat_${session.session_id}`)
+      }
+      sessionStorage.setItem('session', JSON.stringify(fresh))
+      setSession(fresh)
+      setCurrentProblem(fresh.current_problem)
+      setMasteryState(fresh.mastery_state || {})
+      setProblemSolved(false)
+      setMessages([
+        { role: 'system', content: `Progress reset for ${fresh.student_name}`, timestamp: new Date() },
+        { role: 'tutor', content: fresh.welcome_message, timestamp: new Date() },
+      ])
+      setShowResetModal(false)
+      stableSpeak(fresh.welcome_message)
+    } catch (err) {
+      console.error('Failed to reset session:', err)
+      alert('Could not reset progress right now. Please try again.')
+    } finally {
+      setIsResetting(false)
+    }
+  }, [session?.student_id, session?.session_id, stableSpeak])
 
   const [warmupBadge, setWarmupBadge] = useState<{ score: number; total: number } | null>(() => {
     try {
@@ -237,7 +280,15 @@ export default function TutorSession() {
         })
       },
       (newMastery, solved) => {
-        if (newMastery && Object.keys(newMastery).length) setMasteryState(newMastery)
+        if (newMastery && Object.keys(newMastery).length) {
+          setMasteryState(newMastery)
+          setSession(prev => {
+            if (!prev) return prev
+            const updated = { ...prev, mastery_state: newMastery }
+            sessionStorage.setItem('session', JSON.stringify(updated))
+            return updated
+          })
+        }
         if (solved) setProblemSolved(true)
         setIsStreaming(false)
         if (responseAcc) stableSpeak(responseAcc)
@@ -279,7 +330,15 @@ export default function TutorSession() {
         })
       },
       (newMastery, solved) => {
-        if (newMastery && Object.keys(newMastery).length) setMasteryState(newMastery)
+        if (newMastery && Object.keys(newMastery).length) {
+          setMasteryState(newMastery)
+          setSession(prev => {
+            if (!prev) return prev
+            const updated = { ...prev, mastery_state: newMastery }
+            sessionStorage.setItem('session', JSON.stringify(updated))
+            return updated
+          })
+        }
         if (solved) setProblemSolved(true)
         setIsStreaming(false)
         if (responseAcc) stableSpeak(responseAcc)
@@ -296,15 +355,23 @@ export default function TutorSession() {
     )
   }, [session, isStreaming, stableSpeak])
 
-  const handleNextProblem = useCallback(async (markCorrect: boolean = true) => {
+  const handleNextProblem = useCallback(async (markCorrect?: boolean) => {
     if (!session?.session_id || isLoadingNextProblem) return
     setIsLoadingNextProblem(true)
+    const shouldCredit = typeof markCorrect === 'boolean' ? markCorrect : problemSolved
     try {
-      const res = await fetchNextProblem(session.session_id, markCorrect)
+      const res = await fetchNextProblem(session.session_id, shouldCredit)
       if (res && res.current_problem) {
         setCurrentProblem(res.current_problem)
         setMasteryState(res.mastery_state || {})
         setProblemSolved(false)
+        const updatedSession: SessionData = {
+          ...session,
+          current_problem: res.current_problem,
+          mastery_state: res.mastery_state || session.mastery_state,
+        }
+        setSession(updatedSession)
+        sessionStorage.setItem('session', JSON.stringify(updatedSession))
         const tutorMsg: Message = {
           role: 'tutor',
           content: res.tutor_message,
@@ -318,13 +385,22 @@ export default function TutorSession() {
     } finally {
       setIsLoadingNextProblem(false)
     }
-  }, [session?.session_id, isLoadingNextProblem, stableSpeak])
+  }, [session, isLoadingNextProblem, problemSolved, stableSpeak])
 
   const handleDiagnosis = (d: Diagnosis, mastery: Record<string, number>, next: Problem | null) => {
     setMasteryState(mastery)
     if (next) {
       setCurrentProblem(next)
       setProblemSolved(false)
+    }
+    if (session) {
+      const updatedSession: SessionData = {
+        ...session,
+        current_problem: next || session.current_problem,
+        mastery_state: mastery,
+      }
+      setSession(updatedSession)
+      sessionStorage.setItem('session', JSON.stringify(updatedSession))
     }
     const tutorMsg: Message = { role: 'tutor', content: d.corrective_question, timestamp: new Date() }
     setMessages(prev => [...prev, tutorMsg])
@@ -399,19 +475,30 @@ export default function TutorSession() {
       <div className="session-mobile-nav">
         <div className="session-header-mini session-header-mini--mobile">
           <div className="session-header-top-row">
-            <div
-              style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
-              onClick={() => setShowAvatarModal(true)}
-              title="Change profile picture"
-            >
-              <UserAvatar
-                avatar={avatar}
-                name={session.student_name}
-                role={role}
-                size="sm"
-                showEditBadge={true}
-              />
-              <span className="badge badge-violet">{session.student_name}</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              <div
+                style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
+                onClick={() => setShowAvatarModal(true)}
+                title="Change profile picture"
+              >
+                <UserAvatar
+                  avatar={avatar}
+                  name={session.student_name}
+                  role={role}
+                  size="sm"
+                  showEditBadge={true}
+                />
+                <span className="badge badge-violet">{session.student_name}</span>
+              </div>
+              <button
+                type="button"
+                onClick={handleCopyCode}
+                className="badge badge-amber"
+                style={{ cursor: 'pointer', border: 'none', background: 'rgba(245, 158, 11, 0.15)', color: 'var(--amber, #F59E0B)', display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '2px 8px', fontSize: '0.72rem' }}
+                title="Click to copy your Student ID code for your parents to link your account in their portal"
+              >
+                <span>{copiedCode ? '✓ Copied' : `Code: ${session.student_id ? session.student_id.slice(0, 8) : ''}… 📋`}</span>
+              </button>
             </div>
             <ThemeToggle />
           </div>
@@ -428,6 +515,16 @@ export default function TutorSession() {
               title="Return to Home Landing Page"
             >
               ← Home
+            </button>
+            <button
+              type="button"
+              className="btn btn-ghost"
+              style={{ padding: '5px 8px', fontSize: '0.74rem', color: '#F87171' }}
+              onClick={() => setShowResetModal(true)}
+              aria-label="Reset learning progress and start fresh"
+              title="Reset all practice progress and skill mastery back to problem 1"
+            >
+              🔄 Reset
             </button>
             {role === 'parent' && (
               <button
@@ -519,19 +616,30 @@ export default function TutorSession() {
       <aside className={`session-sidebar ${mobileTab !== 'problem' ? 'mobile-hidden' : ''}`}>
         <div className="session-header-mini session-header-mini--desktop">
           <div className="session-header-top-row">
-            <div
-              style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
-              onClick={() => setShowAvatarModal(true)}
-              title="Change profile picture"
-            >
-              <UserAvatar
-                avatar={avatar}
-                name={session.student_name}
-                role={role}
-                size="sm"
-                showEditBadge={true}
-              />
-              <span className="badge badge-violet">{session.student_name}</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              <div
+                style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
+                onClick={() => setShowAvatarModal(true)}
+                title="Change profile picture"
+              >
+                <UserAvatar
+                  avatar={avatar}
+                  name={session.student_name}
+                  role={role}
+                  size="sm"
+                  showEditBadge={true}
+                />
+                <span className="badge badge-violet">{session.student_name}</span>
+              </div>
+              <button
+                type="button"
+                onClick={handleCopyCode}
+                className="badge badge-amber"
+                style={{ cursor: 'pointer', border: 'none', background: 'rgba(245, 158, 11, 0.15)', color: 'var(--amber, #F59E0B)', display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '2px 8px', fontSize: '0.74rem' }}
+                title="Click to copy your Student ID code for your parents to link your account in their portal"
+              >
+                <span>{copiedCode ? '✓ Copied' : `Code: ${session.student_id ? session.student_id.slice(0, 8) : ''}… 📋`}</span>
+              </button>
             </div>
             <ThemeToggle />
           </div>
@@ -548,6 +656,16 @@ export default function TutorSession() {
               title="Return to Home Landing Page"
             >
               ← Home
+            </button>
+            <button
+              type="button"
+              className="btn btn-ghost"
+              style={{ padding: '5px 10px', fontSize: '0.78rem', color: '#F87171' }}
+              onClick={() => setShowResetModal(true)}
+              aria-label="Reset learning progress and start fresh"
+              title="Reset all practice progress and skill mastery back to problem 1"
+            >
+              🔄 Reset Progress
             </button>
             {role === 'parent' && (
               <button
@@ -613,14 +731,14 @@ export default function TutorSession() {
                 ))}
               </span>
             </div>
-            <h3>{currentProblem.title}</h3>
+            <h3>{cleanProblemTitle(currentProblem.title)}</h3>
             <p className="problem-text">{currentProblem.text}</p>
             
             <div className="problem-card-actions">
               <button
                 type="button"
                 className="btn btn-primary problem-action-btn"
-                onClick={() => handleNextProblem(true)}
+                onClick={() => handleNextProblem(problemSolved)}
                 disabled={isLoadingNextProblem || isStreaming}
                 title="Advance to the next tailored practice problem"
               >
@@ -663,7 +781,7 @@ export default function TutorSession() {
           <div className="mobile-problem-banner" onClick={() => setMobileTab('problem')}>
             <div className="mobile-problem-banner-left">
               <span className="badge badge-amber">{formatSkillName(currentProblem.skill_id)}</span>
-              <span className="mobile-problem-banner-title">{currentProblem.title}</span>
+              <span className="mobile-problem-banner-title">{cleanProblemTitle(currentProblem.title)}</span>
             </div>
             <span className="mobile-problem-banner-action">View Work & Camera →</span>
           </div>
@@ -730,7 +848,7 @@ export default function TutorSession() {
             </button>
             <button
               className="btn-advance-problem"
-              onClick={() => handleNextProblem(true)}
+              onClick={() => handleNextProblem(problemSolved)}
               disabled={isStreaming || isLoadingNextProblem}
               aria-label="Move to next problem"
               title="Ready for the next problem"
@@ -836,6 +954,63 @@ export default function TutorSession() {
         name={session?.student_name || user?.user_metadata?.name}
         role={role}
       />
+
+      {showResetModal && (
+        <div
+          className="modal-backdrop animate-fadein"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0, 0, 0, 0.75)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            padding: '1rem',
+          }}
+        >
+          <div
+            className="card"
+            style={{
+              maxWidth: '440px',
+              width: '100%',
+              background: 'var(--card-bg, #1e1e2f)',
+              border: '1px solid rgba(239, 68, 68, 0.4)',
+              borderRadius: '16px',
+              padding: '24px',
+              boxShadow: '0 12px 36px rgba(0,0,0,0.6)',
+              textAlign: 'center',
+            }}
+          >
+            <div style={{ fontSize: '2.4rem', marginBottom: '12px' }}>🔄</div>
+            <h3 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '8px', color: 'var(--text-primary)' }}>
+              Reset Practice Progress?
+            </h3>
+            <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: '20px' }}>
+              This will reset your BKT skill mastery back to baseline (30%), clear your current conversation, and start fresh from problem 1.
+            </p>
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                onClick={() => setShowResetModal(false)}
+                disabled={isResetting}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn"
+                style={{ background: '#DC2626', color: '#FFFFFF', border: 'none', fontWeight: 600, padding: '8px 16px', borderRadius: '8px' }}
+                onClick={handleResetProgress}
+                disabled={isResetting}
+              >
+                {isResetting ? 'Resetting…' : 'Yes, Reset Progress'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

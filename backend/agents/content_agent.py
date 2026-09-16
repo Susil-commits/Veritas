@@ -4,6 +4,7 @@ Picks the NEXT problem targeted at the student's diagnosed skill gap.
 """
 # pyright: reportMissingImports=false
 import os
+import re
 import json
 import uuid
 from pathlib import Path
@@ -67,10 +68,12 @@ def _get_local_fallback_problem(skill_id: str, exclude_ids: set[str]) -> dict | 
 
 
 def _enrich_problem(prob: dict | None) -> dict | None:
-    """Enrich problem dict with human-readable skill_name based on skill_id."""
+    """Enrich problem dict with human-readable skill_name based on skill_id and strip dataset tags."""
     if not prob:
         return None
     p = dict(prob)
+    if "title" in p and isinstance(p["title"], str):
+        p["title"] = re.sub(r"^GSM8K:\s*", "", p["title"], flags=re.IGNORECASE).strip()
     s_id = p.get("skill_id", "")
     try:
         params = get_skill_params(s_id)
@@ -133,7 +136,7 @@ def get_next_problem(
             # Prioritize candidates within the target difficulty range
             in_range = [p for p in fresh_candidates if min_diff <= p.get("difficulty", 1) <= max_diff]
             chosen = in_range[0] if in_range else fresh_candidates[0]
-            return chosen
+            return _enrich_problem(chosen)
     except Exception as e:
         print(f"[WARN] pgvector match_problems RPC skipped/failed ({e}), falling back to direct SQL query.")
 

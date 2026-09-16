@@ -201,15 +201,18 @@ export default function ParentDashboard() {
 
   const handleAddChild = (e: React.FormEvent) => {
     e.preventDefault()
-    const trimmedEmail = newChildEmail.trim()
-    if (!trimmedEmail) {
-      setAddError("Please enter your child's email address.")
+    const trimmedInput = newChildEmail.trim()
+    if (!trimmedInput) {
+      setAddError("Please enter your child's email address or Student Code.")
       return
     }
-    const emailVal = validateEmailFormat(trimmedEmail)
-    if (!emailVal.valid) {
-      setAddError(emailVal.reason || "Please enter a valid email address.")
-      return
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(trimmedInput)
+    if (!isUuid) {
+      const emailVal = validateEmailFormat(trimmedInput)
+      if (!emailVal.valid) {
+        setAddError(emailVal.reason || "Please enter a valid email address or 36-character Student Code.")
+        return
+      }
     }
     if (newChildName.trim()) {
       const nameVal = validateNameFormat(newChildName)
@@ -220,7 +223,7 @@ export default function ParentDashboard() {
     }
     setAddingChild(true)
     setAddError('')
-    addChild(parentId, trimmedEmail, newChildName.trim(), parentEmail)
+    addChild(parentId, trimmedInput, newChildName.trim(), parentEmail)
       .then((res) => {
         setShowAddModal(false)
         setNewChildEmail('')
@@ -664,17 +667,16 @@ export default function ParentDashboard() {
             </div>
 
             <p className="modal-sub">
-              Enter your child's email address. Once linked, their practice sessions and skill mastery will sync to
-              your dashboard in real-time.
+              Enter your child's student email address or their unique Student Code (found in their math practice header). Once linked, their live learning journey and skill mastery will sync directly to your radar in real-time.
             </p>
 
             <form onSubmit={handleAddChild} className="add-child-form">
               <div className="form-group">
-                <label>Child's Email Address *</label>
+                <label>Child's Email or Student Code *</label>
                 <input
-                  type="email"
+                  type="text"
                   className="input modal-input"
-                  placeholder="e.g. student.alex@veritas.dev"
+                  placeholder="e.g. alex@example.com or paste Student Code"
                   value={newChildEmail}
                   onChange={(e) => {
                     setNewChildEmail(e.target.value)

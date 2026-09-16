@@ -247,6 +247,14 @@ def save_session(session_id: str, state: Any) -> None:
             print(f"[WARN] SessionManager: Failed to persist session state to Supabase: {e}")
 
 
+def evict_session(session_id: str) -> None:
+    """Evict session state from RAM cache."""
+    try:
+        _sessions_cache.pop(session_id, None)
+    except Exception:
+        pass
+
+
 def record_session_event(
     session_id: str,
     student_id: str,

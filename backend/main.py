@@ -78,6 +78,7 @@ from postgrest.base_request_builder import CountMethod
 from session_manager import (
     get_session,
     save_session,
+    evict_session,
     record_session_event,
     get_all_active_session_ids,
     get_session_lock,
@@ -248,7 +249,12 @@ class NeoChatRequest(BaseModel):
 
 class NextProblemRequest(BaseModel):
     session_id: str
-    mark_previous_correct: bool = True
+    mark_previous_correct: bool = False
+
+
+class ResetSessionRequest(BaseModel):
+    student_id: str
+    session_id: str | None = None
 
 
 # ── Routes ───────────────────────────────────────────────────────────────────
@@ -388,6 +394,39 @@ async def start_session(req: StartSessionRequest):
     for row in (mastery_rows.data or []):
         mastery_state[row["skill_id"]] = row["mastery_prob"]
 
+    # 3. Check if student already has a recent active session to resume
+    if req.student_id and student_id:
+        try:
+            recent_sess = await db_exec(
+                supabase.table("sessions")
+                .select("id, student_name")
+                .eq("student_id", student_id)
+                .order("started_at", desc=True)
+                .limit(1)
+            )
+            if recent_sess.data and len(recent_sess.data) > 0:
+                existing_session_id = recent_sess.data[0]["id"]
+                existing_state = await asyncio.to_thread(get_session, existing_session_id)
+                if existing_state and existing_state.get("current_problem"):
+                    session_token = create_session_token(
+                        student_id=student_id,
+                        session_id=existing_session_id,
+                        student_name=existing_state.get("student_name", req.student_name),
+                    )
+                    prob_title = existing_state["current_problem"].get("title", "your current problem")
+                    return {
+                        "session_id": existing_session_id,
+                        "student_id": student_id,
+                        "student_name": existing_state.get("student_name", req.student_name),
+                        "session_token": session_token,
+                        "current_problem": existing_state["current_problem"],
+                        "mastery_state": existing_state.get("mastery_state", mastery_state),
+                        "welcome_message": f"Welcome back, {req.student_name}! Picking up right where we left off with **{prob_title}**. Let's keep solving!",
+                        "resumed": True,
+                    }
+        except Exception as e:
+            print(f"[WARN] Session resume lookup fallback: {e}")
+
     # Create session record
     session_id = str(uuid.uuid4())
     try:
@@ -446,6 +485,110 @@ async def start_session(req: StartSessionRequest):
         "current_problem": problem,
         "mastery_state": mastery_state,
         "welcome_message": f"Hi {req.student_name}! I'm your math tutor. Let's start with this problem. Read it carefully, then tell me what you think the first step is!",
+    }
+
+
+@app.post("/session/reset")
+async def reset_session_endpoint(req: ResetSessionRequest):
+    """
+    Reset student's practice session and skill mastery back to initial priors.
+    Clears cached session state and Supabase student_skill_mastery, returning fresh problem #1.
+    """
+    try:
+        uuid.UUID(req.student_id)
+    except (ValueError, AttributeError):
+        raise HTTPException(422, "Invalid student_id: Must be a valid UUID format.")
+
+    supabase = get_supabase()
+
+    # 1. Reset student skill mastery in database back to baseline
+    try:
+        await db_exec(
+            supabase.table("student_skill_mastery")
+            .delete()
+            .eq("student_id", req.student_id)
+        )
+    except Exception as e:
+        print(f"[WARN] Failed to delete student_skill_mastery on reset: {e}")
+
+    # 2. Invalidate / evict session from RAM cache
+    if req.session_id:
+        evict_session(req.session_id)
+
+    # 3. Create fresh mastery priors (all skills 0.3)
+    fresh_mastery = initialize_mastery()
+
+    # 4. Fetch student name
+    student_name = "Student"
+    try:
+        st_row = await db_exec(
+            supabase.table("students")
+            .select("name")
+            .eq("id", req.student_id)
+            .limit(1)
+        )
+        if st_row.data:
+            student_name = st_row.data[0].get("name") or "Student"
+    except Exception:
+        pass
+
+    # 5. Create new session in database
+    new_session_id = str(uuid.uuid4())
+    try:
+        await db_exec(supabase.table("sessions").insert({
+            "id": new_session_id,
+            "student_id": req.student_id,
+            "student_name": student_name,
+        }))
+    except Exception as e:
+        print(f"[WARN] Error inserting new reset session: {e}")
+
+    # 6. Pick first problem fresh
+    first_skill = get_next_skill(fresh_mastery)
+    first_prob = await asyncio.to_thread(
+        get_next_problem,
+        skill_id=first_skill,
+        mastery_prob=fresh_mastery.get(first_skill, 0.3),
+        student_id=req.student_id,
+        exclude_problem_ids=[],
+    )
+    if not first_prob:
+        raise HTTPException(503, "No problems available in problem bank.")
+
+    session_token = create_session_token(
+        student_id=req.student_id,
+        session_id=new_session_id,
+        student_name=student_name,
+    )
+
+    fresh_state: TutorState = {
+        "student_id": req.student_id,
+        "student_name": student_name,
+        "session_id": new_session_id,
+        "conversation_history": [],
+        "latest_input": "",
+        "latest_image_bytes": None,
+        "current_problem": first_prob,
+        "current_problem_credited": False,
+        "problems_attempted": [first_prob["id"]],
+        "mastery_state": fresh_mastery,
+        "current_skill_id": first_skill,
+        "diagnosis": None,
+        "agent_response": "",
+        "thinking_steps": [],
+        "next_action": None,
+    }
+    await asyncio.to_thread(save_session, new_session_id, fresh_state)
+
+    return {
+        "session_id": new_session_id,
+        "student_id": req.student_id,
+        "student_name": student_name,
+        "session_token": session_token,
+        "current_problem": first_prob,
+        "mastery_state": fresh_mastery,
+        "welcome_message": f"Welcome fresh, {student_name}! We've reset your practice session and mastery. Let's start from problem 1. Read it carefully and share your first thoughts!",
+        "resumed": False,
     }
 
 
@@ -602,9 +745,10 @@ async def next_problem_endpoint(req: NextProblemRequest):
         current_prob = session_state.get("current_problem") or {}
         curr_skill = current_prob.get("skill_id") or session_state.get("current_skill_id")
 
-        # 1. Update BKT mastery if previous problem was solved / completed
+        # 1. Update BKT mastery ONLY if previous problem was solved / completed
         if req.mark_previous_correct and curr_skill and curr_skill in session_state.get("mastery_state", {}):
-            await _update_mastery_for_skill(session_state, curr_skill)
+            if not session_state.get("current_problem_credited", False):
+                await _update_mastery_for_skill(session_state, curr_skill)
 
         # 2. Pick next problem targeted by skill and difficulty
         next_skill = get_next_skill(session_state.get("mastery_state", {}))
@@ -639,10 +783,17 @@ async def next_problem_endpoint(req: NextProblemRequest):
             attempted.append(next_prob["id"])
         session_state["problems_attempted"] = attempted
 
-        tutor_intro = (
-            f"Awesome work! Here is your next problem: **{next_prob.get('title', 'Next Problem')}**. "
-            f"Read it carefully and let me know what you think the first step is!"
-        )
+        problem_title = next_prob.get("title", "Next Problem")
+        if req.mark_previous_correct:
+            tutor_intro = (
+                f"Awesome work! Here is your next problem: **{problem_title}**. "
+                f"Read it carefully and let me know what you think the first step is!"
+            )
+        else:
+            tutor_intro = (
+                f"Here is your next practice problem: **{problem_title}**. "
+                f"Take a moment to read it and share what you think we should do first!"
+            )
         session_state["conversation_history"].append({"role": "tutor", "content": tutor_intro})
 
         await asyncio.to_thread(save_session, req.session_id, session_state)
@@ -1006,22 +1157,45 @@ async def add_child(
     except (ValueError, AttributeError):
         raise HTTPException(422, "Invalid parent_id: Must be a valid UUID format.")
 
-    email_clean = req.child_email.strip().lower()
-    if not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", email_clean):
-        raise HTTPException(422, "Please enter a valid email address format.")
+    input_identifier = req.child_email.strip()
+    is_uuid = False
+    try:
+        uuid.UUID(input_identifier)
+        is_uuid = True
+    except (ValueError, AttributeError):
+        is_uuid = False
 
-    if req.parent_email and req.parent_email.strip().lower() == email_clean:
+    is_email = bool(re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", input_identifier.lower()))
+
+    if not is_uuid and not is_email:
+        raise HTTPException(422, "Please enter a valid student email address or student ID code.")
+
+    email_clean = input_identifier.lower() if is_email else None
+    if is_email and req.parent_email and req.parent_email.strip().lower() == email_clean:
         raise HTTPException(400, "A parent cannot link their own email as a child account.")
 
     # Rate limiting protection
     limiter.enforce_cooldown(f"parent_add_{req.parent_id}", cooldown_seconds=0.5, action="add child", max_per_minute=20)
 
     supabase = get_supabase()
-    student_id = req.student_id
-    student_name = req.child_name or email_clean.split("@")[0].capitalize()
+    student_id = req.student_id or (input_identifier if is_uuid else None)
+    student_name = req.child_name or (email_clean.split("@")[0].capitalize() if email_clean else "Student")
 
-    # 1. First search in students table (fast indexed lookup)
-    if not student_id:
+    # 1. Search in students table (by ID if UUID, or by email)
+    if student_id and is_uuid:
+        try:
+            found = await db_exec(
+                supabase.table("students")
+                .select("*")
+                .eq("id", student_id)
+                .limit(1)
+            )
+            if found.data:
+                student_name = found.data[0].get("name") or student_name
+                email_clean = found.data[0].get("email") or email_clean or f"student_{student_id[:8]}@veritas.math"
+        except Exception as e:
+            print(f"[DEBUG] Search student by id: {e}")
+    elif not student_id and email_clean:
         try:
             found = await db_exec(
                 supabase.table("students")
