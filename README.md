@@ -307,15 +307,3 @@ uvicorn main:app --reload --port 8000
 # Terminal 2 — Frontend
 cd frontend
 npm run dev
-```
-
----
-
-## 📌 Known Limitations & Post-Hackathon Roadmap
-
-- **Worker Concurrency & Distributed State**: In the current hackathon deployment, session state is managed via single-process asynchronous FastAPI workers backed by an in-memory cache with dual write-through to Supabase `sessions.state` JSONB / event tables and a persistent local disk cache (`sessions_store.json`). For horizontally autoscaled, multi-worker production environments behind a load balancer, session mutexes are roadmapped to distributed Redis locks (`Redlock`) with centralized Redis caching to ensure serialized turn processing across distinct worker instances.
-- **Game Progress Distributed Persistence**: Game progress across arcade games (Space Math Explorer, Math Match Quest, Math Asteroids, Grid Runner) utilizes dual-tier persistence: reading and upserting directly to Supabase `public.student_game_progress` with Row Level Security (see `scripts/migration_day4_game_progress.sql`), with atomic local disk caching (`backend/data/games_store.json`) serving as a resilient offline/development fallback.
-- **Dependency Security Patches**: Backend dependencies are pinned to versions current as of initial build; a full security-patch upgrade is planned post-hackathon. (`python-multipart` has been patched to `0.0.32` to protect public multipart upload parsing).
-- **Curriculum Scope**: Current problem bank targets 10 core Common Core State Standards (CCSS) in elementary mathematics, architected to expand to middle and high school standards.
-
-
