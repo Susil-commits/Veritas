@@ -8,7 +8,7 @@ import json
 import re
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import BaseMessage, SystemMessage, HumanMessage, AIMessage
-from config import CHAT_MODEL, CHAT_MODEL_CASCADE
+from config import CHAT_MODEL, CHAT_MODEL_CASCADE, extract_clean_text
 
 
 def _parse_tutor_response(raw: str, fallback_text: str) -> dict:
@@ -214,7 +214,7 @@ Guide the student gently away from these specific traps if you see them recurrin
         try:
             llm = build_tutor_llm(model_name)
             response = llm.invoke(messages)
-            text = str(response.content).strip()
+            text = extract_clean_text(response.content)
             if text:
                 return _parse_tutor_response(text, text)
         except Exception as e:

@@ -567,6 +567,29 @@
   color: #FFFFFF;
 }
 
+.neo-bullet-line {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-left: 2px;
+  margin-top: 3px;
+  margin-bottom: 4px;
+}
+
+.neo-bullet-dot {
+  color: #A78BFA;
+  font-weight: 700;
+  font-size: 1.05rem;
+  line-height: 1.25;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.neo-line-content {
+  flex: 1;
+  line-height: 1.45;
+}
+
 .neo-action-chips {
   display: flex;
   flex-wrap: wrap;

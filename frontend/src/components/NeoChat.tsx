@@ -30,6 +30,32 @@ function createMessageId(prefix: string): string {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
 }
 
+export function cleanMessageText(text: string): string {
+  if (!text) return ''
+  let cleaned = text.trim()
+  // Sanitize Python stringified lists (e.g. ['chunk 1', 'chunk 2']) or JSON arrays
+  if ((cleaned.startsWith("['") || cleaned.startsWith('["')) && (cleaned.endsWith("']") || cleaned.endsWith('"]'))) {
+    try {
+      if (cleaned.startsWith('["')) {
+        const arr = JSON.parse(cleaned)
+        if (Array.isArray(arr)) return arr.join('').trim()
+      }
+    } catch {}
+    try {
+      const items: string[] = []
+      const regex = /'((?:[^'\\]|\\.)*)'/g
+      let match: RegExpExecArray | null
+      while ((match = regex.exec(cleaned)) !== null) {
+        items.push(match[1].replace(/\\n/g, '\n').replace(/\\'/g, "'").replace(/\\\\/g, '\\'))
+      }
+      if (items.length > 0) {
+        cleaned = items.join('').trim()
+      }
+    } catch {}
+  }
+  return cleaned
+}
+
 export default function NeoChat() {
   const navigate = useNavigate()
   const location = useLocation()
@@ -39,7 +65,10 @@ export default function NeoChat() {
   const [messages, setMessages] = useState<ChatMessage[]>(() => {
     try {
       const saved = localStorage.getItem(CHAT_HISTORY_KEY)
-      if (saved) return JSON.parse(saved)
+      if (saved) {
+        const parsed: ChatMessage[] = JSON.parse(saved)
+        return parsed.map((m) => ({ ...m, content: cleanMessageText(m.content) }))
+      }
     } catch {}
     return []
   })
@@ -129,7 +158,7 @@ export default function NeoChat() {
       const assistantMessage: ChatMessage = {
         id: createMessageId('neo'),
         role: 'assistant',
-        content: response.reply,
+        content: cleanMessageText(response.reply),
         guardrailed: response.guardrailed,
         guardrailReason: response.guardrail_reason,
         suggestedActions: response.suggested_actions || [],
@@ -143,7 +172,7 @@ export default function NeoChat() {
       const errorMessage: ChatMessage = {
         id: createMessageId('err'),
         role: 'assistant',
-        content: errMsg,
+        content: cleanMessageText(errMsg),
         guardrailed: false,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       }
@@ -192,17 +221,24 @@ export default function NeoChat() {
   }
 
   const renderFormattedText = (text: string) => {
-    const lines = text.split('\n')
+    const cleaned = cleanMessageText(text)
+    const lines = cleaned.split('\n')
     return lines.map((line, idx) => {
-      const parts = line.split(/(\*\*.*?\*\*)/g)
+      const trimmed = line.trim()
+      const isBullet = trimmed.startsWith('* ') || trimmed.startsWith('- ')
+      const content = isBullet ? trimmed.slice(2) : line
+      const parts = content.split(/(\*\*.*?\*\*)/g)
       return (
-        <div key={idx} className="neo-text-line">
-          {parts.map((part, pIdx) => {
-            if (part.startsWith('**') && part.endsWith('**')) {
-              return <strong key={pIdx}>{part.slice(2, -2)}</strong>
-            }
-            return <span key={pIdx}>{part}</span>
-          })}
+        <div key={idx} className={`neo-text-line ${isBullet ? 'neo-bullet-line' : ''}`}>
+          {isBullet && <span className="neo-bullet-dot" aria-hidden="true">•</span>}
+          <span className={isBullet ? 'neo-line-content' : undefined}>
+            {parts.map((part, pIdx) => {
+              if (part.startsWith('**') && part.endsWith('**')) {
+                return <strong key={pIdx}>{part.slice(2, -2)}</strong>
+              }
+              return <span key={pIdx}>{part}</span>
+            })}
+          </span>
         </div>
       )
     })

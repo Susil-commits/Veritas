@@ -10,7 +10,7 @@ import re
 from typing import Any
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import SystemMessage, HumanMessage
-from config import VISION_MODEL
+from config import VISION_MODEL, extract_clean_text
 
 # Real misconception examples from Eedi/NeurIPS 2020 education research
 # These few-shot examples teach the model to name SPECIFIC misconceptions
@@ -207,7 +207,7 @@ Target Skill: {skill_id}"""
     try:
         llm = build_vision_llm()
         response = llm.invoke(messages)
-        raw = str(response.content).strip()
+        raw = extract_clean_text(response.content)
     except Exception as e:
         err_str = str(e).lower()
         print(f"[WARN] Diagnostic agent vision call failed: {e}")

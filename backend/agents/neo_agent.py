@@ -15,7 +15,7 @@ load_dotenv()
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import BaseMessage, SystemMessage, HumanMessage, AIMessage
-from config import CHAT_MODEL_CASCADE
+from config import CHAT_MODEL_CASCADE, extract_clean_text
 
 from safety import (
     sanitize_input,
@@ -178,7 +178,7 @@ def run_neo_agent(
             try:
                 llm = build_neo_llm(model_name)
                 res = llm.invoke(messages)
-                content = str(res.content).strip()
+                content = extract_clean_text(res.content)
                 if content:
                     reply_text = content
                     break

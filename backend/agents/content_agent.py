@@ -13,7 +13,7 @@ from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGener
 from langchain_core.messages import SystemMessage, HumanMessage
 from db.supabase_client import get_supabase
 from bkt.tracker import get_skill_params
-from config import EMBEDDING_MODEL, EMBEDDING_DIMENSION, CHAT_MODEL
+from config import EMBEDDING_MODEL, EMBEDDING_DIMENSION, CHAT_MODEL, extract_clean_text
 
 
 # Centralized Embedding Model Configuration
@@ -430,7 +430,7 @@ Keep it under 150 words total. Warm, specific, actionable."""
     ]
     try:
         response = llm.invoke(messages)
-        return str(response.content).strip()
+        return extract_clean_text(response.content)
     except Exception as e:
         print(f"[WARN] Failed to generate LLM summary: {e}")
         return f"{student_name} completed an active practice session today. The tutor tracked student engagement across core math concepts. Continued practice with targeted guidance is recommended to solidify problem-solving fluency."
