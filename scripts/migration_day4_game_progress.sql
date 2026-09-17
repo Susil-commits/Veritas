@@ -24,19 +24,53 @@ CREATE INDEX IF NOT EXISTS student_game_progress_student_idx
 ALTER TABLE public.student_game_progress ENABLE ROW LEVEL SECURITY;
 
 -- 4. RLS Policies
--- Allow service role full access (default in backend)
--- Allow authenticated students read/write on their own game progress
+-- Clean up any legacy or overly permissive policies
+DROP POLICY IF EXISTS "Students can view own game progress" ON public.student_game_progress;
+DROP POLICY IF EXISTS "Students can upsert own game progress" ON public.student_game_progress;
+DROP POLICY IF EXISTS "Students can insert own game progress" ON public.student_game_progress;
+DROP POLICY IF EXISTS "Students can update own game progress" ON public.student_game_progress;
+DROP POLICY IF EXISTS "Students can delete own game progress" ON public.student_game_progress;
+
+-- Strict student-level & parent-level access:
+-- Authenticated students can view only their own game progress.
+-- Authenticated parents can view their linked children's game progress.
 CREATE POLICY "Students can view own game progress"
     ON public.student_game_progress
     FOR SELECT
-    USING (true);
+    TO authenticated
+    USING (
+        student_id = auth.uid() OR
+        EXISTS (
+            SELECT 1 FROM public.children c
+            WHERE c.student_id = public.student_game_progress.student_id
+              AND c.parent_id = auth.uid()
+        )
+    );
 
-CREATE POLICY "Students can upsert own game progress"
+-- Authenticated students can insert only their own game progress
+CREATE POLICY "Students can insert own game progress"
     ON public.student_game_progress
-    FOR ALL
-    USING (true)
-    WITH CHECK (true);
+    FOR INSERT
+    TO authenticated
+    WITH CHECK (student_id = auth.uid());
 
--- 5. Comment explaining production architecture
+-- Authenticated students can update only their own game progress
+CREATE POLICY "Students can update own game progress"
+    ON public.student_game_progress
+    FOR UPDATE
+    TO authenticated
+    USING (student_id = auth.uid())
+    WITH CHECK (student_id = auth.uid());
+
+-- Authenticated students can delete only their own game progress
+CREATE POLICY "Students can delete own game progress"
+    ON public.student_game_progress
+    FOR DELETE
+    TO authenticated
+    USING (student_id = auth.uid());
+
+-- 5. Comment explaining production architecture & service role
+-- Note: The FastAPI backend accesses this table using SUPABASE_SERVICE_ROLE_KEY which bypasses RLS cleanly.
 COMMENT ON TABLE public.student_game_progress IS 
-    'Distributed game progression, stars, and high score persistence across horizontal container instances';
+    'Distributed game progression, stars, and high score persistence across horizontal container instances with strict student/parent RLS';
+
