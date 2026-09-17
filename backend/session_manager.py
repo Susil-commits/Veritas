@@ -15,6 +15,7 @@ from typing import Any
 from db.supabase_client import get_supabase
 from bkt.tracker import initialize_mastery, get_next_skill
 from agents.content_agent import get_next_problem
+from services.redis_service import redis_service
 
 # Persistent storage directory
 DATA_DIR = Path(__file__).resolve().parent / "data"
@@ -194,7 +195,16 @@ def get_session(session_id: str) -> dict[str, Any] | None:
     if session_id in _sessions_cache:
         return _sessions_cache[session_id]
 
-    # 2. Check local disk store
+    # 2. Fast distributed Redis lookup (cross-worker synchronization)
+    try:
+        redis_state = redis_service.get_json(f"veritas:session:{session_id}")
+        if isinstance(redis_state, dict) and "student_id" in redis_state:
+            _sessions_cache[session_id] = redis_state
+            return redis_state
+    except Exception:
+        pass
+
+    # 3. Check local disk store
     disk_sessions = _load_sessions_from_disk()
     if session_id in disk_sessions:
         state = disk_sessions[session_id]
@@ -330,7 +340,7 @@ def get_session(session_id: str) -> dict[str, Any] | None:
 
 def save_session(session_id: str, state: Any) -> None:
     """
-    Persist session state in RAM cache, disk store, and sync to Supabase sessions table.
+    Persist session state in RAM cache, disk store, Redis, and sync to Supabase sessions table.
     """
     # 1. Update in-memory cache immediately
     _sessions_cache[session_id] = state
@@ -339,7 +349,13 @@ def save_session(session_id: str, state: Any) -> None:
     cleaned_state = _clean_state_for_persistence(state)
     _write_session_to_disk(session_id, cleaned_state)
 
-    # 3. Persist to Supabase sessions table
+    # 3. Synchronize to distributed Redis (7-day TTL)
+    try:
+        redis_service.set_json(f"veritas:session:{session_id}", cleaned_state, ex=7 * 86400)
+    except Exception as re_err:
+        pass
+
+    # 4. Persist to Supabase sessions table
     try:
         supabase = get_supabase()
         supabase.table("sessions").update({"state": cleaned_state}).eq("id", session_id).execute()
@@ -353,13 +369,17 @@ def save_session(session_id: str, state: Any) -> None:
 
 
 def evict_session(session_id: str) -> None:
-    """Evict session state from RAM cache, disk store, and release associated asyncio locks."""
+    """Evict session state from RAM cache, disk store, Redis, and release associated asyncio locks."""
     try:
         _sessions_cache.pop(session_id, None)
     except Exception:
         pass
     try:
         _remove_session_from_disk(session_id)
+    except Exception:
+        pass
+    try:
+        redis_service.delete(f"veritas:session:{session_id}")
     except Exception:
         pass
     try:

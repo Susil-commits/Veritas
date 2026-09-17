@@ -91,6 +91,8 @@ from session_manager import (
     resolve_student_misconceptions_for_skill,
     clear_student_misconceptions,
 )
+from services.cloudinary_service import cloudinary_service
+from services.redis_service import redis_service
 
 # ── Resilient Session Store & Global State ──────────────────────────────────
 _server_start_time: float = time.time()
@@ -287,6 +289,11 @@ class ResetGameScoreRequest(BaseModel):
     game_id: str | None = None
 
 
+class AvatarUploadRequest(BaseModel):
+    image: str
+    user_id: Optional[str] = "user"
+
+
 # ── Routes ───────────────────────────────────────────────────────────────────
 
 @app.api_route("/health", methods=["GET", "HEAD"])
@@ -332,13 +339,13 @@ async def health_full():
             else:
                 from config import CHAT_MODEL
                 from langchain_google_genai import ChatGoogleGenerativeAI
-                llm = ChatGoogleGenerativeAI(
+                llm: Any = ChatGoogleGenerativeAI(
                     model=CHAT_MODEL,
                     google_api_key=gemini_key,
                     max_retries=0,
                     timeout=5,
                 )
-                resp = await llm.ainvoke("Respond with exactly: OK")
+                resp = await asyncio.to_thread(llm.invoke, "Respond with exactly: OK")
                 _cached_gemini_status = bool(resp and resp.content)
                 _last_gemini_check_time = now
         except Exception as e:
@@ -360,6 +367,8 @@ async def health_full():
             "supabase": _cached_db_status,
             "gemini": _cached_gemini_status,
             "session_secret_configured": is_session_secret_configured(),
+            "redis": redis_service.is_connected,
+            "cloudinary": cloudinary_service.is_available,
         },
         "db": _cached_db_status,
         "active_cached_sessions": len(get_all_active_session_ids()),
@@ -1556,6 +1565,19 @@ async def upload_work(
                     skill_id=current_state.get("current_skill_id", ""),
                 )
 
+                # Optimistically upload student handwritten work photo to Cloudinary CDN
+                try:
+                    cloud_url = await asyncio.to_thread(
+                        cloudinary_service.upload_student_work,
+                        image_bytes,
+                        session_id,
+                        current_state.get("student_id"),
+                    )
+                    if cloud_url:
+                        diagnosis["image_url"] = cloud_url
+                except Exception as c_err:
+                    print(f"[WARN] Cloudinary student work upload skipped/failed: {c_err}")
+
                 misconception = diagnosis.get('misconception_type', 'unknown')
                 friendly_misc = misconception.replace('_', ' ')
                 yield f"data: {json.dumps({'type': 'thinking', 'content': 'Checking step: ' + friendly_misc})}\n\n"
@@ -1736,6 +1758,45 @@ async def get_summary(
         skill_params=get_all_skills(),
     )
     return {"summary": summary, "events": events.data}
+
+
+@app.post("/user/avatar/upload")
+async def upload_user_avatar(req: AvatarUploadRequest):
+    """
+    Upload a user profile avatar to Cloudinary CDN with automatic face-detection crop
+    and WebP optimization. Falls back seamlessly to returning the input data if CDN is offline.
+    """
+    if not req.image or not req.image.strip():
+        raise HTTPException(status_code=400, detail="Image data cannot be empty.")
+
+    clean_user = sanitize_input(req.user_id or "user", max_length=120)
+    limiter.enforce_cooldown(
+        key=f"avatar_{clean_user}",
+        cooldown_seconds=1.0,
+        action="avatar upload",
+        max_per_minute=20,
+    )
+
+    try:
+        cdn_url = await asyncio.to_thread(
+            cloudinary_service.upload_avatar,
+            req.image,
+            clean_user,
+        )
+        if cdn_url:
+            return {
+                "status": "ok",
+                "avatar_url": cdn_url,
+                "cdn": True,
+            }
+    except Exception as e:
+        print(f"[WARN] Avatar Cloudinary upload failed: {e}")
+
+    return {
+        "status": "fallback",
+        "avatar_url": req.image,
+        "cdn": False,
+    }
 
 
 # Cache ElevenLabs quota exhaustion state to prevent repeated failing requests
@@ -2598,6 +2659,18 @@ async def neo_chat(
         max_per_minute=max_rate,
     )
 
+    # 2.5 Check Redis response cache for common queries with empty history
+    cache_key = None
+    if not req.history:
+        norm_query = clean_msg.strip().lower()
+        if len(norm_query) < 120:
+            import hashlib
+            query_hash = hashlib.md5(norm_query.encode("utf-8")).hexdigest()
+            cache_key = f"veritas:neo_query:{user_context['role']}:{query_hash}"
+            cached_res = redis_service.get_json(cache_key)
+            if cached_res and isinstance(cached_res, dict) and "reply" in cached_res:
+                return cached_res
+
     # 3. Execute Neo Agent with grounded guardrails
     result = await asyncio.to_thread(
         run_neo_agent,
@@ -2606,7 +2679,7 @@ async def neo_chat(
         user_context=user_context,
     )
 
-    return {
+    response_payload = {
         "status": "ok",
         "reply": result["reply"],
         "guardrailed": result["guardrailed"],
@@ -2614,5 +2687,14 @@ async def neo_chat(
         "suggested_actions": result.get("suggested_actions", DEFAULT_SUGGESTIONS),
         "user_role": user_context["role"],
     }
+
+    # Cache successful answer in Redis with 1-hour TTL
+    if cache_key and not result.get("guardrailed"):
+        try:
+            redis_service.set_json(cache_key, response_payload, ex=3600)
+        except Exception:
+            pass
+
+    return response_payload
 
 

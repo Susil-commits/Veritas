@@ -604,3 +604,24 @@ export async function resetGameScore(
   return data
 }
 
+export interface AvatarUploadResponse {
+  status: string
+  avatar_url: string
+  cdn?: boolean
+}
+
+export async function uploadAvatar(imageData: string, userId?: string): Promise<string> {
+  try {
+    const { data } = await api.post<AvatarUploadResponse>('/user/avatar/upload', {
+      image: imageData,
+      user_id: userId || 'user',
+    })
+    if (data && data.avatar_url) {
+      return data.avatar_url
+    }
+  } catch (err) {
+    console.warn('[Avatar] Cloudinary CDN upload fallback to local image:', err)
+  }
+  return imageData
+}
+

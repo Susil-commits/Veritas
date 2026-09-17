@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { SUGGESTED_AVATARS, isPersonSilhouette } from '../lib/avatars'
+import { uploadAvatar } from '../lib/api'
 import UserAvatar from './UserAvatar'
 import './AvatarModal.css'
 
@@ -89,7 +90,11 @@ export default function AvatarModal({
   const handleSave = async () => {
     setIsSaving(true)
     try {
-      await onSave(selectedAvatar)
+      let finalAvatar = selectedAvatar
+      if (selectedAvatar && selectedAvatar.startsWith('data:image/')) {
+        finalAvatar = await uploadAvatar(selectedAvatar, name || role || 'user')
+      }
+      await onSave(finalAvatar)
       onClose()
     } catch (err: any) {
       console.error('Save avatar failed:', err)
