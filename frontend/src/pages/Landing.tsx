@@ -1311,7 +1311,7 @@ export default function Landing() {
                             id="auth-email-input"
                             type="email"
                             className="auth-text-input"
-                            placeholder={authMode === 'signup' ? 'your.name@example.com' : (role === 'parent' ? 'parent.sarah@veritas.dev' : 'student.alex@veritas.dev')}
+                            placeholder={authMode === 'signup' ? 'your.name@example.com' : (rememberedProfile?.email || 'your.email@example.com')}
                             value={email}
                             onChange={(e) => {
                               setEmail(e.target.value)
@@ -1363,45 +1363,43 @@ export default function Landing() {
 
                       </div>
 
-                      <div className="auth-field-group">
-                        <label>
-                          {authMode === 'signup' ? 'Select Your Learning Role' : 'Intended Portal'}
-                        </label>
-                        <div className="auth-role-tabs">
-                          <button
-                            type="button"
-                            className={`auth-role-tab ${role === 'student' ? 'auth-role-tab--active' : ''}`}
-                            onClick={() => {
-                              setRole('student')
-                              checkHealth().catch(() => {})
-                            }}
-                          >
-                            <div className="role-tab-text">
-                              <span className="role-tab-title">Student</span>
-                              <span className="role-tab-desc">Socratic math tutor</span>
-                            </div>
-                          </button>
+                      {/* Role selection is only required when creating a new account */}
+                      {authMode === 'signup' && (
+                        <div className="auth-field-group animate-fadein">
+                          <label>
+                            Select Your Learning Role
+                          </label>
+                          <div className="auth-role-tabs">
+                            <button
+                              type="button"
+                              className={`auth-role-tab ${role === 'student' ? 'auth-role-tab--active' : ''}`}
+                              onClick={() => {
+                                setRole('student')
+                                checkHealth().catch(() => {})
+                              }}
+                            >
+                              <div className="role-tab-text">
+                                <span className="role-tab-title">Student</span>
+                                <span className="role-tab-desc">Socratic math tutor</span>
+                              </div>
+                            </button>
 
-                          <button
-                            type="button"
-                            className={`auth-role-tab ${role === 'parent' ? 'auth-role-tab--active' : ''}`}
-                            onClick={() => {
-                              setRole('parent')
-                              checkHealth().catch(() => {})
-                            }}
-                          >
-                            <div className="role-tab-text">
-                              <span className="role-tab-title">Parent</span>
-                              <span className="role-tab-desc">Live radar & history</span>
-                            </div>
-                          </button>
-                        </div>
-                        {authMode === 'signin' && (
-                          <div className="auth-role-detect-hint">
-                            <span>🛡️ Registered accounts automatically open in their verified role.</span>
+                            <button
+                              type="button"
+                              className={`auth-role-tab ${role === 'parent' ? 'auth-role-tab--active' : ''}`}
+                              onClick={() => {
+                                setRole('parent')
+                                checkHealth().catch(() => {})
+                              }}
+                            >
+                              <div className="role-tab-text">
+                                <span className="role-tab-title">Parent</span>
+                                <span className="role-tab-desc">Live radar & history</span>
+                              </div>
+                            </button>
                           </div>
-                        )}
-                      </div>
+                        </div>
+                      )}
 
                       {authError && (
                         <div className="auth-error-banner animate-fadein">
