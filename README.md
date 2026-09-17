@@ -243,19 +243,19 @@ python run_all_tests.py
 ============================================================================
  #  | TEST SUITE                                      | STATUS     |    TIME
 ----------------------------------------------------------------------------
- 1  | Parent Role Authorization & Isolation (P0)      | ✓ PASS     |   7.92s
- 2  | Deterministic Math Evaluator & Intent Parsing   | ✓ PASS     |   0.10s
- 3  | Problem Turn Tracking & Attempt Isolation       | ✓ PASS     |   3.74s
- 4  | Day-3 Resiliency & Session Persistence          | ✓ PASS     |  19.58s
- 5  | Production RLS & Credential Isolation           | ✓ PASS     |  13.68s
- 6  | Platform Safety & Socratic Guardrails           | ✓ PASS     |   0.48s
- 7  | Student Scoping, Rate Limiting & RAG Retrieval  | ✓ PASS     |   4.86s
- 8  | Parent-Child Architecture & Inactivity Alerts   | ✓ PASS     |  68.06s
- 9  | Neo AI Platform Assistant & Guardrails          | ✓ PASS     | 100.72s
- 10 | Session Resumption & Score Protection           | ✓ PASS     |  56.51s
- 11 | Math Arcade Games & Relogin Persistence         | ✓ PASS     |  20.78s
+ 1  | Parent Role Authorization & Isolation (P0)      | ✓ PASS     |  10.77s
+ 2  | Deterministic Math Evaluator & Intent Parsing   | ✓ PASS     |   0.08s
+ 3  | Problem Turn Tracking & Attempt Isolation       | ✓ PASS     |   4.67s
+ 4  | Day-3 Resiliency & Session Persistence          | ✓ PASS     |  14.70s
+ 5  | Production RLS & Credential Isolation           | ✓ PASS     |   6.60s
+ 6  | Platform Safety & Socratic Guardrails           | ✓ PASS     |   0.42s
+ 7  | Student Scoping, Rate Limiting & RAG Retrieval  | ✓ PASS     |   4.98s
+ 8  | Parent-Child Architecture & Inactivity Alerts   | ✓ PASS     |  45.00s
+ 9  | Neo AI Platform Assistant & Guardrails          | ✓ PASS     | 100.14s
+ 10 | Session Resumption & Score Protection           | ✓ PASS     |  32.16s
+ 11 | Math Arcade Games & Relogin Persistence         | ✓ PASS     |  21.59s
 ----------------------------------------------------------------------------
-  ALL 11/11 TEST SUITES PASSED IN 296.41s!
+  ALL 11/11 TEST SUITES PASSED IN 241.11s!
   STATUS: ALL 11 APPLICATION TEST SUITES PASSED
 ============================================================================
 ```
@@ -300,11 +300,14 @@ ELEVENLABS_API_KEY=your_elevenlabs_key  # Optional
 ```
 
 ```env
-# frontend/.env
+# frontend/.env (Local Development)
 VITE_API_URL=http://localhost:8000
 VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
 ```
+
+> [!WARNING]
+> **Production Vercel Deployment:** In Vercel Project Settings > Environment Variables, you **MUST** set `VITE_API_URL=https://your-backend.onrender.com`. Leaving it unset or pointing to `localhost` will cause browser security (mixed content / connection refused) to block all API requests!
 
 ### 3. Database Migrations & Vector Seed
 In your Supabase SQL Editor, run:
@@ -327,3 +330,50 @@ uvicorn main:app --reload --port 8000
 # Terminal 2 — Frontend
 cd frontend
 npm run dev
+```
+
+---
+
+## 🌐 Production Deployment Guide
+
+### Frontend on Vercel
+Veritas is configured for flexible zero-friction Vercel deployment:
+- **Option A (Recommended):** In Vercel Dashboard → **Project Settings** → **Build & Development Settings**:
+  - **Root Directory:** `frontend`
+  - **Framework:** `Vite`
+  - **Build Command:** `npm run build`
+  - **Output Directory:** `dist`
+- **Option B (Repository Root):** The root `vercel.json` includes `"outputDirectory": "frontend/dist"` and root `package.json` includes `"postinstall": "npm --prefix frontend install"`, enabling smooth deployment directly from the root repository.
+- **Critical Environment Variables in Vercel:**
+  - `VITE_API_URL` = `https://<your-render-backend>.onrender.com`
+  - `VITE_SUPABASE_URL` = `https://<your-project>.supabase.co`
+  - `VITE_SUPABASE_ANON_KEY` = `<your-supabase-anon-key>`
+
+### Backend on Render / PaaS
+- Configured via [`render.yaml`](file:///c:/Users/nayak/OneDrive/Desktop/LLM/AINerd/render.yaml)
+- Start Command: `uvicorn main:app --host 0.0.0.0 --port $PORT`
+- Includes healthcheck endpoint at `/health` with automatic cold-start warmup handling in the frontend.
+
+---
+
+## 🔬 Reproducible Benchmark & Evaluation Commands
+
+Run any of the evaluation scripts to independently verify all published empirical performance metrics:
+
+```bash
+# 1. RAG Misconception Retrieval Benchmark (Recall@1: 90%, Recall@3: 100%, MRR: 0.9500)
+python scripts/evaluate_retrieval.py
+
+# 2. Bayesian Knowledge Tracing (BKT) Calibration Report (ASSISTments 2009-2010 MLE Fit)
+python scripts/calibrate_bkt.py --report
+python scripts/calibrate_bkt.py --validate
+
+# 3. Multimodal Diagnostic Vision Structural & Reticle Integrity Benchmark (100% Reticle Integrity)
+python scripts/evaluate_vision.py
+
+# 4. Socratic Pedagogical Adherence Benchmark (100% Interception & Leak Defense)
+python scripts/evaluate_socratic.py
+
+# 5. Problem Bank & pgvector Embeddings Auditor
+python scripts/verify_problem_bank.py
+```

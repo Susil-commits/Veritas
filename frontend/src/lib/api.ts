@@ -5,6 +5,20 @@ import { supabase } from './supabase'
 const rawUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 export const BASE_URL = rawUrl.replace(/\/+$/, '')
 
+// Check if running on a live HTTPS domain while API URL is mistakenly pointing to local HTTP
+export const isLocalhostInProduction =
+  typeof window !== 'undefined' &&
+  window.location.protocol === 'https:' &&
+  (BASE_URL.startsWith('http://localhost') || BASE_URL.startsWith('http://127.0.0.1'))
+
+if (isLocalhostInProduction) {
+  console.error(
+    `[Veritas API] ⚠️ Misconfiguration Detected: The application is running on HTTPS (${window.location.origin}), ` +
+    `but VITE_API_URL is pointing to "${BASE_URL}". Browsers block mixed HTTP requests from HTTPS sites, causing API calls to fail. ` +
+    `To resolve: Add VITE_API_URL=https://<your-backend>.onrender.com in your Vercel Project Settings > Environment Variables, then redeploy.`
+  )
+}
+
 export const api = axios.create({ baseURL: BASE_URL })
 
 let activeSupabaseToken: string | null = null

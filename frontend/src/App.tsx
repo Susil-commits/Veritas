@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react'
+import { useState, lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import Landing from './pages/Landing'
 import ShiningDots from './components/ShiningDots'
@@ -6,12 +6,61 @@ import NeoChat from './components/NeoChat'
 import ProtectedRoute from './components/ProtectedRoute'
 import { AuthProvider } from './context/AuthContext'
 import { ThemeProvider } from './context/ThemeContext'
+import { isLocalhostInProduction } from './lib/api'
 import './index.css'
 
 const TutorSession = lazy(() => import('./pages/TutorSession'))
 const Dashboard = lazy(() => import('./pages/Dashboard'))
 const ParentDashboard = lazy(() => import('./pages/ParentDashboard'))
 const MathArcade = lazy(() => import('./pages/MathArcade'))
+
+function ConfigWarningBanner() {
+  const [dismissed, setDismissed] = useState(false)
+  if (!isLocalhostInProduction || dismissed) return null
+
+  return (
+    <div
+      role="alert"
+      style={{
+        background: 'linear-gradient(90deg, #991b1b, #dc2626)',
+        color: '#ffffff',
+        padding: '10px 16px',
+        fontSize: '0.85rem',
+        fontWeight: 500,
+        position: 'sticky',
+        top: 0,
+        zIndex: 999999,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: '12px',
+        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.25)',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, justifyContent: 'center' }}>
+        <span style={{ fontSize: '1rem' }}>⚠️</span>
+        <span>
+          <strong>Configuration Warning:</strong> Frontend is deployed over HTTPS, but <code style={{ background: 'rgba(0,0,0,0.2)', padding: '2px 6px', borderRadius: '4px' }}>VITE_API_URL</code> is pointing to localhost. API requests will fail. Please add your live backend URL in Vercel Project Settings &gt; Environment Variables.
+        </span>
+      </div>
+      <button
+        onClick={() => setDismissed(true)}
+        style={{
+          background: 'none',
+          border: 'none',
+          color: '#ffffff',
+          fontSize: '1rem',
+          cursor: 'pointer',
+          padding: '2px 8px',
+          opacity: 0.8,
+        }}
+        aria-label="Dismiss banner"
+      >
+        ✕
+      </button>
+    </div>
+  )
+}
 
 function HomeOnlyNeoChat() {
   const location = useLocation()
@@ -49,6 +98,7 @@ export default function App() {
     <ThemeProvider>
       <BrowserRouter>
         <AuthProvider>
+          <ConfigWarningBanner />
           <ShiningDots />
           <Suspense fallback={<PageFallback />}>
             <Routes>
