@@ -231,26 +231,28 @@ export default function Landing() {
     }
   }, [authScreen, resendTimer])
 
-  // Animated intro portal control (bypassed if arriving directly with a section anchor like #demo, or if already presented)
+  // Animated intro portal control (bypassed if arriving directly with a section anchor like #demo)
   const [showIntro, setShowIntro] = useState(() => {
     try {
-      if (introAlreadyInitiated) {
-        return false
-      }
+      // Clear legacy storage keys that permanently suppressed the welcome screen across visits
+      localStorage.removeItem('veritas_intro_seen')
+      localStorage.removeItem('ainerd_intro_seen')
+      sessionStorage.removeItem('veritas_intro_seen')
+      sessionStorage.removeItem('ainerd_intro_seen')
+
+      // If arriving with direct anchor link (e.g. #demo, #how-it-works, #pipeline), bypass intro to jump to section
       if (window.location.hash && !window.location.hash.includes('access_token')) {
         return false
       }
-      const seen =
-        sessionStorage.getItem('veritas_intro_seen') === 'true' ||
-        sessionStorage.getItem('ainerd_intro_seen') === 'true' ||
-        localStorage.getItem('veritas_intro_seen') === 'true'
-      if (seen) {
+
+      // If in-app client-side navigation already initiated in this runtime session, don't interrupt
+      if (introAlreadyInitiated) {
         return false
       }
       introAlreadyInitiated = true
       return true
     } catch {
-      return false
+      return true
     }
   })
 
@@ -755,15 +757,12 @@ export default function Landing() {
 
   return (
     <>
-      {/* Animated Entrance Portal (Opens animately on first arrival or replay) */}
+      {/* Animated Entrance Portal (Opens animately on arrival or replay) */}
       {showIntro && (
         <AnimatedIntro
           onEnter={() => {
             setShowIntro(false)
-            try {
-              sessionStorage.setItem('veritas_intro_seen', 'true')
-              localStorage.setItem('veritas_intro_seen', 'true')
-            } catch {}
+            introAlreadyInitiated = true
             const rawHash = window.location.hash
             if (rawHash && !rawHash.includes('access_token')) {
               setTimeout(() => scrollToSection(rawHash, true), 120)
@@ -833,6 +832,18 @@ export default function Landing() {
             >
               Math Topics
             </a>
+            <button
+              type="button"
+              className="nav-link"
+              onClick={() => {
+                introAlreadyInitiated = false
+                setShowIntro(true)
+              }}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', font: 'inherit' }}
+              title="Experience the Veritas cinematic welcome intro"
+            >
+              Intro ✨
+            </button>
           </nav>
 
           <div className="navbar-actions">
