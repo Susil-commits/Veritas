@@ -245,10 +245,14 @@ export default function TutorSession() {
             ])
             stableSpeak(s.welcome_message)
           })
-          .catch((e) => {
+          .catch((e: any) => {
             console.error('Could not auto-start session:', e)
+            try {
+              sessionStorage.removeItem('session')
+            } catch {}
             if (mounted) {
-              setSessionError('Could not start your tutoring session right now. Please try again.')
+              const msg = e?.response?.data?.detail || 'Could not start your tutoring session right now. Please try again.'
+              setSessionError(msg)
             }
           })
       }
@@ -448,7 +452,13 @@ export default function TutorSession() {
             <div className="session-error-actions">
               <button
                 className="btn btn-violet"
-                onClick={() => setSessionRetryCount(c => c + 1)}
+                onClick={() => {
+                  try {
+                    sessionStorage.removeItem('session')
+                  } catch {}
+                  setSessionError(null)
+                  setSessionRetryCount(c => c + 1)
+                }}
               >
                 Retry Starting Session
               </button>

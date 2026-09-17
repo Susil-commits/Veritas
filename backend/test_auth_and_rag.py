@@ -116,6 +116,28 @@ def test_token_lifecycle():
         assert jwt_claims["role"] == "student"
         print("   ✓ Valid 3-part JWT verified successfully when SUPABASE_JWT_SECRET is set")
 
+        # Supabase default payload with "aud": "authenticated" and "role": "authenticated"
+        sb_payload_bytes = json.dumps({
+            "sub": student_id,
+            "aud": "authenticated",
+            "role": "authenticated",
+            "email": "student@example.com",
+            "exp": int(time.time()) + 3600,
+        }).encode()
+        sb_payload_b64 = base64.urlsafe_b64encode(sb_payload_bytes).rstrip(b"=").decode()
+        sb_sig = hmac.new(
+            b"test-jwt-secret-key-12345",
+            f"{header_b64}.{sb_payload_b64}".encode("ascii"),
+            hashlib.sha256,
+        ).digest()
+        sb_sig_b64 = base64.urlsafe_b64encode(sb_sig).rstrip(b"=").decode()
+        sb_jwt = f"{header_b64}.{sb_payload_b64}.{sb_sig_b64}"
+
+        sb_claims = verify_session_token(sb_jwt)
+        assert sb_claims["sub"] == student_id
+        assert sb_claims["role"] == "student"
+        print("   ✓ Supabase JWT with 'aud': 'authenticated' correctly maps to 'student' role")
+
         # 7. ES256 Token verification fail-closed against forged signature
         forged_es256 = "eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6IjhjZDFiNjkyLTE0M2ItNGI2Yi1hNmNkLTljZGEyOTE5Y2ZiNyJ9.eyJzdWIiOiJzdHVkZW50LTEyMyIsInJvbGUiOiJzdHVkZW50IiwiZXhwIjo5OTk5OTk5OTk5fQ.fake_es256_signature"
         try:

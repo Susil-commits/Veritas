@@ -338,7 +338,7 @@ async def health_full():
                     max_retries=0,
                     timeout=5,
                 )
-                resp = await asyncio.to_thread(llm.invoke, "Respond with exactly: OK")
+                resp = await llm.ainvoke("Respond with exactly: OK")
                 _cached_gemini_status = bool(resp and resp.content)
                 _last_gemini_check_time = now
         except Exception as e:
@@ -851,10 +851,10 @@ async def start_session(
     if token:
         try:
             payload = verify_session_token(token)
-        except HTTPException:
+        except HTTPException as e:
             raise HTTPException(
-                status_code=401,
-                detail="Invalid authentication token",
+                status_code=e.status_code or 401,
+                detail=e.detail or "Invalid authentication token",
                 headers={"WWW-Authenticate": "Bearer"},
             )
         if payload.get("role") != "student":

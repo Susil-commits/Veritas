@@ -168,11 +168,29 @@ def verify_session_token(token: str) -> dict:
                     token,
                     signing_key.key,
                     algorithms=[alg],
-                    options={"verify_exp": True},
+                    options={"verify_exp": True, "verify_aud": False},
                 )
             except HTTPException:
                 raise
             except Exception as e:
+                # Fallback to Supabase Auth API verification if JWKS decoding fails
+                try:
+                    from db.supabase_client import get_supabase
+                    sb = get_supabase()
+                    user_resp = sb.auth.get_user(token)
+                    if user_resp and user_resp.user:
+                        u = user_resp.user
+                        user_meta = u.user_metadata or {}
+                        role = "parent" if user_meta.get("user_role") == "parent" else "student"
+                        return {
+                            "sub": u.id,
+                            "email": u.email,
+                            "name": user_meta.get("name") or (u.email.split("@")[0] if u.email else "User"),
+                            "role": role,
+                            "exp": int(time.time()) + 3600,
+                        }
+                except Exception:
+                    pass
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail=f"Asymmetric JWT token verification failed: {e}",
@@ -181,6 +199,24 @@ def verify_session_token(token: str) -> dict:
         elif alg == "HS256":
             jwt_secret = os.getenv("SUPABASE_JWT_SECRET")
             if not jwt_secret:
+                # Fallback to Supabase Auth API verification if secret is unconfigured
+                try:
+                    from db.supabase_client import get_supabase
+                    sb = get_supabase()
+                    user_resp = sb.auth.get_user(token)
+                    if user_resp and user_resp.user:
+                        u = user_resp.user
+                        user_meta = u.user_metadata or {}
+                        role = "parent" if user_meta.get("user_role") == "parent" else "student"
+                        return {
+                            "sub": u.id,
+                            "email": u.email,
+                            "name": user_meta.get("name") or (u.email.split("@")[0] if u.email else "User"),
+                            "role": role,
+                            "exp": int(time.time()) + 3600,
+                        }
+                except Exception:
+                    pass
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="Server misconfiguration: SUPABASE_JWT_SECRET is not configured for HS256 tokens.",
@@ -227,7 +263,17 @@ def verify_session_token(token: str) -> dict:
                 headers={"WWW-Authenticate": "Bearer"},
             )
         user_meta = payload.get("user_metadata") or {}
-        role = user_meta.get("user_role") or payload.get("role") or "student"
+        # Supabase default role claim is 'authenticated'; resolve student vs parent accurately
+        raw_role = user_meta.get("user_role") or payload.get("role")
+        if raw_role == "parent":
+            role = "parent"
+        elif raw_role == "student":
+            role = "student"
+        elif payload.get("role") == "parent":
+            role = "parent"
+        else:
+            role = "student"
+
         return {
             "sub": payload.get("sub"),
             "email": payload.get("email"),

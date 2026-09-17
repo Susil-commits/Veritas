@@ -33,13 +33,13 @@ supabase.auth.onAuthStateChange((_event, session) => {
 })
 
 api.interceptors.request.use(async (config) => {
-  if (!activeSupabaseToken) {
-    try {
-      const { data } = await supabase.auth.getSession()
-      activeSupabaseToken = data.session?.access_token || null
-    } catch {}
-  }
-  const authHeaders = getAuthHeaders()
+  try {
+    const { data } = await supabase.auth.getSession()
+    activeSupabaseToken = data.session?.access_token || null
+  } catch {}
+
+  const isStartSession = config.url?.includes('/session/start')
+  const authHeaders = getAuthHeaders({ skipSessionToken: isStartSession })
   for (const [key, value] of Object.entries(authHeaders)) {
     if (!config.headers.has(key)) {
       config.headers.set(key, value)
@@ -47,6 +47,19 @@ api.interceptors.request.use(async (config) => {
   }
   return config
 })
+
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      // Clear poisoned or stale session token so next request does not reuse it
+      try {
+        sessionStorage.removeItem('session')
+      } catch {}
+    }
+    return Promise.reject(error)
+  }
+)
 
 export interface Problem {
   id: string
@@ -71,11 +84,11 @@ function getSupabaseAuthToken(): string | null {
   return activeSupabaseToken
 }
 
-export function getAuthHeaders(): Record<string, string> {
+export function getAuthHeaders(options?: { skipSessionToken?: boolean }): Record<string, string> {
   const currentRole = localStorage.getItem('veritas_user_role') || localStorage.getItem('ainerd_user_role')
 
-  // 1. Prioritize active student practice session token ONLY when role is not explicitly parent
-  if (currentRole !== 'parent') {
+  // 1. Prioritize active student practice session token ONLY when role is not explicitly parent and not starting session
+  if (currentRole !== 'parent' && !options?.skipSessionToken) {
     try {
       const raw = sessionStorage.getItem('session')
       if (raw) {
@@ -177,6 +190,10 @@ export async function checkHealth(): Promise<HealthStatus> {
 }
 
 export async function startSession(studentName: string, studentId?: string, studentEmail?: string): Promise<SessionData> {
+  // Clear any cached session so old tokens never leak into new session creation
+  try {
+    sessionStorage.removeItem('session')
+  } catch {}
   const { data } = await api.post('/session/start', {
     student_name: studentName,
     student_id: studentId,
