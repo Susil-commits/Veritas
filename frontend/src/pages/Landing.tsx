@@ -129,6 +129,9 @@ const MATH_TOPICS = [
 
 type ConnStatus = 'checking' | 'connected' | 'waking_up' | 'error'
 
+// Module-level guard preventing duplicate intro mounting in the same runtime session
+let introAlreadyInitiated = false
+
 export default function Landing() {
   const navigate = useNavigate()
   const location = useLocation()
@@ -228,13 +231,24 @@ export default function Landing() {
     }
   }, [authScreen, resendTimer])
 
-  // Animated intro portal control (bypassed if arriving directly with a section anchor like #demo)
+  // Animated intro portal control (bypassed if arriving directly with a section anchor like #demo, or if already presented)
   const [showIntro, setShowIntro] = useState(() => {
     try {
+      if (introAlreadyInitiated) {
+        return false
+      }
       if (window.location.hash && !window.location.hash.includes('access_token')) {
         return false
       }
-      return sessionStorage.getItem('veritas_intro_seen') !== 'true' && sessionStorage.getItem('ainerd_intro_seen') !== 'true'
+      const seen =
+        sessionStorage.getItem('veritas_intro_seen') === 'true' ||
+        sessionStorage.getItem('ainerd_intro_seen') === 'true' ||
+        localStorage.getItem('veritas_intro_seen') === 'true'
+      if (seen) {
+        return false
+      }
+      introAlreadyInitiated = true
+      return true
     } catch {
       return false
     }
@@ -743,7 +757,10 @@ export default function Landing() {
         <AnimatedIntro
           onEnter={() => {
             setShowIntro(false)
-            sessionStorage.setItem('veritas_intro_seen', 'true')
+            try {
+              sessionStorage.setItem('veritas_intro_seen', 'true')
+              localStorage.setItem('veritas_intro_seen', 'true')
+            } catch {}
             const rawHash = window.location.hash
             if (rawHash && !rawHash.includes('access_token')) {
               setTimeout(() => scrollToSection(rawHash, true), 120)
