@@ -20,11 +20,14 @@ logger = logging.getLogger("veritas-backend")
 from contextlib import asynccontextmanager
 from typing import Any, AsyncGenerator, Optional
 
-# Suppress harmless LangGraph/LangChain internal serializer deprecation notice on startup
+# Suppress harmless LangGraph/LangChain and legacy Google SDK deprecation notices on startup
 warnings.filterwarnings("ignore", message=".*allowed_objects.*")
+warnings.filterwarnings("ignore", category=FutureWarning, message=".*google.generativeai.*")
+warnings.filterwarnings("ignore", category=FutureWarning, module=".*langchain_google_genai.*")
 _orig_showwarning = warnings.showwarning
 def _suppress_langgraph_deprecation(message, category, filename, lineno, file=None, line=None):
-    if "allowed_objects" in str(message):
+    msg_str = str(message)
+    if "allowed_objects" in msg_str or "google.generativeai" in msg_str:
         return
     return _orig_showwarning(message, category, filename, lineno, file, line)
 warnings.showwarning = _suppress_langgraph_deprecation
