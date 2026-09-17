@@ -37,5 +37,6 @@ frontend/.vite/
 backend/data/*.json
 backend/data/*.tmp
 data/children_store.json
+data/*_backup.json
 !backend/data/.gitkeep
 
