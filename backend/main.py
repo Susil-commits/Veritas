@@ -847,6 +847,7 @@ async def start_session(
         token = x_session_token.strip()
 
     authenticated_sub = None
+    payload: Optional[dict] = None
     if token:
         try:
             payload = verify_session_token(token)
@@ -868,11 +869,6 @@ async def start_session(
 
     # Flow A: Authenticated user (verified Supabase JWT / existing session token)
     if authenticated_sub:
-        if payload.get("role") != "student":
-            raise HTTPException(
-                status_code=403,
-                detail="Student account required for tutoring sessions",
-            )
         student_id = authenticated_sub
         try:
             upsert_payload = {"id": student_id, "name": req.student_name}
