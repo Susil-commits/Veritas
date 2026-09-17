@@ -1288,8 +1288,8 @@ async def send_message(
     async def event_stream() -> AsyncGenerator[str, None]:
         try:
             async with get_session_lock(req.session_id):
-                # Emit thinking steps as they happen
-                yield f"data: {json.dumps({'type': 'thinking', 'content': 'Tutor thinking...'})}\n\n"
+                # Emit status steps as they happen
+                yield f"data: {json.dumps({'type': 'thinking', 'content': 'Analyzing response...'})}\n\n"
 
                 thinking_step_initial = "Reading your thought..."
                 yield f"data: {json.dumps({'type': 'thinking', 'content': thinking_step_initial})}\n\n"

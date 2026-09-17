@@ -189,8 +189,8 @@ def extract_student_candidate(message: str) -> list[Tuple[str, str]]:
         for st in re.finditer(r"\b([0-9]+[a-zA-Z])\b", text):
             add_cand(st.group(1), "expression")
 
-        # Standalone numbers e.g. "40", "40.0"
-        if not has_equation:
+        # Standalone numbers e.g. "40", "40.0" (only if no equation, expression, or fraction candidate already identified)
+        if not has_equation and not any(c[1] in ("expression", "fraction") for c in candidates):
             for nm in re.finditer(r"\b(-?\d+(?:\.\d+)?)\b", text):
                 if not is_in_negation(nm.start(1), nm.end(1), nm.group(1).strip()):
                     add_cand(nm.group(1), "number")

@@ -72,8 +72,19 @@ flowchart TD
 > **Multi-Agent Orchestration Note**: The Socratic Tutor and Safety-boundary agents are orchestrated via a compiled **LangGraph state machine** (`/session/message`), delivering state-driven dynamic routing, deterministic math evaluation, safety interception, and conversation history management. The Diagnostic Vision Agent (`/session/upload-work`) and Content Agent (`/session/next-problem`) are invoked directly for specialized multimodal vision breakdown and pgvector curriculum progression.
 
 ### 🛡️ Dual-Tier Security & Isolation Architecture
-Veritas enforces a two-tier defense model separating application ownership from direct database exposure:
-1. **Application-Level Authorization (FastAPI)**: All tutoring endpoints, score mutations, and parent dashboard queries require scoped HMAC-SHA256 bearer tokens. FastAPI dependency guards (`verify_student_caller`, `verify_parent_caller`) strictly enforce role scoping (`role="student"` vs `role="parent"`) and IDOR ownership checks before queries run. The backend connects to Supabase via a protected service-role key confined entirely to backend container environments.
+Veritas enforces a two-tier defense-in-depth model separating application-level ownership from direct database exposure:
+
+```text
+Browser
+   ↓ (HMAC / Supabase Bearer Token)
+FastAPI Authentication + Role & IDOR Ownership Checks
+   ↓ (Internal Service-Role Key — Strictly Isolated to Backend)
+Supabase Client
+   ↓
+PostgreSQL Database (with RLS protecting against direct client-side access)
+```
+
+1. **Application-Level Authorization (FastAPI)**: All tutoring endpoints, score mutations, and parent dashboard queries require scoped HMAC-SHA256 bearer tokens. FastAPI dependency guards (`verify_student_caller`, `verify_parent_caller`) strictly enforce role scoping (`role="student"` vs `role="parent"`) and IDOR ownership checks before queries run. Because the backend connects to Supabase using a service-role key to perform operations on behalf of verified users, FastAPI authentication and ownership checks are the primary enforcer of tenant scoping for backend queries.
 2. **Direct-Access Client Defense (Supabase RLS)**: Supabase tables (`children`, `game_progress`, `student_misconceptions`) enforce PostgreSQL Row Level Security (`auth.uid() = parent_id`). Any direct queries using the public `SUPABASE_ANON_KEY` are blocked by RLS policies (`0 rows returned` or permission error), ensuring the database is completely protected against direct client-side enumeration or public key leakage.
 
 ---
@@ -181,7 +192,11 @@ Veritas features an automated test runner verifying safety, RLS isolation, sessi
 
 Run the entire suite locally:
 ```bash
-python backend/run_all_tests.py
+cd backend
+# Activate virtual environment if configured:
+# Linux/macOS: source venv/bin/activate
+# Windows: .\venv\Scripts\activate
+python run_all_tests.py
 ```
 
 ### Live Test Suite Output
@@ -191,56 +206,56 @@ python backend/run_all_tests.py
 ============================================================================
 
 ▶ Running Parent Role Authorization & Isolation (P0) (test_auth_p0_parent_isolation.py)...
-  ✓ Parent Role Authorization & Isolation (P0) passed in 3.12s
+  ✓ Parent Role Authorization & Isolation (P0) passed in 7.92s
 
 ▶ Running Deterministic Math Evaluator & Intent Parsing (test_math_evaluator.py)...
-  ✓ Deterministic Math Evaluator & Intent Parsing passed in 0.07s
+  ✓ Deterministic Math Evaluator & Intent Parsing passed in 0.10s
 
 ▶ Running Problem Turn Tracking & Attempt Isolation (test_problem_turn_tracking.py)...
-  ✓ Problem Turn Tracking & Attempt Isolation passed in 4.12s
+  ✓ Problem Turn Tracking & Attempt Isolation passed in 3.74s
 
 ▶ Running Day-3 Resiliency & Session Persistence (test_session_persistence.py)...
-  ✓ Day-3 Resiliency & Session Persistence passed in 6.65s
+  ✓ Day-3 Resiliency & Session Persistence passed in 19.58s
 
 ▶ Running Production RLS & Credential Isolation (test_production_rls.py)...
-  ✓ Production RLS & Credential Isolation passed in 2.19s
+  ✓ Production RLS & Credential Isolation passed in 13.68s
 
 ▶ Running Platform Safety & Socratic Guardrails (test_safety.py)...
-  ✓ Platform Safety & Socratic Guardrails passed in 0.51s
+  ✓ Platform Safety & Socratic Guardrails passed in 0.48s
 
 ▶ Running Student Scoping, Rate Limiting & RAG Retrieval (test_auth_and_rag.py)...
-  ✓ Student Scoping, Rate Limiting & RAG Retrieval passed in 5.62s
+  ✓ Student Scoping, Rate Limiting & RAG Retrieval passed in 4.86s
 
 ▶ Running Parent-Child Architecture & Inactivity Alerts (test_parent_child_flow.py)...
-  ✓ Parent-Child Architecture & Inactivity Alerts passed in 18.17s
+  ✓ Parent-Child Architecture & Inactivity Alerts passed in 68.06s
 
 ▶ Running Neo AI Platform Assistant & Guardrails (test_neo.py)...
-  ✓ Neo AI Platform Assistant & Guardrails passed in 38.25s
+  ✓ Neo AI Platform Assistant & Guardrails passed in 100.72s
 
 ▶ Running Session Resumption & Score Protection (test_session_and_score_fixes.py)...
-  ✓ Session Resumption & Score Protection passed in 16.40s
+  ✓ Session Resumption & Score Protection passed in 56.51s
 
 ▶ Running Math Arcade Games & Relogin Persistence (test_game_progress_persistence.py)...
-  ✓ Math Arcade Games & Relogin Persistence passed in 12.42s
+  ✓ Math Arcade Games & Relogin Persistence passed in 20.78s
 
 ============================================================================
                      APPLICATION TEST EXECUTION SUMMARY                     
 ============================================================================
  #  | TEST SUITE                                      | STATUS     |    TIME
 ----------------------------------------------------------------------------
- 1  | Parent Role Authorization & Isolation (P0)      | ✓ PASS     |   3.12s
- 2  | Deterministic Math Evaluator & Intent Parsing   | ✓ PASS     |   0.07s
- 3  | Problem Turn Tracking & Attempt Isolation       | ✓ PASS     |   4.12s
- 4  | Day-3 Resiliency & Session Persistence          | ✓ PASS     |   6.65s
- 5  | Production RLS & Credential Isolation           | ✓ PASS     |   2.19s
- 6  | Platform Safety & Socratic Guardrails           | ✓ PASS     |   0.51s
- 7  | Student Scoping, Rate Limiting & RAG Retrieval  | ✓ PASS     |   5.62s
- 8  | Parent-Child Architecture & Inactivity Alerts   | ✓ PASS     |  18.17s
- 9  | Neo AI Platform Assistant & Guardrails          | ✓ PASS     |  38.25s
- 10 | Session Resumption & Score Protection           | ✓ PASS     |  16.40s
- 11 | Math Arcade Games & Relogin Persistence         | ✓ PASS     |  12.42s
+ 1  | Parent Role Authorization & Isolation (P0)      | ✓ PASS     |   7.92s
+ 2  | Deterministic Math Evaluator & Intent Parsing   | ✓ PASS     |   0.10s
+ 3  | Problem Turn Tracking & Attempt Isolation       | ✓ PASS     |   3.74s
+ 4  | Day-3 Resiliency & Session Persistence          | ✓ PASS     |  19.58s
+ 5  | Production RLS & Credential Isolation           | ✓ PASS     |  13.68s
+ 6  | Platform Safety & Socratic Guardrails           | ✓ PASS     |   0.48s
+ 7  | Student Scoping, Rate Limiting & RAG Retrieval  | ✓ PASS     |   4.86s
+ 8  | Parent-Child Architecture & Inactivity Alerts   | ✓ PASS     |  68.06s
+ 9  | Neo AI Platform Assistant & Guardrails          | ✓ PASS     | 100.72s
+ 10 | Session Resumption & Score Protection           | ✓ PASS     |  56.51s
+ 11 | Math Arcade Games & Relogin Persistence         | ✓ PASS     |  20.78s
 ----------------------------------------------------------------------------
-  ALL 11/11 TEST SUITES PASSED IN 107.53s!
+  ALL 11/11 TEST SUITES PASSED IN 296.41s!
   STATUS: ALL 11 APPLICATION TEST SUITES PASSED
 ============================================================================
 ```

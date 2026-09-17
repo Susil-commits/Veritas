@@ -97,6 +97,55 @@
   box-shadow: 0 0 6px rgba(52, 211, 153, 0.6);
 }
 
+.synthetic-demo-pill {
+  display: inline-block;
+  font-size: 0.64rem;
+  font-weight: 700;
+  color: #60A5FA;
+  background: rgba(59, 130, 246, 0.12);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  padding: 2px 7px;
+  border-radius: 4px;
+  letter-spacing: 0.03em;
+  margin-top: 5px;
+  text-transform: uppercase;
+}
+
+.synthetic-demo-notice-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background: rgba(59, 130, 246, 0.08);
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  border-left: 4px solid #3B82F6;
+  border-radius: 10px;
+  padding: 12px 18px;
+  margin-bottom: 20px;
+  line-height: 1.45;
+}
+
+.synthetic-demo-notice-banner .synthetic-badge-icon {
+  font-size: 1.1rem;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.synthetic-demo-notice-banner .synthetic-notice-title {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #93C5FD;
+  margin-bottom: 2px;
+}
+
+.synthetic-demo-notice-banner p {
+  margin: 0;
+  font-size: 0.84rem;
+  color: #BFDBFE;
+}
+
 .live-pulse-badge {
   display: flex;
   align-items: center;

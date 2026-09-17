@@ -673,6 +673,9 @@ export default function ParentDashboard() {
                       <div className="child-meta">
                         <h4>{child.student_name}</h4>
                         <p>{child.student_email}</p>
+                        {(isDemoParent || child.student_id === DEMO_STUDENT_ID) && (
+                          <span className="synthetic-demo-pill">DEMO DATA — Synthetic learner profile</span>
+                        )}
                       </div>
                     </div>
                     {child.has_fraction_gap && (
@@ -696,6 +699,17 @@ export default function ParentDashboard() {
         {/* Selected Child Detailed View */}
         {selectedChild ? (
           <div className="child-detail-view">
+            {/* Synthetic Demo Learner Notice */}
+            {(isDemoParent || selectedChild.student_id === DEMO_STUDENT_ID) && (
+              <div className="synthetic-demo-notice-banner">
+                <span className="synthetic-badge-icon">ℹ️</span>
+                <div className="synthetic-notice-text">
+                  <span className="synthetic-notice-title">DEMO DATA — Synthetic learner profile</span>
+                  <p>Sample learning trajectory, Common Core mastery radar, and inactivity alerts shown for demonstration. No actual children are being monitored.</p>
+                </div>
+              </div>
+            )}
+
             {/* Demo Highlight Banner */}
             {selectedChild.has_fraction_gap && (
               <div className="alert-banner">

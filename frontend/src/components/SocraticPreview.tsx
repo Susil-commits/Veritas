@@ -116,7 +116,7 @@ export default function SocraticPreview() {
           </div>
 
           <div className="tutor-thought-box">
-            <span className="thought-tag">Behind the Scenes · Tutor Thinking</span>
+            <span className="thought-tag">Behind the Scenes · Tutor Status</span>
             <p className="thought-text">{activeScenario.tutorThought}</p>
           </div>
 
