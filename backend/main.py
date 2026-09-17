@@ -166,7 +166,14 @@ def get_orchestrator_graph():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global _graph
-    _graph = get_orchestrator_graph()
+    try:
+        _graph = get_orchestrator_graph()
+        print("[INFO] LangGraph orchestrator compiled successfully on startup.")
+    except Exception as e:
+        _graph = None
+        print(f"[ERROR] LangGraph orchestrator failed to compile during lifespan startup: {e}")
+        print("[WARN] Server will continue booting so health/readiness probes remain alive; orchestrator will retry on demand.")
+
     if is_session_secret_configured():
         print("[INFO] Auth: Dedicated SESSION_SECRET_KEY detected and active.")
     else:
@@ -369,6 +376,7 @@ async def health_full():
         "services": {
             "supabase": _cached_db_status,
             "gemini": _cached_gemini_status,
+            "orchestrator": bool(_graph is not None),
             "session_secret_configured": is_session_secret_configured(),
             "redis": redis_service.is_connected,
             "cloudinary": cloudinary_service.is_available,
@@ -1331,7 +1339,14 @@ async def send_message(
                 }
 
                 # Execute LangGraph state machine orchestrator
-                graph = get_orchestrator_graph()
+                try:
+                    graph = get_orchestrator_graph()
+                except Exception as g_err:
+                    print(f"[ERROR] On-demand LangGraph compilation failed: {g_err}")
+                    yield f"data: {json.dumps({'type': 'response', 'content': 'The AI reasoning engine is currently warming up. Please send your message again in a moment!', 'done': True})}\n\n"
+                    yield f"data: {json.dumps({'type': 'done', 'mastery_state': current_state.get('mastery_state', {}), 'problem_solved': False})}\n\n"
+                    return
+
                 graph_output = await graph.ainvoke(graph_input)
 
                 response = graph_output.get("agent_response", "")

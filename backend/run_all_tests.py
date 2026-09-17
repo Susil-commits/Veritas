@@ -17,6 +17,7 @@ if sys.platform == "win32":
 BACKEND_DIR = Path(__file__).resolve().parent
 
 TEST_SCRIPTS = [
+    ("test_startup_smoke.py", "FastAPI Lifespan & LangGraph State Machine Smoke Test"),
     ("test_auth_p0_parent_isolation.py", "Parent Role Authorization & Isolation (P0)"),
     ("test_math_evaluator.py", "Deterministic Math Evaluator & Intent Parsing"),
     ("test_problem_turn_tracking.py", "Problem Turn Tracking & Attempt Isolation"),
