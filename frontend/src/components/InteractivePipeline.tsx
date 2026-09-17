@@ -469,7 +469,7 @@ export default function InteractivePipeline() {
         <div className="pipeline-stage-container">
           <div className="pipeline-hint-bar">
             <Lightbulb size={16} style={{ color: '#FBBF24', flexShrink: 0 }} />
-            <span>Click any node to inspect payload — or <strong>drag nodes freely</strong> to see live cables flex!</span>
+            <span>Click or <strong>drag nodes freely</strong> to flex live cables — or click <strong>Send Practice Step</strong> to watch real-time data flow!</span>
           </div>
 
           <div className="pipeline-svg-wrapper">
@@ -510,6 +510,7 @@ export default function InteractivePipeline() {
                 stroke="var(--pipeline-grid-line, rgba(129, 140, 248, 0.12))"
                 strokeWidth="1"
                 strokeDasharray="7 7"
+                className="radar-outer-ring"
               />
 
               {/* ── Dynamic Connecting Curved Paths ── */}
@@ -561,6 +562,7 @@ export default function InteractivePipeline() {
                           className="cable-badge-rect"
                           stroke={conn.color || 'var(--border)'}
                           strokeWidth="1.2"
+                          data-label={conn.label}
                         />
                         <text
                           x="0"
@@ -571,6 +573,7 @@ export default function InteractivePipeline() {
                           letterSpacing="0.08em"
                           fill={conn.color || '#94a3b8'}
                           className="cable-badge-text"
+                          data-label={conn.label}
                         >
                           {conn.label}
                         </text>
@@ -657,6 +660,7 @@ export default function InteractivePipeline() {
                                 r="2.5"
                                 fill={node.color}
                                 opacity="0.65"
+                                className="core-orbit-dot"
                               />
                             )
                           })}
@@ -669,6 +673,7 @@ export default function InteractivePipeline() {
                           size={36}
                           color={node.color}
                           strokeWidth={2.2}
+                          className="node-core-icon"
                         />
 
                         {/* Core Title */}
@@ -679,7 +684,6 @@ export default function InteractivePipeline() {
                           className="node-core-title"
                           fontSize="12"
                           fontWeight="800"
-                          fill="#ffffff"
                         >
                           VERITAS CORE
                         </text>
@@ -692,7 +696,6 @@ export default function InteractivePipeline() {
                           className="node-core-sub"
                           fontSize="9.5"
                           fontWeight="700"
-                          fill={node.color}
                           letterSpacing="0.08em"
                         >
                           SOCRATIC AI
