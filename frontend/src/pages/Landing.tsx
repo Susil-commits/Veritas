@@ -832,18 +832,6 @@ export default function Landing() {
             >
               Math Topics
             </a>
-            <button
-              type="button"
-              className="nav-link"
-              onClick={() => {
-                introAlreadyInitiated = false
-                setShowIntro(true)
-              }}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', font: 'inherit' }}
-              title="Experience the Veritas cinematic welcome intro"
-            >
-              Intro ✨
-            </button>
           </nav>
 
           <div className="navbar-actions">
