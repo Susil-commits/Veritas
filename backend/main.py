@@ -97,12 +97,20 @@ _server_start_time: float = time.time()
 _graph = None
 
 
-async def db_exec(query: Any) -> Any:
+async def db_exec(query: Any, retries: int = 2) -> Any:
     """
     Execute synchronous Supabase query builder `.execute()` in threadpool
     to prevent blocking FastAPI's single-threaded asyncio event loop under load.
+    Includes transient retry for network/socket blips.
     """
-    return await asyncio.to_thread(query.execute)
+    for attempt in range(retries + 1):
+        try:
+            return await asyncio.to_thread(query.execute)
+        except Exception as e:
+            if attempt < retries and any(err in str(e) for err in ["10035", "ReadError", "ConnectError", "timed out", "Timeout", "RemoteProtocolError", "ConnectionTerminated", "RemoteDisconnected"]):
+                await asyncio.sleep(0.15 * (attempt + 1))
+                continue
+            raise
 
 
 async def _update_mastery_for_skill(session_state: dict, skill_id: str, attempt_type: str = "independent_attempt") -> None:
@@ -330,8 +338,8 @@ async def health_full():
                     max_retries=0,
                     timeout=5,
                 )
-                await asyncio.to_thread(llm.get_num_tokens, "ping")
-                _cached_gemini_status = True
+                resp = await asyncio.to_thread(llm.invoke, "Respond with exactly: OK")
+                _cached_gemini_status = bool(resp and resp.content)
                 _last_gemini_check_time = now
         except Exception as e:
             if "429" in str(e) or "ResourceExhausted" in str(e) or "quota" in str(e).lower():

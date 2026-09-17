@@ -6,7 +6,11 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from evaluators.math_evaluator import evaluate_student_solution, verify_math_equivalence
+from evaluators.math_evaluator import (
+    evaluate_student_solution,
+    verify_math_equivalence,
+    extract_expected_answer,
+)
 
 
 def test_arithmetic_evaluation():
@@ -81,14 +85,66 @@ def test_algebraic_equations():
     assert evaluate_student_solution("x = 6", prob_eq)["objective_solved"] is False
     assert evaluate_student_solution("y = 5", prob_eq)["objective_solved"] is False
 
+    # Regression Case 1: 2p + h (classified as expression, not bare digit '2')
     prob_expr = {
         "title": "Book Price Expression",
         "expected_steps": ["Answer: 2p + h"],
     }
+    ans_str, ans_type = extract_expected_answer(prob_expr)
+    assert ans_type == "expression", f"Expected 'expression', got {ans_type}"
+    assert ans_str == "2p + h", f"Expected '2p + h', got {ans_str}"
     assert evaluate_student_solution("2p + h", prob_expr)["objective_solved"] is True
     assert evaluate_student_solution("h + 2p", prob_expr)["objective_solved"] is True
     assert evaluate_student_solution("2p - h", prob_expr)["objective_solved"] is False
-    print("   [OK] Algebraic equations and expressions verified.")
+    assert evaluate_student_solution("2", prob_expr)["objective_solved"] is False, "Bare number 2 must not satisfy '2p + h'"
+
+    # Regression Case 2: h + 2p (commutative ordering)
+    prob_expr_rev = {
+        "title": "Commutative Expression",
+        "expected_steps": ["Answer: h + 2p"],
+    }
+    ans_rev, type_rev = extract_expected_answer(prob_expr_rev)
+    assert type_rev == "expression", f"Expected 'expression', got {type_rev}"
+    assert ans_rev == "h + 2p", f"Expected 'h + 2p', got {ans_rev}"
+    assert evaluate_student_solution("h + 2p", prob_expr_rev)["objective_solved"] is True
+    assert evaluate_student_solution("2p + h", prob_expr_rev)["objective_solved"] is True
+
+    # Regression Case 3: 2p - h (non-commutative subtraction)
+    prob_expr_diff = {
+        "title": "Difference Expression",
+        "expected_steps": ["Answer: 2p - h"],
+    }
+    ans_diff, type_diff = extract_expected_answer(prob_expr_diff)
+    assert type_diff == "expression", f"Expected 'expression', got {type_diff}"
+    assert ans_diff == "2p - h", f"Expected '2p - h', got {ans_diff}"
+    assert evaluate_student_solution("2p - h", prob_expr_diff)["objective_solved"] is True
+    assert evaluate_student_solution("2p + h", prob_expr_diff)["objective_solved"] is False
+    assert evaluate_student_solution("h - 2p", prob_expr_diff)["objective_solved"] is False
+
+    # Regression Case 4: Expression with constant prefix e.g. 15 + 4t (classified as expression, not '15')
+    prob_const_expr = {
+        "title": "Admission with Ride Tickets",
+        "expected_steps": ["Answer: 15 + 4t"],
+    }
+    ans_const, type_const = extract_expected_answer(prob_const_expr)
+    assert type_const == "expression", f"Expected 'expression', got {type_const}"
+    assert ans_const == "15 + 4t", f"Expected '15 + 4t', got {ans_const}"
+    assert evaluate_student_solution("15 + 4t", prob_const_expr)["objective_solved"] is True
+    assert evaluate_student_solution("4t + 15", prob_const_expr)["objective_solved"] is True
+    assert evaluate_student_solution("15", prob_const_expr)["objective_solved"] is False, "Bare number 15 must not satisfy '15 + 4t'"
+
+    # Regression Case 5: Single variable with coefficient e.g. 9w
+    prob_single_var = {
+        "title": "Single Variable Term",
+        "expected_steps": ["Answer: 9w"],
+    }
+    ans_single, type_single = extract_expected_answer(prob_single_var)
+    assert type_single == "expression", f"Expected 'expression', got {type_single}"
+    assert ans_single == "9w", f"Expected '9w', got {ans_single}"
+    assert evaluate_student_solution("9w", prob_single_var)["objective_solved"] is True
+    assert evaluate_student_solution("9", prob_single_var)["objective_solved"] is False, "Bare number 9 must not satisfy '9w'"
+
+    print("   [OK] Algebraic equations and expressions verified (2p+h, h+2p, 2p-h, 15+4t, 9w).")
 
 
 def test_exploratory_messages():

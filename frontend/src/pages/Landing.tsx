@@ -580,7 +580,7 @@ export default function Landing() {
     }
   }
 
-  const handleVerifyOtpCode = async (codeToVerify: string, overrideRole?: 'student' | 'parent') => {
+  const handleVerifyOtpCode = async (codeToVerify: string, overrideRole?: 'student' | 'parent', overrideEmail?: string) => {
     const cleanCode = codeToVerify.trim()
     if (cleanCode.length !== 6 && cleanCode.length !== 8) {
       setAuthError('Please enter all digits of the verification code (6 or 8 digits).')
@@ -590,7 +590,7 @@ export default function Landing() {
     setAuthLoading(true)
     setAuthError('')
     try {
-      const targetEmail = magicLinkEmail || email
+      const targetEmail = (overrideEmail || magicLinkEmail || email)?.trim().toLowerCase()
       if (!targetEmail) {
         setAuthError('Please enter your email address before verifying the code.')
         setAuthLoading(false)
@@ -726,7 +726,10 @@ export default function Landing() {
     setOtpLength(targetLen)
     const digits = code.slice(0, targetLen).split('')
     setOtpDigits(digits)
-    handleVerifyOtpCode(code, targetRole)
+    const demoEmail = targetRole === 'parent' ? 'parent.sarah@veritas.dev' : 'student.alex@veritas.dev'
+    setMagicLinkEmail(demoEmail)
+    setEmail(demoEmail)
+    handleVerifyOtpCode(code, targetRole, demoEmail)
   }
 
   const handleDemoLogin = async (targetRole: 'student' | 'parent') => {

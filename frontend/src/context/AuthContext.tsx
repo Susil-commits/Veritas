@@ -285,15 +285,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const cleanEmail = email.trim().toLowerCase()
     const cleanToken = token.trim()
 
-    // Evaluator Convenience: Instant OTP bypass codes ('777888' for student, '123456' for parent)
-    // and @veritas.dev emails. Intentionally gated to non-production addresses so judges can test
-    // complete authenticated flows without checking a physical inbox or waiting for rate-limited emails.
-    if (cleanToken === '777888' || cleanToken === '123456' || cleanEmail.includes('@veritas.dev')) {
-      const demoRole: UserRole = cleanEmail.includes('parent')
-        ? 'parent'
-        : cleanEmail.includes('student')
-        ? 'student'
-        : targetRole
+    // Evaluator Convenience: Instant OTP bypass codes strictly gated to designated demo accounts:
+    // - student.alex@veritas.dev + 777888
+    // - parent.sarah@veritas.dev + 123456
+    // Strictly requires BOTH matching demo email and matching demo OTP code.
+    // Real emails (e.g., @gmail.com) can NEVER trigger synthetic demo flows.
+    const isStudentDemo = cleanEmail === 'student.alex@veritas.dev' && cleanToken === '777888'
+    const isParentDemo = cleanEmail === 'parent.sarah@veritas.dev' && cleanToken === '123456'
+
+    if (isStudentDemo || isParentDemo) {
+      const demoRole: UserRole = isParentDemo ? 'parent' : 'student'
       await demoSignIn(demoRole, cleanEmail)
       return { error: null, registeredRole: demoRole, roleMismatch: demoRole !== targetRole }
     }

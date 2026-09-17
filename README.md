@@ -71,6 +71,11 @@ flowchart TD
 
 > **Multi-Agent Orchestration Note**: The Socratic Tutor and Safety-boundary agents are orchestrated via a compiled **LangGraph state machine** (`/session/message`), delivering state-driven dynamic routing, deterministic math evaluation, safety interception, and conversation history management. The Diagnostic Vision Agent (`/session/upload-work`) and Content Agent (`/session/next-problem`) are invoked directly for specialized multimodal vision breakdown and pgvector curriculum progression.
 
+### 🛡️ Dual-Tier Security & Isolation Architecture
+Veritas enforces a two-tier defense model separating application ownership from direct database exposure:
+1. **Application-Level Authorization (FastAPI)**: All tutoring endpoints, score mutations, and parent dashboard queries require scoped HMAC-SHA256 bearer tokens. FastAPI dependency guards (`verify_student_caller`, `verify_parent_caller`) strictly enforce role scoping (`role="student"` vs `role="parent"`) and IDOR ownership checks before queries run. The backend connects to Supabase via a protected service-role key confined entirely to backend container environments.
+2. **Direct-Access Client Defense (Supabase RLS)**: Supabase tables (`children`, `game_progress`, `student_misconceptions`) enforce PostgreSQL Row Level Security (`auth.uid() = parent_id`). Any direct queries using the public `SUPABASE_ANON_KEY` are blocked by RLS policies (`0 rows returned` or permission error), ensuring the database is completely protected against direct client-side enumeration or public key leakage.
+
 ---
 
 ## 🧠 Machine Learning & Pedagogical Engine
@@ -161,7 +166,7 @@ Veritas leverages established academic benchmarks and open-source datasets to tr
 | 🛡️ **Anti-Leak Guardrails** | Secondary verification intercepts direct final answer reveals, redirecting to foundational questions. |
 | 📊 **Real-Time Parent Radar** | 10-skill CCSS radar chart syncing live learning events via Supabase Realtime. |
 | 💾 **Dual-Tier State Resilience** | Active sessions are cached in RAM (0ms) and backed by Supabase `sessions.state` JSONB + event streams (allowing state recovery across application-instance restarts; local disk acts as a development fallback). |
-| 🔒 **Enterprise RLS Security** | Strict Supabase Row Level Security ensures parents cannot access another family's child records. |
+| 🔒 **Dual-Tier Data Security** | Defense-in-depth: FastAPI backend authorization enforces strict application-level ownership and role isolation, while Supabase Row Level Security (RLS) protects the database from direct client-side access or key leakage. |
 | 🗑️ **Parental Data Deletion** | Self-serve "Delete Activity Data" control to immediately purge logs and session histories. |
 | 🤖 **Neo Platform Assistant** | In-app contextual AI companion grounded to explain platform pedagogy and help parents navigate. |
 

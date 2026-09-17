@@ -77,15 +77,22 @@ def extract_expected_answer(problem: dict) -> Tuple[str | None, str]:
     if frac_match:
         return frac_match.group(1), "fraction"
 
-    # Check for single variable expression e.g. "9w", "2p + h", "4a + 3b"
-    expr_match = re.search(r"\b([0-9]*[a-zA-Z](?:\s*[+\-*/]\s*[0-9]*[a-zA-Z0-9]+)*)\b", ans_str)
+    # Check for multi-term algebraic expression e.g. "2p + h", "h + 2p", "2p - h", "15 + 4t", "n + 7"
+    multi_expr = re.search(r"\b((?:[0-9]*[a-zA-Z]|[0-9]+(?:\.[0-9]+)?)(?:\s*[+\-*/]\s*(?:[0-9]*[a-zA-Z]|[0-9]+(?:\.[0-9]+)?))+)\b", ans_str)
+    if multi_expr and re.search(r"[a-zA-Z]", multi_expr.group(1)):
+        return multi_expr.group(1), "expression"
+
+    # Check for single variable expression e.g. "9w", "2p", "4a"
+    single_term = re.search(r"\b([0-9]+[a-zA-Z])\b", ans_str)
+    if single_term:
+        return single_term.group(1), "expression"
+    if re.match(r"^[a-zA-Z]$", ans_str.strip()):
+        return ans_str.strip(), "expression"
+
     # Check for clean number e.g. "40", "16", "41.5"
     num_match = re.search(r"\b(-?\d+(?:\.\d+)?)\b", ans_str)
-
     if num_match:
         return num_match.group(1), "number"
-    if expr_match:
-        return expr_match.group(1), "expression"
 
     return ans_str, "expression"
 
@@ -143,9 +150,9 @@ def extract_student_candidate(message: str) -> list[Tuple[str, str]]:
     # 2. Extract candidates anchored to explicit answer-intent phrases (if not an equation)
     if not has_equation:
         intent_patterns = [
-            r"(?:the\s+)?answer\s*(?:is|should\s+be|=|:)\s*(-?\d+\s+\d+/\d+|-?\d+/\d+|-?\d+(?:\.\d+)?|[0-9]*[a-zA-Z](?:\s*[+\-*/]\s*[0-9]*[a-zA-Z0-9]+)+)",
-            r"(?:i\s+got|i\s+get|i\s+found|my\s+answer\s+is)\s*(-?\d+\s+\d+/\d+|-?\d+/\d+|-?\d+(?:\.\d+)?|[0-9]*[a-zA-Z](?:\s*[+\-*/]\s*[0-9]*[a-zA-Z0-9]+)+)",
-            r"(?:i\s+think\s+(?:the\s+answer\s+is|it(?:'s|s|\s+is))\s*|maybe\s+it(?:'s|s|\s+is)\s*|maybe\s+)\s*(-?\d+\s+\d+/\d+|-?\d+/\d+|-?\d+(?:\.\d+)?|[0-9]*[a-zA-Z](?:\s*[+\-*/]\s*[0-9]*[a-zA-Z0-9]+)+)",
+            r"(?:the\s+)?answer\s*(?:is|should\s+be|=|:)\s*(-?\d+\s+\d+/\d+|-?\d+/\d+|-?\d+(?:\.\d+)?|(?:[0-9]*[a-zA-Z]|[0-9]+)(?:\s*[+\-*/]\s*(?:[0-9]*[a-zA-Z]|[0-9]+))+)",
+            r"(?:i\s+got|i\s+get|i\s+found|my\s+answer\s+is)\s*(-?\d+\s+\d+/\d+|-?\d+/\d+|-?\d+(?:\.\d+)?|(?:[0-9]*[a-zA-Z]|[0-9]+)(?:\s*[+\-*/]\s*(?:[0-9]*[a-zA-Z]|[0-9]+))+)",
+            r"(?:i\s+think\s+(?:the\s+answer\s+is|it(?:'s|s|\s+is))\s*|maybe\s+it(?:'s|s|\s+is)\s*|maybe\s+)\s*(-?\d+\s+\d+/\d+|-?\d+/\d+|-?\d+(?:\.\d+)?|(?:[0-9]*[a-zA-Z]|[0-9]+)(?:\s*[+\-*/]\s*(?:[0-9]*[a-zA-Z]|[0-9]+))+)",
             r"(?:so|therefore|equals?)\s+(-?\d+\s+\d+/\d+|-?\d+/\d+|-?\d+(?:\.\d+)?)",
             r"(?:is\s+it|is\s+the\s+simplified\s+fraction|decimal\s+form\s+is)\s*(-?\d+\s+\d+/\d+|-?\d+/\d+|-?\d+(?:\.\d+)?)",
         ]
@@ -175,17 +182,18 @@ def extract_student_candidate(message: str) -> list[Tuple[str, str]]:
             if not is_in_negation(sf.start(1), sf.end(1), sf.group(1).strip()):
                 add_cand(sf.group(1), "fraction")
 
+        # Expressions e.g. "2p + h", "h + 2p", "15 + 4t"
+        for ex in re.finditer(r"\b((?:[0-9]*[a-zA-Z]|[0-9]+)(?:\s*[+\-*/]\s*(?:[0-9]*[a-zA-Z]|[0-9]+))+)\b", text):
+            if re.search(r"[a-zA-Z]", ex.group(1)):
+                add_cand(ex.group(1), "expression")
+        for st in re.finditer(r"\b([0-9]+[a-zA-Z])\b", text):
+            add_cand(st.group(1), "expression")
+
         # Standalone numbers e.g. "40", "40.0"
         if not has_equation:
             for nm in re.finditer(r"\b(-?\d+(?:\.\d+)?)\b", text):
                 if not is_in_negation(nm.start(1), nm.end(1), nm.group(1).strip()):
                     add_cand(nm.group(1), "number")
-
-        # Expressions e.g. "2p + h", "h + 2p"
-        for ex in re.finditer(r"\b([0-9]*[a-zA-Z](?:\s*[+\-*/]\s*[0-9]*[a-zA-Z0-9]+)+)\b", text):
-            add_cand(ex.group(1), "expression")
-        for st in re.finditer(r"\b([0-9]+[a-zA-Z])\b", text):
-            add_cand(st.group(1), "expression")
 
     return candidates
 
