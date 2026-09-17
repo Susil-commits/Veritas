@@ -16,7 +16,7 @@ import logging
 import httpx
 from pathlib import Path
 
-logger = logging.getLogger("ainerd-backend")
+logger = logging.getLogger("veritas-backend")
 from contextlib import asynccontextmanager
 from typing import Any, AsyncGenerator, Optional
 
@@ -322,9 +322,15 @@ async def health_full():
             if not gemini_key:
                 _cached_gemini_status = False
             else:
-                import google.generativeai as genai
-                genai.configure(api_key=gemini_key)
-                models = await asyncio.to_thread(lambda: next(iter(genai.list_models()), None))
+                from config import CHAT_MODEL
+                from langchain_google_genai import ChatGoogleGenerativeAI
+                llm = ChatGoogleGenerativeAI(
+                    model=CHAT_MODEL,
+                    google_api_key=gemini_key,
+                    max_retries=0,
+                    timeout=5,
+                )
+                await asyncio.to_thread(llm.get_num_tokens, "ping")
                 _cached_gemini_status = True
                 _last_gemini_check_time = now
         except Exception as e:
@@ -456,7 +462,8 @@ def _read_games_store() -> dict[str, Any]:
             return _games_store_cache
         try:
             with open(GAMES_STORE_PATH, "r", encoding="utf-8") as f:
-                _games_store_cache = json.load(f)
+                loaded = json.load(f)
+                _games_store_cache = loaded if isinstance(loaded, dict) else {}
                 return _games_store_cache
         except Exception as e:
             logger.warning("Error reading games store from %s: %s", GAMES_STORE_PATH, e)
@@ -572,13 +579,14 @@ async def _get_student_game_progress(student_id: str) -> dict[str, Any]:
         skill_mastered = (effective_mastery >= 0.45) or skill_solved
 
         # Level 1-4 are unlocked for demo account or if required skill is solved
-        if is_demo_student and item["level"] <= 4:
+        item_level = int(item["level"])
+        if is_demo_student and item_level <= 4:
             skill_mastered = True
-        elif item["level"] == 1 and skill_mastered:
+        elif item_level == 1 and skill_mastered:
             skill_mastered = True
 
         is_unlocked = previous_unlocked and skill_mastered
-        if not previous_unlocked and not (is_demo_student and item["level"] <= 4):
+        if not previous_unlocked and not (is_demo_student and item_level <= 4):
             is_unlocked = False
 
         if is_unlocked:
@@ -852,12 +860,6 @@ async def start_session(
 
     # Flow A: Authenticated user (verified Supabase JWT / existing session token)
     if authenticated_sub:
-        payload = verify_session_token(token)
-        if payload.get("role") != "student":
-            raise HTTPException(
-                status_code=403,
-                detail="Student account required for tutoring sessions",
-            )
         student_id = authenticated_sub
         try:
             upsert_payload = {"id": student_id, "name": req.student_name}

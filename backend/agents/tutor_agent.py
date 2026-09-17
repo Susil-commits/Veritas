@@ -108,7 +108,6 @@ def build_tutor_llm(model_name: str) -> ChatGoogleGenerativeAI:
     return ChatGoogleGenerativeAI(
         model=model_name,
         google_api_key=api_key,
-        temperature=0.7,
         max_output_tokens=1000,
         max_retries=0,
         timeout=10,

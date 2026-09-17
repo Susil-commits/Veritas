@@ -98,7 +98,6 @@ def build_vision_llm() -> ChatGoogleGenerativeAI:
     return ChatGoogleGenerativeAI(
         model=model_name,
         google_api_key=api_key,
-        temperature=0.2,  # Low temperature for precise diagnosis
         max_output_tokens=2048,
         max_retries=0,
         timeout=15,

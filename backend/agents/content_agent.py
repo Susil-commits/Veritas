@@ -390,7 +390,6 @@ def generate_session_summary(
     llm = ChatGoogleGenerativeAI(
         model=model_name,
         google_api_key=api_key,
-        temperature=0.4,
         max_output_tokens=500,
         max_retries=0,
         timeout=10,

@@ -88,7 +88,6 @@ def build_neo_llm(model_name: str) -> ChatGoogleGenerativeAI:
     return ChatGoogleGenerativeAI(
         model=model_name,
         google_api_key=api_key,
-        temperature=0.3,
         max_output_tokens=500,
         max_retries=0,
         timeout=10,
