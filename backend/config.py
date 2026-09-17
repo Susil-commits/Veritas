@@ -17,6 +17,7 @@ EMBEDDING_DIMENSION: int = int(os.getenv("EMBEDDING_DIMENSION", "768"))
 # Resilience cascade for chat endpoints when primary model encounters quota/maintenance
 CHAT_MODEL_CASCADE: list[str] = [
     CHAT_MODEL,
+    "gemini-flash-lite-latest",
     "gemini-flash-latest",
     "gemini-3.5-flash",
     "gemini-3.5-flash-lite",
