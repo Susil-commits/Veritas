@@ -151,7 +151,7 @@ def score_candidate_adaptive(
        - lexical token overlap proxy when similarity is 0.0 / absent (fallback resilience)
     2. Difficulty fit (distance to optimal ZPD difficulty window)
     3. Misconception targeting bonus (exact misconception_type or keyword matching)
-    4. Candidate-specific continuous mastery alignment (target difficulty = 1.0 + 4.0 * mastery_prob)
+    4. Mastery-derived pedagogical difficulty target (heuristic mapping: d*(P(L)) = 1.0 + 4.0 * mastery_prob)
     """
     diff = candidate.get("difficulty", 1)
     target_center = (target_min_diff + target_max_diff) / 2.0
@@ -195,8 +195,8 @@ def score_candidate_adaptive(
             matched = sum(1 for kw in misc_tokens if kw in cand_text)
             misc_score = min(1.0, matched / len(misc_tokens))
 
-    # Candidate-specific continuous mastery alignment:
-    # Maps student mastery [0.0, 1.0] onto continuous difficulty scale [1.0, 5.0].
+    # Mastery-derived pedagogical difficulty target (heuristic function):
+    # Maps student mastery [0.0, 1.0] onto pedagogical difficulty scale [1.0, 5.0].
     # Low-mastery students are matched to foundational problems (avoid cognitive overload);
     # high-mastery students are matched to challenging problems (avoid boredom).
     target_continuous_diff = 1.0 + (mastery_prob * 4.0)
