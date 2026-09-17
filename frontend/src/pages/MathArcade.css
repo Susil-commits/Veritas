@@ -1000,6 +1000,8 @@
 .modal-actions .btn-secondary:hover {
   background: rgba(255, 255, 255, 0.12);
   color: #fff;
+}
+
 /* ── Reset Scores Button & Mode Selectors ─────────────────────────── */
 .arcade-reset-scores-btn {
   background: rgba(239, 68, 68, 0.12);
@@ -1267,4 +1269,33 @@
   .question-text {
     font-size: 1.7rem;
   }
+}
+
+/* ── Light Mode Overrides for Mode Selectors and Reset Button ── */
+[data-theme="light"] .arcade-reset-scores-btn {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.35);
+  color: #dc2626;
+}
+
+[data-theme="light"] .arcade-reset-scores-btn:hover {
+  background: rgba(239, 68, 68, 0.22);
+  border-color: #dc2626;
+  color: #b91c1c;
+}
+
+[data-theme="light"] .mode-toggle-group {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: rgba(124, 93, 250, 0.25);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .mode-toggle-btn {
+  color: #4b5563;
+}
+
+[data-theme="light"] .mode-toggle-btn.active {
+  background: linear-gradient(135deg, #6B4EE6 0%, #4F46E5 100%);
+  color: #ffffff;
+  box-shadow: 0 2px 10px rgba(107, 78, 230, 0.35);
 }

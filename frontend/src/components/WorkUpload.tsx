@@ -7,11 +7,12 @@ interface Props {
   sessionId: string
   onThinking: (step: string) => void
   onDiagnosis: (d: Diagnosis, mastery: Record<string, number>, next: Problem | null) => void
+  disabled?: boolean
 }
 
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024 // 10MB cap matching backend safety boundary
 
-export default function WorkUpload({ sessionId, onThinking, onDiagnosis }: Props) {
+export default function WorkUpload({ sessionId, onThinking, onDiagnosis, disabled = false }: Props) {
   const [preview, setPreview] = useState<string | null>(null)
   const [file, setFile] = useState<File | null>(null)
   const [uploading, setUploading] = useState(false)
@@ -231,6 +232,7 @@ export default function WorkUpload({ sessionId, onThinking, onDiagnosis }: Props
           <button
             className="clear-btn"
             onClick={() => {
+              if (disabled || uploading) return
               setPreview(null)
               setFile(null)
               setDiagnosis(null)
@@ -239,6 +241,7 @@ export default function WorkUpload({ sessionId, onThinking, onDiagnosis }: Props
                 fileInputRef.current.value = ''
               }
             }}
+            disabled={disabled || uploading}
             aria-label="Remove uploaded image"
             title="Remove image"
           >
@@ -250,14 +253,14 @@ export default function WorkUpload({ sessionId, onThinking, onDiagnosis }: Props
         </div>
       ) : (
         <div
-          className="upload-zone"
+          className={`upload-zone ${disabled ? 'upload-zone--disabled' : ''}`}
           role="button"
-          tabIndex={0}
+          tabIndex={disabled ? -1 : 0}
           aria-label="Upload photo of handwritten work. Click to browse or drag and drop."
-          onClick={() => fileInputRef.current?.click()}
-          onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && fileInputRef.current?.click()}
+          onClick={() => !disabled && fileInputRef.current?.click()}
+          onKeyDown={(e) => !disabled && (e.key === 'Enter' || e.key === ' ') && fileInputRef.current?.click()}
           onDragOver={(e) => e.preventDefault()}
-          onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) handleFile(f) }}
+          onDrop={(e) => { e.preventDefault(); if (!disabled) { const f = e.dataTransfer.files[0]; if (f) handleFile(f) } }}
         >
           <span className="upload-prompt-badge">Upload Work</span>
           <p>Drop your photo here<br /><span>or click to browse</span></p>
@@ -269,6 +272,7 @@ export default function WorkUpload({ sessionId, onThinking, onDiagnosis }: Props
         type="file"
         accept="image/*"
         style={{ display: 'none' }}
+        disabled={disabled}
         onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f) }}
       />
 
@@ -283,6 +287,7 @@ export default function WorkUpload({ sessionId, onThinking, onDiagnosis }: Props
           <button
             className="btn btn-ghost"
             onClick={openCamera}
+            disabled={disabled || uploading}
             style={{ gap: '6px' }}
             aria-label="Open camera to capture work photo"
           >
@@ -293,7 +298,7 @@ export default function WorkUpload({ sessionId, onThinking, onDiagnosis }: Props
           <button
             className="btn btn-primary"
             onClick={analyze}
-            disabled={uploading}
+            disabled={uploading || disabled}
             aria-label="Check handwritten work photo"
           >
             {uploading ? 'Checking steps…' : 'Check My Work'}

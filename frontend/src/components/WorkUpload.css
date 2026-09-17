@@ -29,6 +29,11 @@
   gap: 0.75rem;
 }
 .upload-zone:hover { border-color: var(--violet); background: rgba(124,93,250,0.2); }
+.upload-zone--disabled {
+  opacity: 0.55;
+  cursor: not-allowed !important;
+  pointer-events: none;
+}
 .upload-zone p { color: var(--text-secondary); font-size: 0.9rem; line-height: 1.5; }
 .upload-zone span { color: var(--violet-light); font-weight: 600; }
 

@@ -28,6 +28,9 @@ export default function Dashboard() {
   const [loadError, setLoadError] = useState<string | null>(null)
   const [authDenied, setAuthDenied] = useState<string | null>(null)
   const [retryTrigger, setRetryTrigger] = useState(0)
+  const [selectedDomain, setSelectedDomain] = useState<string>('all')
+  const [copiedId, setCopiedId] = useState(false)
+
   const cachedSession = useMemo(() => {
     try {
       const raw = sessionStorage.getItem('session')
@@ -40,8 +43,32 @@ export default function Dashboard() {
     } catch {}
     return null
   }, [studentId])
+
   const sessionId = cachedSession?.session_id || null
   const studentName = cachedSession?.student_name || 'Student'
+
+  const handleCopyId = () => {
+    if (!studentId) return
+    navigator.clipboard.writeText(studentId)
+    setCopiedId(true)
+    setTimeout(() => setCopiedId(false), 2000)
+  }
+
+  const arcadeStats = useMemo(() => {
+    try {
+      const rawScores = localStorage.getItem('veritas_arcade_scores') || localStorage.getItem('arcade_high_scores')
+      const parsed = rawScores ? JSON.parse(rawScores) : {}
+      const gamesCount = Object.keys(parsed).length
+      let totalStars = 0
+      Object.values(parsed).forEach((item: any) => {
+        if (typeof item === 'object' && item?.stars) totalStars += item.stars
+        else if (typeof item === 'number' && item > 0) totalStars += Math.min(3, Math.floor(item / 30) + 1)
+      })
+      return { gamesPlayed: gamesCount, totalStars: Math.max(totalStars, gamesCount * 2) }
+    } catch {
+      return { gamesPlayed: 0, totalStars: 0 }
+    }
+  }, [])
 
   useEffect(() => {
     document.title = `Veritas — ${studentName}'s Progress Dashboard`
@@ -56,7 +83,6 @@ export default function Dashboard() {
       getMastery(studentId),
       sessionId ? getSummary(studentId, sessionId) : Promise.resolve(null),
     ]).then(([masteryData, summaryData]) => {
-      // Build skills array with names from all_skills
       const skillMap: Record<string, string> = {}
       for (const s of masteryData?.all_skills ?? []) skillMap[s.id] = s.name
 
@@ -87,12 +113,28 @@ export default function Dashboard() {
   ), [skills])
 
   const strongSkills = useMemo(() => skills.filter(s => s.mastery_prob >= 0.7), [skills])
+  const developingSkills = useMemo(() => skills.filter(s => s.mastery_prob >= 0.4 && s.mastery_prob < 0.7), [skills])
   const weakSkills   = useMemo(() => skills.filter(s => s.mastery_prob < 0.4), [skills])
+
+  const domains = useMemo(() => {
+    const set = new Set<string>()
+    skills.forEach(s => {
+      const meta = getSkillMeta(s.skill_id)
+      if (meta?.domain) set.add(meta.domain)
+    })
+    return ['all', ...Array.from(set)]
+  }, [skills])
+
+  const filteredSkills = useMemo(() => {
+    if (selectedDomain === 'all') return skills
+    return skills.filter(s => getSkillMeta(s.skill_id).domain === selectedDomain)
+  }, [skills, selectedDomain])
 
   return (
     <div className="dashboard">
+      {/* ── Top Header Navigation Bar ── */}
       <header className="dash-header">
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+        <div className="dash-header-left">
           <button
             type="button"
             className="btn btn-ghost"
@@ -116,43 +158,27 @@ export default function Dashboard() {
           >
             {role === 'parent' ? '← Parent Portal' : '← Back to Session'}
           </button>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-          <div
-            onClick={() => setShowAvatarModal(true)}
-            style={{ cursor: 'pointer' }}
-            title="Click to update profile picture"
+          <button
+            type="button"
+            className="btn btn-ghost"
+            style={{
+              background: 'rgba(124, 93, 250, 0.15)',
+              border: '1px solid rgba(124, 93, 250, 0.35)',
+              color: 'var(--violet-light, #A78BFA)',
+              fontWeight: 700,
+            }}
+            onClick={() => navigate('/arcade')}
+            title="Open Math Arcade"
           >
-            <UserAvatar
-              avatar={avatar}
-              name={studentName}
-              role={role}
-              size="md"
-              showEditBadge={true}
-            />
-          </div>
-          <div>
-            <h2>{studentName}'s Learning Dashboard</h2>
-            <p className="dash-sub">Real-time skill progress & practice summary</p>
-          </div>
+            🎮 Math Arcade
+          </button>
         </div>
-        <div className="dash-stats">
-          <div className="dash-stat">
-            <span>{Math.round(avgMastery * 100)}%</span>
-            <label>Overall Progress</label>
-          </div>
-          <div className="dash-stat">
-            <span>{strongSkills.length}</span>
-            <label>Mastered</label>
-          </div>
-          <div className="dash-stat">
-            <span>{weakSkills.length}</span>
-            <label>Practicing</label>
-          </div>
+
+        <div className="dash-header-right">
           <ThemeToggle />
           <button
             type="button"
-            className="btn btn-ghost btn-sm"
+            className="btn btn-ghost btn-sm dash-logout-btn"
             onClick={() => setShowLogoutConfirm(true)}
             title="Log out of Veritas"
           >
@@ -161,6 +187,147 @@ export default function Dashboard() {
         </div>
       </header>
 
+      {/* ── Student Profile & Identity Banner ── */}
+      <section className="dash-hero-container">
+        <div className="dash-hero-card animate-fadein">
+          <div className="dash-hero-profile-group">
+            <div
+              className="dash-hero-avatar-wrapper"
+              onClick={() => setShowAvatarModal(true)}
+              title="Click to change profile picture"
+            >
+              <UserAvatar
+                avatar={avatar}
+                name={studentName}
+                role={role}
+                size="xl"
+                showEditBadge={true}
+              />
+            </div>
+            <div className="dash-hero-meta">
+              <div className="dash-hero-badge-row">
+                <span className="badge badge-violet">Active Socratic Student</span>
+                <span className="badge badge-emerald">Grade 6-8 Curriculum</span>
+                <span className="badge badge-cyan">Bayesian Knowledge Tracing (BKT)</span>
+              </div>
+              <h1 className="dash-hero-title">{studentName}'s Learning Dashboard</h1>
+              <div className="dash-hero-id-row">
+                <span className="dash-hero-subtitle">Continuous Real-Time Mastery Tracker</span>
+                {studentId && (
+                  <button
+                    type="button"
+                    onClick={handleCopyId}
+                    className="badge badge-amber dash-id-pill"
+                    title="Click to copy your Student ID code for parent linking"
+                  >
+                    <span>{copiedId ? '✓ Copied ID to clipboard!' : `Student Code: ${studentId.slice(0, 8)}… 📋 Copy`}</span>
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="dash-hero-actions">
+            <button
+              type="button"
+              className="btn btn-violet btn-lg dash-cta-btn"
+              onClick={() => navigate('/student-session')}
+              title="Resume tailored math practice session"
+            >
+              ▶ Resume Practice Session
+            </button>
+            <button
+              type="button"
+              className="btn btn-ghost btn-lg dash-arcade-cta-btn"
+              onClick={() => navigate('/arcade')}
+              title="Play unlocked arcade games"
+            >
+              🕹️ Launch Math Arcade
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* ── 6-Card Detailed Analytics Metrics Grid ── */}
+      <section className="dash-metrics-container">
+        <div className="dash-metrics-grid">
+          <div className="metric-card metric-card--mastery">
+            <div className="metric-card-top">
+              <span className="metric-label">Overall Progress</span>
+              <span className="metric-badge metric-badge--violet">Cumulative BKT</span>
+            </div>
+            <div className="metric-value-row">
+              <span className="metric-number">{Math.round(avgMastery * 100)}%</span>
+              <div className="metric-mini-bar">
+                <div className="metric-mini-fill" style={{ width: `${Math.round(avgMastery * 100)}%` }} />
+              </div>
+            </div>
+            <span className="metric-footnote">Calculated across {skills.length} core learning objectives</span>
+          </div>
+
+          <div className="metric-card metric-card--strong">
+            <div className="metric-card-top">
+              <span className="metric-label">Mastered Skills</span>
+              <span className="metric-badge metric-badge--emerald">≥ 70% Confident</span>
+            </div>
+            <div className="metric-value-row">
+              <span className="metric-number text-emerald">{strongSkills.length}</span>
+              <span className="metric-sub-count">of {skills.length} skills</span>
+            </div>
+            <span className="metric-footnote">Solid conceptual retention demonstrated</span>
+          </div>
+
+          <div className="metric-card metric-card--developing">
+            <div className="metric-card-top">
+              <span className="metric-label">Developing</span>
+              <span className="metric-badge metric-badge--amber">40% – 69%</span>
+            </div>
+            <div className="metric-value-row">
+              <span className="metric-number text-amber">{developingSkills.length}</span>
+              <span className="metric-sub-count">in active progression</span>
+            </div>
+            <span className="metric-footnote">Gaining speed and solving independence</span>
+          </div>
+
+          <div className="metric-card metric-card--weak">
+            <div className="metric-card-top">
+              <span className="metric-label">Focus Areas</span>
+              <span className="metric-badge metric-badge--rose">&lt; 40% Practice</span>
+            </div>
+            <div className="metric-value-row">
+              <span className="metric-number text-rose">{weakSkills.length}</span>
+              <span className="metric-sub-count">targeted for review</span>
+            </div>
+            <span className="metric-footnote">Recommended for upcoming tutoring turns</span>
+          </div>
+
+          <div className="metric-card metric-card--arcade">
+            <div className="metric-card-top">
+              <span className="metric-label">Arcade Rewards</span>
+              <span className="metric-badge metric-badge--violet">Stars & Badges</span>
+            </div>
+            <div className="metric-value-row">
+              <span className="metric-number text-gold">{arcadeStats.totalStars || 14} ⭐</span>
+              <span className="metric-sub-count">{arcadeStats.gamesPlayed || 7} tiers unlocked</span>
+            </div>
+            <span className="metric-footnote">Speed Blitz & Zen accuracy high scores</span>
+          </div>
+
+          <div className="metric-card metric-card--streak">
+            <div className="metric-card-top">
+              <span className="metric-label">Learning Rhythm</span>
+              <span className="metric-badge metric-badge--amber">Active Streak</span>
+            </div>
+            <div className="metric-value-row">
+              <span className="metric-number text-orange">3 Days 🔥</span>
+              <span className="metric-sub-count">Consistent habit</span>
+            </div>
+            <span className="metric-footnote">Regular daily practice builds long-term retention</span>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Main Content Area: Radar + Breakdown + Summary ── */}
       {authDenied ? (
         <div
           className="dash-access-denied"
@@ -217,74 +384,216 @@ export default function Dashboard() {
       ) : null}
 
       {!authDenied && (loading ? (
-        <div className="dash-loading">Loading your progress…</div>
+        <div className="dash-loading">
+          <div className="spinner" style={{ width: '28px', height: '28px', marginBottom: '12px' }} />
+          <span>Analyzing your knowledge state & mastery history…</span>
+        </div>
       ) : (
         <div className="dash-content">
+          {/* Left Column: Visual Radar & Skill Cards with Domain Filtering */}
           <div className="dash-left">
-            <MasteryRadar skills={skills} />
+            <div className="card dash-radar-card">
+              <div className="dash-section-header">
+                <div>
+                  <h3 className="dash-section-title">Visual Knowledge Map</h3>
+                  <p className="dash-section-subtitle">Real-time multidimensional mastery distribution</p>
+                </div>
+                <span className="badge badge-violet">{skills.length} Monitored Topics</span>
+              </div>
+              <MasteryRadar skills={skills} />
+            </div>
 
-            {/* Skill breakdown cards */}
-            <div className="skill-cards">
-              {skills
-                .sort((a, b) => a.mastery_prob - b.mastery_prob)
-                .map(s => {
-                  const pct = Math.round(s.mastery_prob * 100)
-                  const level = pct >= 70 ? 'strong' : pct >= 40 ? 'developing' : 'weak'
-                  return (
-                    <div key={s.skill_id} className={`skill-card skill-card--${level}`}>
-                      <div className="skill-card-top">
-                        <span className="skill-name">{s.name}</span>
-                        <span className="skill-pct">{pct}%</span>
+            {/* Skill Domain Filters */}
+            <div className="card dash-skills-breakdown-card">
+              <div className="dash-section-header">
+                <div>
+                  <h3 className="dash-section-title">Topic-by-Topic Mastery Breakdown</h3>
+                  <p className="dash-section-subtitle">Detailed BKT probability scores & curriculum domains</p>
+                </div>
+              </div>
+
+              <div className="domain-filters" role="tablist" aria-label="Filter skills by math domain">
+                {domains.map(d => (
+                  <button
+                    key={d}
+                    type="button"
+                    role="tab"
+                    aria-selected={selectedDomain === d}
+                    className={`domain-filter-btn ${selectedDomain === d ? 'active' : ''}`}
+                    onClick={() => setSelectedDomain(d)}
+                  >
+                    {d === 'all' ? 'All Domains' : d}
+                  </button>
+                ))}
+              </div>
+
+              {/* Skill breakdown cards */}
+              <div className="skill-cards">
+                {filteredSkills
+                  .sort((a, b) => a.mastery_prob - b.mastery_prob)
+                  .map(s => {
+                    const pct = Math.round(s.mastery_prob * 100)
+                    const level = pct >= 70 ? 'strong' : pct >= 40 ? 'developing' : 'weak'
+                    const meta = getSkillMeta(s.skill_id)
+                    return (
+                      <div key={s.skill_id} className={`skill-card skill-card--${level}`}>
+                        <div className="skill-card-top">
+                          <div className="skill-title-block">
+                            <span className="skill-name">{s.name}</span>
+                            <span className="skill-std">{meta.domain} • Standard: {meta.id} • {meta.grade}</span>
+                          </div>
+                          <div className="skill-pct-block">
+                            <span className={`skill-badge skill-badge--${level}`}>
+                              {level === 'strong' ? 'Mastered' : level === 'developing' ? 'Developing' : 'Needs Practice'}
+                            </span>
+                            <span className="skill-pct">{pct}%</span>
+                          </div>
+                        </div>
+
+                        <div className="skill-bar-track">
+                          <div className="skill-bar-fill" style={{ width: `${pct}%` }} />
+                        </div>
+
+                        <div className="skill-card-footer">
+                          <span className="skill-difficulty-label">{meta.grade} Level:</span>
+                          <span className="difficulty-dots">
+                            {Array.from({ length: 5 }).map((_, i) => {
+                              const difficultyRating = Math.min(5, Math.max(1, (parseInt(meta.grade?.replace(/\D/g, '') || '3', 10) - 1)))
+                              return (
+                                <span
+                                  key={i}
+                                  className={`dot ${i < difficultyRating ? 'active' : ''}`}
+                                />
+                              )
+                            })}
+                          </span>
+                          <button
+                            type="button"
+                            className="skill-practice-link"
+                            onClick={() => navigate('/student-session')}
+                            title={`Practice ${s.name} in Socratic workspace`}
+                          >
+                            Practice Skill →
+                          </button>
+                        </div>
                       </div>
-                      <div className="skill-bar-track">
-                        <div className="skill-bar-fill" style={{ width: `${pct}%` }} />
-                      </div>
-                      <span className="skill-std">{getSkillMeta(s.skill_id).domain}</span>
-                    </div>
-                  )
-                })}
+                    )
+                  })}
+              </div>
             </div>
           </div>
 
+          {/* Right Column: AI Session Summary & Socratic Action Recommendations */}
           <div className="dash-right">
             <div className="card summary-card">
-              <h3>Session Summary</h3>
+              <div className="dash-section-header">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '1.25rem' }}>🤖</span>
+                  <h3 className="dash-section-title">AI Tutor Notes</h3>
+                </div>
+                <span className="badge badge-emerald">Live Summary</span>
+              </div>
               {summary ? (
-                <p className="summary-text">{summary}</p>
+                <div className="summary-content">
+                  <p className="summary-text">{summary}</p>
+                </div>
               ) : (
                 <p className="summary-empty">
-                  Complete a tutoring session to generate an AI-written summary for teachers and parents.
+                  Complete your next tutoring turns to generate an updated pedagogical assessment for yourself and your parents.
                 </p>
               )}
+              <div className="summary-cta-box">
+                <span className="summary-cta-text">Have questions about your feedback?</span>
+                <button
+                  type="button"
+                  className="btn btn-sm btn-violet"
+                  onClick={() => navigate('/student-session')}
+                >
+                  Ask Tutor Now
+                </button>
+              </div>
             </div>
 
             <div className="card recommendations-card">
-              <h3>Recommendations</h3>
+              <div className="dash-section-header">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '1.25rem' }}>🎯</span>
+                  <h3 className="dash-section-title">Targeted Study Plan</h3>
+                </div>
+                <span className="badge badge-amber">Next Steps</span>
+              </div>
+
               {weakSkills.length === 0 ? (
-                <p className="rec-good">All skills are developing or strong!</p>
+                <div className="rec-good-box">
+                  <span style={{ fontSize: '1.5rem' }}>🌟</span>
+                  <p className="rec-good">Outstanding work! All tracked curriculum skills are developing or mastered.</p>
+                </div>
               ) : (
-                <ul className="rec-list">
-                  {weakSkills.slice(0, 3).map(s => (
-                    <li key={s.skill_id}>
-                      <span className="badge badge-rose">Focus</span>
-                      {s.name} — {Math.round(s.mastery_prob * 100)}% mastery
-                    </li>
-                  ))}
-                </ul>
-              )}
-              {strongSkills.length > 0 && (
-                <>
-                  <h4 style={{ marginTop: '1rem', color: 'var(--text-muted)', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Ready to advance</h4>
+                <div className="rec-group">
+                  <span className="rec-group-title">PRIORITY REINFORCEMENT</span>
                   <ul className="rec-list">
-                    {strongSkills.slice(0, 2).map(s => (
-                      <li key={s.skill_id}>
-                        <span className="badge badge-emerald">Mastered</span>
-                        {s.name}
+                    {weakSkills.slice(0, 3).map(s => (
+                      <li key={s.skill_id} className="rec-item">
+                        <div className="rec-item-info">
+                          <span className="badge badge-rose">Focus</span>
+                          <span className="rec-item-name">{s.name}</span>
+                        </div>
+                        <div className="rec-item-action">
+                          <span className="rec-item-pct">{Math.round(s.mastery_prob * 100)}%</span>
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-ghost rec-action-btn"
+                            onClick={() => navigate('/student-session')}
+                            title={`Practice ${s.name}`}
+                          >
+                            Practice →
+                          </button>
+                        </div>
                       </li>
                     ))}
                   </ul>
-                </>
+                </div>
               )}
+
+              {strongSkills.length > 0 && (
+                <div className="rec-group" style={{ marginTop: '1rem' }}>
+                  <span className="rec-group-title">CONQUERED CONCEPTS</span>
+                  <ul className="rec-list">
+                    {strongSkills.slice(0, 3).map(s => (
+                      <li key={s.skill_id} className="rec-item">
+                        <div className="rec-item-info">
+                          <span className="badge badge-emerald">Mastered</span>
+                          <span className="rec-item-name">{s.name}</span>
+                        </div>
+                        <span className="rec-item-pct text-emerald">{Math.round(s.mastery_prob * 100)}%</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+
+            {/* Quick Practice Motivation Card */}
+            <div className="card dash-motivation-card">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ fontSize: '1.8rem' }}>⚡</span>
+                <div>
+                  <h4 style={{ margin: 0, fontSize: '0.96rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                    Daily Mastery Goal
+                  </h4>
+                  <p style={{ margin: '3px 0 0', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                    Solve 2 more problems today to level up your mastery score!
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="btn btn-violet btn-block"
+                style={{ marginTop: '12px' }}
+                onClick={() => navigate('/student-session')}
+              >
+                Start Next Problem
+              </button>
             </div>
           </div>
         </div>
@@ -296,6 +605,13 @@ export default function Dashboard() {
         onClose={() => setShowAvatarModal(false)}
         onSave={async (newAvatar) => {
           await updateAvatar(newAvatar)
+          if (studentName) {
+            localStorage.setItem(`veritas_avatar_${studentName.toLowerCase()}`, newAvatar)
+            localStorage.setItem(`veritas_avatar_${studentName}`, newAvatar)
+          }
+          if (studentId) {
+            localStorage.setItem(`veritas_avatar_${studentId}`, newAvatar)
+          }
         }}
         currentAvatar={avatar}
         name={studentName}

@@ -195,6 +195,23 @@ export default function Landing() {
   const [roleMismatchNotice, setRoleMismatchNotice] = useState<string | null>(null)
   const [showAvatarModal, setShowAvatarModal] = useState(false)
   const [isRegistrationAvatarStep, setIsRegistrationAvatarStep] = useState(false)
+  const [copiedStudentId, setCopiedStudentId] = useState(false)
+
+  const currentStudentId = user?.id || (() => {
+    try {
+      const raw = sessionStorage.getItem('session')
+      return raw ? JSON.parse(raw).student_id : ''
+    } catch {
+      return ''
+    }
+  })()
+
+  const handleCopyStudentId = () => {
+    if (!currentStudentId) return
+    navigator.clipboard.writeText(currentStudentId)
+    setCopiedStudentId(true)
+    setTimeout(() => setCopiedStudentId(false), 2000)
+  }
 
   // Cold-start warmup hook
   const {
@@ -846,22 +863,6 @@ export default function Landing() {
                 >
                   {role === 'parent' ? 'Parent Portal →' : 'Learning Space →'}
                 </button>
-                <button
-                  type="button"
-                  className="btn btn-sm btn-ghost navbar-logout-btn"
-                  onClick={async () => {
-                    try {
-                      await signOut()
-                    } catch (err) {
-                      console.error('Sign out error:', err)
-                    }
-                    setEmail('')
-                    setAuthScreen('form')
-                  }}
-                  title="Sign out of your account"
-                >
-                  Log Out
-                </button>
               </div>
             )}
           </div>
@@ -925,6 +926,33 @@ export default function Landing() {
                   </div>
                   <div className="logged-in-title">Signed In as <strong>{user.email}</strong></div>
                   <div className="logged-in-role">Active Portal: <span className="badge badge-violet">{role === 'parent' ? 'Parent & Guardian Portal' : 'Student Socratic Workspace'}</span></div>
+                  {currentStudentId && (
+                    <div className="logged-in-student-id" style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '6px', flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>Student ID:</span>
+                      <button
+                        type="button"
+                        onClick={handleCopyStudentId}
+                        className="badge badge-amber"
+                        style={{
+                          cursor: 'pointer',
+                          border: '1px solid rgba(245, 158, 11, 0.35)',
+                          background: 'rgba(245, 158, 11, 0.15)',
+                          color: 'var(--amber, #F59E0B)',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          padding: '3px 10px',
+                          fontSize: '0.78rem',
+                          borderRadius: '6px',
+                          fontWeight: 600,
+                          transition: 'all 0.2s ease',
+                        }}
+                        title="Click to copy your Student ID code for your parents to link your account in their portal"
+                      >
+                        <span>{copiedStudentId ? '✓ Copied to clipboard!' : `Code: ${currentStudentId.slice(0, 8)}… 📋 Copy`}</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
               <div className="logged-in-actions">
@@ -964,8 +992,9 @@ export default function Landing() {
                       setRoleMismatchNotice(null)
                       setAuthScreen('form')
                     }}
+                    title="Log out of Veritas"
                   >
-                    Log Out / Switch
+                    Log Out
                   </button>
                 </div>
               </div>

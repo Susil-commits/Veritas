@@ -53,6 +53,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true)
   const [avatar, setAvatar] = useState<string | null>(() => {
     try {
+      const directAv = localStorage.getItem('veritas_avatar')
+      if (directAv) return directAv
       const rem = localStorage.getItem('veritas_remembered_profile')
       if (rem) {
         const parsed = JSON.parse(rem)
@@ -95,6 +97,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const updateAvatar = async (avatarVal: string) => {
     setAvatar(avatarVal)
+    localStorage.setItem('veritas_avatar', avatarVal)
 
     // 1. If user is authenticated in Supabase, update auth metadata
     if (user && session) {
@@ -123,13 +126,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (user.email) {
         localStorage.setItem(`veritas_avatar_${user.email}`, avatarVal)
       }
+      if (user.user_metadata?.name) {
+        localStorage.setItem(`veritas_avatar_${user.user_metadata.name.toLowerCase()}`, avatarVal)
+        localStorage.setItem(`veritas_avatar_${user.user_metadata.name}`, avatarVal)
+      }
       const isDemo = localStorage.getItem('veritas_demo_user')
       if (isDemo) {
         localStorage.setItem('veritas_demo_user', JSON.stringify(updatedUser))
       }
     }
 
-    // 3. Update remembered profile
+    // 3. Update cached session student avatar if available
+    try {
+      const rawSession = sessionStorage.getItem('session')
+      if (rawSession) {
+        const parsed = JSON.parse(rawSession)
+        if (parsed?.student_name) {
+          localStorage.setItem(`veritas_avatar_${parsed.student_name.toLowerCase()}`, avatarVal)
+          localStorage.setItem(`veritas_avatar_${parsed.student_name}`, avatarVal)
+        }
+        if (parsed?.student_id) {
+          localStorage.setItem(`veritas_avatar_${parsed.student_id}`, avatarVal)
+        }
+      }
+    } catch {}
+
+    // 4. Update remembered profile
     setRememberedProfile((prev) => {
       if (!prev) return null
       const updated = { ...prev, avatar: avatarVal }

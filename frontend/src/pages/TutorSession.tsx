@@ -80,13 +80,25 @@ interface ChatBubbleProps {
   role: 'student' | 'tutor'
   content: string
   timestamp: Date | string
+  studentName?: string
+  studentAvatar?: string | null
 }
 
-const ChatBubble = memo(function ChatBubble({ role, content, timestamp }: ChatBubbleProps) {
+const ChatBubble = memo(function ChatBubble({ role, content, timestamp, studentName, studentAvatar }: ChatBubbleProps) {
   const formattedTime = (timestamp instanceof Date ? timestamp : new Date(timestamp)).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
   return (
     <div className={`chat-bubble ${role} animate-fadein`}>
       {role === 'tutor' && <div className="tutor-avatar">AI</div>}
+      {role === 'student' && (
+        <div className="student-chat-avatar" style={{ flexShrink: 0, alignSelf: 'flex-end', marginBottom: '2px' }}>
+          <UserAvatar
+            avatar={studentAvatar}
+            name={studentName || 'Student'}
+            role="student"
+            size="xs"
+          />
+        </div>
+      )}
       <div className="bubble-body">
         <p className="bubble-text">{renderMessageContent(content)}</p>
         <span className="bubble-time">{formattedTime}</span>
@@ -508,24 +520,25 @@ export default function TutorSession() {
           <div className="session-header-top-row">
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
               <div
-                style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
-                onClick={() => setShowAvatarModal(true)}
-                title="Change profile picture"
+                style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: isStreaming ? 'not-allowed' : 'pointer', opacity: isStreaming ? 0.7 : 1 }}
+                onClick={() => !isStreaming && setShowAvatarModal(true)}
+                title={isStreaming ? 'AI is thinking…' : 'Change profile picture'}
               >
                 <UserAvatar
                   avatar={avatar}
                   name={session.student_name}
                   role={role}
                   size="sm"
-                  showEditBadge={true}
+                  showEditBadge={!isStreaming}
                 />
                 <span className="badge badge-violet">{session.student_name}</span>
               </div>
               <button
                 type="button"
                 onClick={handleCopyCode}
+                disabled={isStreaming}
                 className="badge badge-amber"
-                style={{ cursor: 'pointer', border: 'none', background: 'rgba(245, 158, 11, 0.15)', color: 'var(--amber, #F59E0B)', display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '2px 8px', fontSize: '0.72rem' }}
+                style={{ cursor: isStreaming ? 'not-allowed' : 'pointer', border: 'none', background: 'rgba(245, 158, 11, 0.15)', color: 'var(--amber, #F59E0B)', display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '2px 8px', fontSize: '0.72rem' }}
                 title="Click to copy your Student ID code for your parents to link your account in their portal"
               >
                 <span>{copiedCode ? '✓ Copied' : `Code: ${session.student_id ? session.student_id.slice(0, 8) : ''}… 📋`}</span>
@@ -538,6 +551,7 @@ export default function TutorSession() {
               type="button"
               className="btn btn-ghost"
               style={{ padding: '5px 8px', fontSize: '0.74rem' }}
+              disabled={isStreaming}
               onClick={() => {
                 stop()
                 navigate('/')
@@ -558,6 +572,7 @@ export default function TutorSession() {
                 color: 'var(--violet-light, #A78BFA)',
                 fontWeight: 700,
               }}
+              disabled={isStreaming}
               onClick={() => {
                 stop()
                 navigate('/arcade')
@@ -570,6 +585,7 @@ export default function TutorSession() {
               type="button"
               className="btn btn-ghost"
               style={{ padding: '5px 8px', fontSize: '0.74rem', color: '#F87171' }}
+              disabled={isStreaming}
               onClick={() => setShowResetModal(true)}
               aria-label="Reset learning progress and start fresh"
               title="Reset all practice progress and skill mastery back to problem 1"
@@ -581,6 +597,7 @@ export default function TutorSession() {
                 type="button"
                 className="btn btn-ghost"
                 style={{ padding: '5px 8px', fontSize: '0.74rem' }}
+                disabled={isStreaming}
                 onClick={() => {
                   stop()
                   navigate('/parent-dashboard')
@@ -594,6 +611,7 @@ export default function TutorSession() {
               type="button"
               className="btn btn-ghost"
               style={{ padding: '5px 8px', fontSize: '0.74rem' }}
+              disabled={isStreaming}
               onClick={() => {
                 stop()
                 navigate(`/dashboard/${session.student_id}`)
@@ -608,6 +626,7 @@ export default function TutorSession() {
                 type="button"
                 className="btn btn-ghost"
                 style={{ padding: '5px 8px', fontSize: '0.74rem' }}
+                disabled={isStreaming}
                 onClick={() => {
                   stop()
                   setShowLogoutConfirm(true)
@@ -659,24 +678,25 @@ export default function TutorSession() {
           <div className="session-header-top-row">
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
               <div
-                style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
-                onClick={() => setShowAvatarModal(true)}
-                title="Change profile picture"
+                style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: isStreaming ? 'not-allowed' : 'pointer', opacity: isStreaming ? 0.7 : 1 }}
+                onClick={() => !isStreaming && setShowAvatarModal(true)}
+                title={isStreaming ? 'AI is thinking…' : 'Change profile picture'}
               >
                 <UserAvatar
                   avatar={avatar}
                   name={session.student_name}
                   role={role}
                   size="sm"
-                  showEditBadge={true}
+                  showEditBadge={!isStreaming}
                 />
                 <span className="badge badge-violet">{session.student_name}</span>
               </div>
               <button
                 type="button"
                 onClick={handleCopyCode}
+                disabled={isStreaming}
                 className="badge badge-amber"
-                style={{ cursor: 'pointer', border: 'none', background: 'rgba(245, 158, 11, 0.15)', color: 'var(--amber, #F59E0B)', display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '2px 8px', fontSize: '0.74rem' }}
+                style={{ cursor: isStreaming ? 'not-allowed' : 'pointer', border: 'none', background: 'rgba(245, 158, 11, 0.15)', color: 'var(--amber, #F59E0B)', display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '2px 8px', fontSize: '0.74rem' }}
                 title="Click to copy your Student ID code for your parents to link your account in their portal"
               >
                 <span>{copiedCode ? '✓ Copied' : `Code: ${session.student_id ? session.student_id.slice(0, 8) : ''}… 📋`}</span>
@@ -689,6 +709,7 @@ export default function TutorSession() {
               type="button"
               className="btn btn-ghost"
               style={{ padding: '5px 10px', fontSize: '0.78rem' }}
+              disabled={isStreaming}
               onClick={() => {
                 stop()
                 navigate('/')
@@ -709,6 +730,7 @@ export default function TutorSession() {
                 color: 'var(--violet-light, #A78BFA)',
                 fontWeight: 700,
               }}
+              disabled={isStreaming}
               onClick={() => {
                 stop()
                 navigate('/arcade')
@@ -721,6 +743,7 @@ export default function TutorSession() {
               type="button"
               className="btn btn-ghost"
               style={{ padding: '5px 10px', fontSize: '0.78rem', color: '#F87171' }}
+              disabled={isStreaming}
               onClick={() => setShowResetModal(true)}
               aria-label="Reset learning progress and start fresh"
               title="Reset all practice progress and skill mastery back to problem 1"
@@ -732,6 +755,7 @@ export default function TutorSession() {
                 type="button"
                 className="btn btn-ghost"
                 style={{ padding: '5px 10px', fontSize: '0.78rem' }}
+                disabled={isStreaming}
                 onClick={() => {
                   stop()
                   navigate('/parent-dashboard')
@@ -745,6 +769,7 @@ export default function TutorSession() {
               type="button"
               className="btn btn-ghost"
               style={{ padding: '5px 10px', fontSize: '0.78rem' }}
+              disabled={isStreaming}
               onClick={() => {
                 stop()
                 navigate(`/dashboard/${session.student_id}`)
@@ -759,6 +784,7 @@ export default function TutorSession() {
                 type="button"
                 className="btn btn-ghost"
                 style={{ padding: '5px 10px', fontSize: '0.78rem' }}
+                disabled={isStreaming}
                 onClick={() => {
                   stop()
                   if (session?.session_id) {
@@ -819,6 +845,7 @@ export default function TutorSession() {
 
         <WorkUpload
           sessionId={session.session_id}
+          disabled={isStreaming}
           onThinking={(step) => setThinkingSteps(prev => [...prev, step])}
           onDiagnosis={handleDiagnosis}
         />
@@ -855,6 +882,8 @@ export default function TutorSession() {
                 role={msg.role}
                 content={msg.content}
                 timestamp={msg.timestamp}
+                studentName={session.student_name}
+                studentAvatar={avatar}
               />
             )
           ))}
@@ -869,7 +898,7 @@ export default function TutorSession() {
                   type="button"
                   className="btn btn-primary solved-banner-action"
                   onClick={() => handleNextProblem(true)}
-                  disabled={isLoadingNextProblem}
+                  disabled={isLoadingNextProblem || isStreaming}
                 >
                   {isLoadingNextProblem ? <span className="spinner" /> : 'Next Problem →'}
                 </button>
@@ -894,6 +923,7 @@ export default function TutorSession() {
                   type="button"
                   className="btn btn-sm btn-violet"
                   style={{ fontWeight: 700, padding: '4px 12px', fontSize: '0.8rem' }}
+                  disabled={isStreaming}
                   onClick={() => {
                     stop()
                     navigate('/arcade')
@@ -1035,6 +1065,13 @@ export default function TutorSession() {
         onClose={() => setShowAvatarModal(false)}
         onSave={async (newAvatar) => {
           await updateAvatar(newAvatar)
+          if (session?.student_name) {
+            localStorage.setItem(`veritas_avatar_${session.student_name.toLowerCase()}`, newAvatar)
+            localStorage.setItem(`veritas_avatar_${session.student_name}`, newAvatar)
+          }
+          if (session?.student_id) {
+            localStorage.setItem(`veritas_avatar_${session.student_id}`, newAvatar)
+          }
         }}
         currentAvatar={avatar}
         name={session?.student_name || user?.user_metadata?.name}

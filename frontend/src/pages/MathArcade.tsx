@@ -10,6 +10,7 @@ import {
 } from '../lib/api'
 import ThemeToggle from '../components/ThemeToggle'
 import UserAvatar from '../components/UserAvatar'
+import AvatarModal from '../components/AvatarModal'
 import './MathArcade.css'
 
 export type GameMode = 'blitz' | 'zen'
@@ -278,9 +279,18 @@ function generateGeometryQuestion(): GameQuestion {
 
 export default function MathArcade() {
   const navigate = useNavigate()
-  const { user } = useAuth()
-  const studentId = user?.id || '24e836e3-3b42-41a0-8a27-222f883eaa10'
-  const studentName = user?.user_metadata?.name || user?.email?.split('@')[0] || 'Alex'
+  const { user, avatar, updateAvatar, role } = useAuth()
+  const cachedSession = (() => {
+    try {
+      const raw = sessionStorage.getItem('session')
+      return raw ? JSON.parse(raw) : null
+    } catch {
+      return null
+    }
+  })()
+  const studentId = user?.id || cachedSession?.student_id || '24e836e3-3b42-41a0-8a27-222f883eaa10'
+  const studentName = user?.user_metadata?.name || cachedSession?.student_name || user?.email?.split('@')[0] || 'Aditya'
+  const [showAvatarModal, setShowAvatarModal] = useState(false)
 
   const [loading, setLoading] = useState(true)
   const [progress, setProgress] = useState<GamesProgressResponse | null>(null)
@@ -560,8 +570,19 @@ export default function MathArcade() {
 
         <div className="arcade-nav-right">
           <ThemeToggle />
-          <div className="arcade-user-badge">
-            <UserAvatar name={studentName} size="sm" />
+          <div
+            className="arcade-user-badge"
+            onClick={() => setShowAvatarModal(true)}
+            style={{ cursor: 'pointer' }}
+            title="Click to change profile picture"
+          >
+            <UserAvatar
+              avatar={avatar}
+              name={studentName}
+              role={role}
+              size="sm"
+              showEditBadge={true}
+            />
             <span className="arcade-user-name">{studentName}</span>
           </div>
         </div>
@@ -955,6 +976,25 @@ export default function MathArcade() {
           </div>
         </div>
       )}
+
+      {/* Avatar Modal */}
+      <AvatarModal
+        isOpen={showAvatarModal}
+        onClose={() => setShowAvatarModal(false)}
+        onSave={async (newAvatar) => {
+          await updateAvatar(newAvatar)
+          if (studentName) {
+            localStorage.setItem(`veritas_avatar_${studentName.toLowerCase()}`, newAvatar)
+            localStorage.setItem(`veritas_avatar_${studentName}`, newAvatar)
+          }
+          if (studentId) {
+            localStorage.setItem(`veritas_avatar_${studentId}`, newAvatar)
+          }
+        }}
+        currentAvatar={avatar}
+        name={studentName}
+        role={role}
+      />
     </div>
   )
 }

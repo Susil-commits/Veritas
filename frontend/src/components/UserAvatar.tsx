@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useMemo } from 'react'
 import { getColorfulGradient, getInitial, isImageAvatar, isPersonSilhouette } from '../lib/avatars'
 import './UserAvatar.css'
 
@@ -34,8 +34,29 @@ export default function UserAvatar({
   const [imgError, setImgError] = useState(false)
   const dim = SIZE_MAP[size] || SIZE_MAP.md
 
-  const isImg = !imgError && isImageAvatar(avatar)
-  const isSilhouette = isPersonSilhouette(avatar)
+  const resolvedAvatar = useMemo(() => {
+    if (avatar && avatar !== 'initials') return avatar
+    // Try localStorage lookups for this student/user
+    if (name) {
+      const lower = localStorage.getItem(`veritas_avatar_${name.toLowerCase()}`)
+      if (lower && lower !== 'initials') return lower
+      const direct = localStorage.getItem(`veritas_avatar_${name}`)
+      if (direct && direct !== 'initials') return direct
+    }
+    const globalAv = localStorage.getItem('veritas_avatar')
+    if (globalAv && globalAv !== 'initials') return globalAv
+    try {
+      const rem = localStorage.getItem('veritas_remembered_profile')
+      if (rem) {
+        const parsed = JSON.parse(rem)
+        if (parsed?.avatar && parsed.avatar !== 'initials') return parsed.avatar
+      }
+    } catch {}
+    return avatar || null
+  }, [avatar, name])
+
+  const isImg = !imgError && isImageAvatar(resolvedAvatar)
+  const isSilhouette = isPersonSilhouette(resolvedAvatar)
   const initial = getInitial(name, role)
   const gradient = getColorfulGradient(name || role || 'User')
 
@@ -65,7 +86,7 @@ export default function UserAvatar({
     >
       {isImg ? (
         <img
-          src={avatar!}
+          src={resolvedAvatar!}
           alt={alt || name || 'Profile Avatar'}
           className="user-avatar-img"
           onError={() => setImgError(true)}

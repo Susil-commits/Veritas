@@ -770,3 +770,25 @@
   background: linear-gradient(135deg, var(--violet), var(--indigo));
   color: #fff;
 }
+
+/* ── Frozen Buttons During AI Thinking ── */
+.session-layout button:disabled,
+.session-header-actions-row button:disabled,
+.problem-card-actions button:disabled,
+.chat-actions-bar button:disabled,
+.chat-input-area button:disabled {
+  opacity: 0.45 !important;
+  cursor: not-allowed !important;
+  pointer-events: none !important;
+  filter: grayscale(20%);
+  transition: opacity 0.2s ease;
+}
+
+/* ── Student Chat Avatar in Bubbles ── */
+.student-chat-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 2px;
+  animation: fadein 0.25s ease;
+}
