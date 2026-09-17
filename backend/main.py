@@ -860,6 +860,11 @@ async def start_session(
 
     # Flow A: Authenticated user (verified Supabase JWT / existing session token)
     if authenticated_sub:
+        if payload.get("role") != "student":
+            raise HTTPException(
+                status_code=403,
+                detail="Student account required for tutoring sessions",
+            )
         student_id = authenticated_sub
         try:
             upsert_payload = {"id": student_id, "name": req.student_name}
