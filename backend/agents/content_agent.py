@@ -88,6 +88,52 @@ def _enrich_problem(prob: dict | None) -> dict | None:
     return p
 
 
+def extract_math_tokens(text: str) -> set[str]:
+    """Extract salient mathematical and conceptual tokens, excluding common stopwords."""
+    stop_words = {
+        "the", "and", "for", "with", "that", "this", "from", "what", "how",
+        "student", "problem", "calculate", "solve", "remediation", "misconception",
+        "introductory", "practice", "difficulty", "skill", "instead", "after",
+        "evaluated", "forgot", "resulted", "larger", "quantity", "operation",
+        "stopped", "evaluation", "evaluates", "find", "show", "each", "step",
+        "when", "where", "which", "into", "their", "your", "does", "been", "was"
+    }
+    clean = re.sub(r"[_\W]+", " ", text.lower())
+    return {w for w in clean.split() if len(w) >= 2 and w not in stop_words}
+
+
+def compute_lexical_similarity(
+    query_text: str | None,
+    candidate: dict,
+    keywords: list[str] | None = None,
+) -> float:
+    """
+    Compute lexical token overlap / Jaccard similarity when vector embedding
+    similarity is not available (e.g. local fallback or offline execution).
+    """
+    q_tokens = set()
+    if keywords:
+        q_tokens.update(kw.lower() for kw in keywords)
+    if query_text:
+        q_tokens.update(extract_math_tokens(query_text))
+    if not q_tokens:
+        return 0.0
+
+    steps = candidate.get("expected_steps") or []
+    steps_str = " ".join(steps) if isinstance(steps, list) else str(steps)
+    cand_text = f"{candidate.get('title', '')} {candidate.get('text', '')} {steps_str}".lower()
+    c_tokens = extract_math_tokens(cand_text)
+    if not c_tokens:
+        return 0.0
+
+    overlap = len(q_tokens & c_tokens)
+    recall = overlap / len(q_tokens)
+    jaccard = overlap / len(q_tokens | c_tokens)
+    # Blend: 70% query coverage + 30% Jaccard
+    score = 0.7 * recall + 0.3 * jaccard
+    return max(0.0, min(1.0, score))
+
+
 def score_candidate_adaptive(
     candidate: dict,
     target_min_diff: int,
@@ -95,13 +141,17 @@ def score_candidate_adaptive(
     mastery_prob: float,
     misconception_text: str | None = None,
     candidate_rank: int = 0,
+    query_text: str | None = None,
+    keywords: list[str] | None = None,
 ) -> float:
     """
     Compute multi-factor utility score for adaptive problem selection:
     1. Semantic similarity / retrieval rank bonus (0.0 to 1.0)
-    2. Difficulty fit (distance to optimal ZPD difficulty)
-    3. Misconception targeting bonus (keyword matching against diagnosed error)
-    4. Mastery gap urgency (1.0 - mastery_prob)
+       - pgvector cosine similarity if present
+       - lexical token overlap proxy when similarity is 0.0 / absent (fallback resilience)
+    2. Difficulty fit (distance to optimal ZPD difficulty window)
+    3. Misconception targeting bonus (exact misconception_type or keyword matching)
+    4. Candidate-specific continuous mastery alignment (target difficulty = 1.0 + 4.0 * mastery_prob)
     """
     diff = candidate.get("difficulty", 1)
     target_center = (target_min_diff + target_max_diff) / 2.0
@@ -109,9 +159,14 @@ def score_candidate_adaptive(
     diff_dist = abs(diff - target_center)
     difficulty_score = max(0.0, 1.0 - (diff_dist * 0.35))
 
-    # Retrieval relevance bonus from pgvector cosine similarity (bounded 0.0 to 1.0)
-    sim_score = float(candidate.get("similarity", 0.0))
-    sim_score = max(0.0, min(1.0, sim_score))
+    # Retrieval relevance: pgvector cosine similarity, with lexical similarity proxy fallback
+    raw_sim = candidate.get("similarity")
+    if raw_sim is not None and float(raw_sim) > 0.0:
+        sim_score = max(0.0, min(1.0, float(raw_sim)))
+    else:
+        # Transparent lexical proxy fallback when vector similarity is unavailable
+        lookup_query = query_text or misconception_text or ""
+        sim_score = compute_lexical_similarity(lookup_query, candidate, keywords=keywords)
 
     # Misconception match bonus: exact misconception_type matching with keyword fallback
     misc_score = 0.0
@@ -121,41 +176,58 @@ def score_candidate_adaptive(
 
     if candidate.get("misconception_type") and diagnosed_misconception:
         misc_score = 1.0 if str(candidate.get("misconception_type")).lower() == diagnosed_misconception else 0.0
+    elif keywords:
+        cand_text = (
+            str(candidate.get("text", "")) + " " +
+            str(candidate.get("title", "")) + " " +
+            str(candidate.get("expected_steps", ""))
+        ).lower()
+        matched = sum(1 for kw in keywords if kw.lower() in cand_text)
+        misc_score = min(1.0, matched / len(keywords))
     elif misconception_text:
         cand_text = (
             str(candidate.get("text", "")) + " " +
             str(candidate.get("title", "")) + " " +
             str(candidate.get("expected_steps", ""))
         ).lower()
-        misc_keywords = [w for w in re.findall(r"\w+", misconception_text.lower()) if len(w) > 3]
-        if misc_keywords:
-            matched = sum(1 for kw in misc_keywords if kw in cand_text)
-            misc_score = min(1.0, matched / len(misc_keywords))
+        misc_tokens = extract_math_tokens(misconception_text)
+        if misc_tokens:
+            matched = sum(1 for kw in misc_tokens if kw in cand_text)
+            misc_score = min(1.0, matched / len(misc_tokens))
 
-    # Mastery gap: students with lower mastery benefit more from tightly focused problems
-    mastery_gap = max(0.1, 1.0 - mastery_prob)
+    # Candidate-specific continuous mastery alignment:
+    # Maps student mastery [0.0, 1.0] onto continuous difficulty scale [1.0, 5.0].
+    # Low-mastery students are matched to foundational problems (avoid cognitive overload);
+    # high-mastery students are matched to challenging problems (avoid boredom).
+    target_continuous_diff = 1.0 + (mastery_prob * 4.0)
+    mastery_alignment = max(0.0, 1.0 - (abs(diff - target_continuous_diff) / 3.0))
 
-    # Composite weighted utility: weights 0.35 sim, 0.30 difficulty fit, 0.20 misconception, 0.15 mastery gap
+    # Composite weighted utility: 0.35 semantic/lexical sim, 0.25 misconception, 0.20 ZPD fit, 0.20 mastery alignment
     total_score = (
         0.35 * sim_score +
-        0.30 * difficulty_score +
-        0.20 * misc_score +
-        0.15 * mastery_gap
+        0.25 * misc_score +
+        0.20 * difficulty_score +
+        0.20 * mastery_alignment
     )
     return total_score
 
 
 def get_candidate_problems(
-    skill_id: str,
-    mastery_prob: float,
-    student_id: str,
+    skill_id: str | None = None,
+    mastery_prob: float = 0.5,
+    student_id: str = "default",
     exclude_problem_ids: list[str] | None = None,
     misconception_text: str | None = None,
     top_k: int = 5,
+    unrestricted: bool = False,
+    keywords: list[str] | None = None,
 ) -> list[dict]:
     """
     Retrieve an ordered list of candidate problems ranked by multi-factor pedagogical utility,
     calibrated to the student's diagnosed misconception, mastery level, and ZPD difficulty.
+
+    If `unrestricted` is True or `skill_id` is None, candidates are retrieved across the entire
+    curriculum problem bank rather than pre-filtered to a single skill standard.
 
     Difficulty selection logic:
         mastery < 0.4       → difficulty 1-2 (build confidence)
@@ -173,21 +245,23 @@ def get_candidate_problems(
     else:
         min_diff, max_diff = 3, 5
 
+    effective_skill_filter = None if (unrestricted or not skill_id) else skill_id
+    query_text = (
+        f"Remediation problem for misconception: {misconception_text}"
+        if misconception_text
+        else (f"Introductory practice problem for skill {skill_id} difficulty {min_diff} to {max_diff}" if skill_id else f"Practice math problem difficulty {min_diff} to {max_diff}")
+    )
+
     # ── 1. Vector Search via pgvector match_problems RPC ─────────────────────
     try:
-        query_text = (
-            f"Remediation problem for misconception: {misconception_text}"
-            if misconception_text
-            else f"Introductory practice problem for skill {skill_id} difficulty {min_diff} to {max_diff}"
-        )
         query_embedding = embed_text(query_text)
 
         rpc_res = supabase.rpc(
             "match_problems",
             {
                 "query_embedding": query_embedding,
-                "skill_filter": skill_id,
-                "match_count": max(8, top_k * 2),
+                "skill_filter": effective_skill_filter,
+                "match_count": max(12, top_k * 3),
             },
         ).execute()
 
@@ -196,7 +270,7 @@ def get_candidate_problems(
 
         if fresh_candidates:
             scored_candidates = [
-                (score_candidate_adaptive(p, min_diff, max_diff, mastery_prob, misconception_text, i), p)
+                (score_candidate_adaptive(p, min_diff, max_diff, mastery_prob, misconception_text, i, query_text=query_text, keywords=keywords), p)
                 for i, p in enumerate(fresh_candidates)
             ]
             scored_candidates.sort(key=lambda x: x[0], reverse=True)
@@ -205,29 +279,41 @@ def get_candidate_problems(
     except Exception as e:
         print(f"[WARN] pgvector match_problems RPC skipped/failed ({e}), falling back to direct SQL query.")
 
-    # ── 2. Fallback SQL query (filter by skill + difficulty) ──────────────────
+    # ── 2. Fallback Candidate Retrieval ──────────────────────────────────────
+    # If unrestricted, evaluate candidate ranking across the complete curriculum problem bank.
+    # If skill-restricted, query Supabase problems filtered by skill_id with local fallback.
+    if unrestricted or not effective_skill_filter:
+        problems = _load_local_problems()
+        local_candidates = [p for p in problems if str(p.get("id")) not in exclude_ids] or problems
+        scored_local = [
+            (score_candidate_adaptive(p, min_diff, max_diff, mastery_prob, misconception_text, i, query_text=query_text, keywords=keywords), p)
+            for i, p in enumerate(local_candidates)
+        ]
+        scored_local.sort(key=lambda x: x[0], reverse=True)
+        enriched = [_enrich_problem(p) for _, p in scored_local[:top_k]]
+        return [p for p in enriched if p is not None]
+
+    # Skill-restricted SQL query
     result_data = []
     try:
         query = (
             supabase.table("problems")
             .select("*")
-            .eq("skill_id", skill_id)
+            .eq("skill_id", effective_skill_filter)
             .gte("difficulty", min_diff)
             .lte("difficulty", max_diff)
         )
-
         if exclude_problem_ids:
             query = query.not_.in_("id", exclude_problem_ids)
 
-        result = query.limit(max(8, top_k * 2)).execute()
+        result = query.limit(max(12, top_k * 3)).execute()
         result_data = result.data or []
 
         if len(result_data) < top_k:
-            fallback_query = supabase.table("problems").select("*").eq("skill_id", skill_id)
+            fallback_query = supabase.table("problems").select("*").eq("skill_id", effective_skill_filter)
             if exclude_problem_ids:
                 fallback_query = fallback_query.not_.in_("id", exclude_problem_ids)
-            result = fallback_query.limit(max(8, top_k * 2)).execute()
-            # Merge while preserving uniqueness
+            result = fallback_query.limit(max(12, top_k * 3)).execute()
             existing_ids = {str(p.get("id")) for p in result_data}
             for p in (result.data or []):
                 if str(p.get("id")) not in existing_ids:
@@ -235,30 +321,31 @@ def get_candidate_problems(
                     existing_ids.add(str(p.get("id")))
 
         if not result_data:
-            result = supabase.table("problems").select("*").eq("skill_id", skill_id).limit(top_k).execute()
+            q_all = supabase.table("problems").select("*").eq("skill_id", effective_skill_filter)
+            result = q_all.limit(top_k * 2).execute()
             result_data = result.data or []
     except Exception as sql_err:
         print(f"[WARN] Fallback SQL query error ({sql_err}), falling back to local problems.")
 
     if result_data:
         scored_sql = [
-            (score_candidate_adaptive(p, min_diff, max_diff, mastery_prob, misconception_text, i), p)
+            (score_candidate_adaptive(p, min_diff, max_diff, mastery_prob, misconception_text, i, query_text=query_text, keywords=keywords), p)
             for i, p in enumerate(result_data)
         ]
         scored_sql.sort(key=lambda x: x[0], reverse=True)
         enriched = [_enrich_problem(p) for _, p in scored_sql[:top_k]]
         return [p for p in enriched if p is not None]
 
-    # ── 3. Resilient Local Seed Problem Fallback ─────────────────────────────
+    # Resilient Local Seed Problem Fallback for skill_id
     problems = _load_local_problems()
-    local_candidates = [p for p in problems if p.get("skill_id") == skill_id and str(p.get("id")) not in exclude_ids]
+    local_candidates = [p for p in problems if p.get("skill_id") == effective_skill_filter and str(p.get("id")) not in exclude_ids]
     if not local_candidates:
-        local_candidates = [p for p in problems if p.get("skill_id") == skill_id]
+        local_candidates = [p for p in problems if p.get("skill_id") == effective_skill_filter]
     if not local_candidates:
-        local_candidates = [p for p in problems if str(p.get("id")) not in exclude_ids] or problems
+        local_candidates = problems
 
     scored_local = [
-        (score_candidate_adaptive(p, min_diff, max_diff, mastery_prob, misconception_text, i), p)
+        (score_candidate_adaptive(p, min_diff, max_diff, mastery_prob, misconception_text, i, query_text=query_text, keywords=keywords), p)
         for i, p in enumerate(local_candidates)
     ]
     scored_local.sort(key=lambda x: x[0], reverse=True)

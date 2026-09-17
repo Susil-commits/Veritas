@@ -481,6 +481,30 @@ async def _get_student_game_progress(student_id: str) -> dict[str, Any]:
     store = _read_games_store()
     student_records = store.get(student_id, {})
 
+    # 0. Attempt to hydrate from Supabase student_game_progress table if available
+    try:
+        supabase = get_supabase()
+        db_game_res = await db_exec(
+            supabase.table("student_game_progress")
+            .select("game_id, high_score, stars, times_played, last_played, history")
+            .eq("student_id", student_id)
+        )
+        if db_game_res.data:
+            if student_id not in store:
+                store[student_id] = {}
+            for row in db_game_res.data:
+                gid = row["game_id"]
+                store[student_id][gid] = {
+                    "high_score": row.get("high_score", 0),
+                    "stars": row.get("stars", 0),
+                    "times_played": row.get("times_played", 0),
+                    "last_played": row.get("last_played"),
+                    "history": row.get("history", []),
+                }
+            student_records = store[student_id]
+    except Exception as e:
+        logger.debug("Supabase student_game_progress sync skipped: %s", e)
+
     # 1. Fetch live mastery from Supabase
     mastery_map = initialize_mastery()
     try:
@@ -685,6 +709,25 @@ async def record_game_score(
         history_list.pop(0)
 
     _write_games_store(store)
+
+    # Dual-write write-through to Supabase student_game_progress table
+    try:
+        supabase = get_supabase()
+        await db_exec(
+            supabase.table("student_game_progress").upsert({
+                "student_id": clean_student_id,
+                "game_id": clean_game_id,
+                "high_score": game_record["high_score"],
+                "stars": game_record["stars"],
+                "times_played": game_record["times_played"],
+                "last_played": game_record["last_played"],
+                "history": game_record["history"],
+                "updated_at": now_iso,
+            })
+        )
+    except Exception as e:
+        logger.debug("Supabase student_game_progress write-through skipped: %s", e)
+
     return await _get_student_game_progress(clean_student_id)
 
 
@@ -742,6 +785,25 @@ async def reset_game_score(
                 for item in GAME_LEVELS_CONFIG
             }
         _write_games_store(store)
+
+    # Synchronize reset with Supabase student_game_progress
+    try:
+        supabase = get_supabase()
+        if req.game_id and req.game_id.strip():
+            await db_exec(
+                supabase.table("student_game_progress")
+                .delete()
+                .eq("student_id", clean_student_id)
+                .eq("game_id", req.game_id.strip())
+            )
+        else:
+            await db_exec(
+                supabase.table("student_game_progress")
+                .delete()
+                .eq("student_id", clean_student_id)
+            )
+    except Exception as e:
+        logger.debug("Supabase student_game_progress reset sync skipped: %s", e)
 
     return await _get_student_game_progress(clean_student_id)
 

@@ -3,20 +3,20 @@
     "description": "Bayesian Knowledge Tracing (BKT) skill parameter registry",
     "primary_calibration_source": "ASSISTments 2009-2010 Skill Builder Dataset (WPI / CAHLR)",
     "baseline_source": "Corbett & Anderson (1995) Standard Cognitive Tutor Priors",
-    "calibration_method": "Maximum Likelihood Estimation (MLE) over empirical student sequences",
+    "calibration_method": "Maximum Likelihood Estimation on 70% Train with Hyperparameter Model Selection on 15% Validation",
     "data_split": {
-      "train": "70%",
-      "validation": "15%",
-      "test": "15%"
+      "train": "70% (likelihood estimation over parameter grid)",
+      "validation": "15% (hyperparameter model selection & loss minimization)",
+      "test": "15% (unbiased held-out predictive evaluation)"
     },
-    "pilot_calibration_sample": "300 sequences/skill pilot grid MLE",
+    "pilot_calibration_sample": "200 sequences/skill pilot grid MLE",
     "evaluation_metrics": [
       "Log Loss (Binary Cross-Entropy)",
       "Brier Score",
       "Accuracy",
       "Calibration Curve"
     ],
-    "last_calibrated": "2026-09-16"
+    "last_calibrated": "2026-09-17"
   },
   "skills": [
     {
@@ -61,35 +61,35 @@
       "sequence_order": 4,
       "prior": 0.4,
       "learn": 0.08,
-      "guess": 0.18,
+      "guess": 0.22,
       "slip": 0.14,
       "calibrated": true,
       "source": "ASSISTments 2009-2010 (Equivalent Fractions)",
-      "notes": "pilot MLE fit on 277 sequences (70% train split from 396 students, 2918 total ASSISTments responses)"
+      "notes": "pilot MLE fit on 200 sequences (70% train / 15% validation model selection from 396 students, 2918 total ASSISTments responses)"
     },
     {
       "id": "4.NF.B.3",
       "name": "Adding and subtracting fractions",
       "sequence_order": 5,
       "prior": 0.4,
-      "learn": 0.24,
-      "guess": 0.26,
+      "learn": 0.2,
+      "guess": 0.18,
       "slip": 0.14,
       "calibrated": true,
       "source": "ASSISTments 2009-2010 (Addition and Subtraction Fractions)",
-      "notes": "pilot MLE fit on 300 sequences (70% train split from 1066 students, 11047 total ASSISTments responses)"
+      "notes": "pilot MLE fit on 200 sequences (70% train / 15% validation model selection from 1066 students, 11047 total ASSISTments responses)"
     },
     {
       "id": "4.NF.B.4",
       "name": "Multiplying fractions by whole numbers",
       "sequence_order": 6,
       "prior": 0.4,
-      "learn": 0.24,
+      "learn": 0.12,
       "guess": 0.26,
       "slip": 0.14,
       "calibrated": true,
       "source": "ASSISTments 2009-2010 (Multiplication Fractions)",
-      "notes": "pilot MLE fit on 300 sequences (70% train split from 596 students, 5360 total ASSISTments responses)"
+      "notes": "pilot MLE fit on 200 sequences (70% train / 15% validation model selection from 596 students, 5360 total ASSISTments responses)"
     },
     {
       "id": "5.NF.B.7",
@@ -101,7 +101,7 @@
       "slip": 0.14,
       "calibrated": true,
       "source": "ASSISTments 2009-2010 (Division Fractions)",
-      "notes": "pilot MLE fit on 300 sequences (70% train split from 545 students, 3850 total ASSISTments responses)"
+      "notes": "pilot MLE fit on 200 sequences (70% train / 15% validation model selection from 545 students, 3850 total ASSISTments responses)"
     },
     {
       "id": "6.EE.A.2",
@@ -119,13 +119,13 @@
       "id": "6.EE.B.7",
       "name": "Solving one-step equations",
       "sequence_order": 9,
-      "prior": 0.4,
+      "prior": 0.35,
       "learn": 0.08,
       "guess": 0.26,
       "slip": 0.14,
       "calibrated": true,
       "source": "ASSISTments 2009-2010 (Equation Solving Two or Fewer Steps)",
-      "notes": "pilot MLE fit on 300 sequences (70% train split from 877 students, 24169 total ASSISTments responses)"
+      "notes": "pilot MLE fit on 200 sequences (70% train / 15% validation model selection from 877 students, 24169 total ASSISTments responses)"
     },
     {
       "id": "7.EE.B.4",
@@ -137,7 +137,7 @@
       "slip": 0.14,
       "calibrated": true,
       "source": "ASSISTments 2009-2010 (Equation Solving More Than Two Steps)",
-      "notes": "pilot MLE fit on 285 sequences (70% train split from 408 students, 8111 total ASSISTments responses)"
+      "notes": "pilot MLE fit on 200 sequences (70% train / 15% validation model selection from 408 students, 8111 total ASSISTments responses)"
     }
   ]
 }

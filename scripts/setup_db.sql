@@ -98,7 +98,7 @@ CREATE POLICY "Public read skills" ON skills FOR SELECT USING (true);
 -- ── Similarity Search Function (used by content agent) ───────────────────────
 CREATE OR REPLACE FUNCTION match_problems(
     query_embedding vector(768),
-    skill_filter    TEXT,
+    skill_filter    TEXT DEFAULT NULL,
     match_count     INT DEFAULT 5
 )
 RETURNS TABLE (
@@ -118,7 +118,7 @@ BEGIN
         p.id, p.title, p.text, p.skill_id, p.difficulty, p.expected_steps,
         1 - (p.embedding <=> query_embedding) AS similarity
     FROM problems p
-    WHERE p.skill_id = skill_filter
+    WHERE (skill_filter IS NULL OR skill_filter = '' OR p.skill_id = skill_filter)
     ORDER BY p.embedding <=> query_embedding
     LIMIT match_count;
 END;

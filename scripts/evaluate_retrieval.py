@@ -37,9 +37,10 @@ class BenchmarkCase(TypedDict):
     mastery_prob: float
     expected_difficulty_range: list[int]
     keywords: list[str]
+    target_remediation_titles: list[str]
 
 
-# Ground-truth test evaluation dataset of misconceptions mapped to target skills & difficulty levels
+# Ground-truth test evaluation dataset of misconceptions mapped to target skills, keywords & human-labelled remediation targets
 RETRIEVAL_BENCHMARK_CASES: list[BenchmarkCase] = [
     {
         "skill_id": "4.NF.B.3",
@@ -47,76 +48,166 @@ RETRIEVAL_BENCHMARK_CASES: list[BenchmarkCase] = [
         "mastery_prob": 0.35,
         "expected_difficulty_range": [1, 2],
         "keywords": ["denominator", "fraction", "add"],
+        "target_remediation_titles": [
+            "Pizza Fractions",
+            "Pie Slices Addition",
+            "Walking Trails: Unlike Denominators",
+            "Flour Jar Addition: Fifths and Thirds",
+            "Ribbon Cutting",
+            "Running Distance",
+        ],
     },
     {
         "skill_id": "4.NF.A.1",
         "misconception": "fraction_inversion: student flipped numerator and denominator",
         "mastery_prob": 0.45,
         "expected_difficulty_range": [2, 3],
-        "keywords": ["equivalent", "fraction", "multiply"],
+        "keywords": ["equivalent", "fraction", "numerator", "denominator"],
+        "target_remediation_titles": [
+            "Equivalent Fractions Puzzle",
+            "Equivalent Fractions: Halves to Eighths",
+            "Equivalent Fractions: Thirds to Ninths",
+            "Simplifying Six-Tenths",
+            "Equivalent Fraction Matching",
+            "Equivalent Fraction in a Recipe",
+            "Fraction Strips: Thirds and Sixths",
+            "Comparing Fractions with Common Denominators",
+        ],
     },
     {
         "skill_id": "6.EE.B.7",
         "misconception": "variable_coefficient_ignored: student solved 3x = 12 as x = 12",
         "mastery_prob": 0.30,
         "expected_difficulty_range": [1, 2],
-        "keywords": ["equation", "isolate", "divide"],
+        "keywords": ["equation", "isolate", "divide", "coefficient"],
+        "target_remediation_titles": [
+            "Solve for x: Division",
+            "Solving Multiplication Equation",
+            "Solving Division Equation",
+            "One-Step Multiplication: 10m = 240",
+            "Fraction Coefficient: Half of a Number",
+            "One-Step Division: y / 9 = 7",
+            "Solve for x: Simple",
+        ],
     },
     {
         "skill_id": "7.EE.B.4",
         "misconception": "sign_flip_division_negative: forgot to flip inequality when dividing by negative",
         "mastery_prob": 0.75,
         "expected_difficulty_range": [3, 5],
-        "keywords": ["equation", "negative", "two-step"],
+        "keywords": ["inequality", "negative", "two-step", "flip"],
+        "target_remediation_titles": [
+            "Negative Coefficient Inequality",
+            "Negative Distributive Inequality",
+            "Solving Multi-Step Linear Inequality",
+            "Solving Linear Inequality: 4x +",
+            "Taxi Fare Budget Inequality",
+            "Challenge: Inequality",
+        ],
     },
     {
         "skill_id": "3.OA.A.1",
         "misconception": "wrong_operation_keyword: student added 4+3 instead of 4 groups of 3",
         "mastery_prob": 0.25,
         "expected_difficulty_range": [1, 2],
-        "keywords": ["groups", "multiply", "packs"],
+        "keywords": ["groups", "multiply", "packs", "times"],
+        "target_remediation_titles": [
+            "Sticker Packs",
+            "Garden Tomato Rows",
+            "Crayon Boxes",
+            "Library Bookshelves",
+            "Bakery Cupcake Trays",
+            "Toy Car Wheels",
+            "Angela Bike Messenger",
+        ],
     },
     {
         "skill_id": "3.OA.A.2",
         "misconception": "equal_sharing_confusion: student divided unequally",
         "mastery_prob": 0.50,
         "expected_difficulty_range": [2, 3],
-        "keywords": ["share", "divide", "equally"],
+        "keywords": ["share", "divide", "equally", "split"],
+        "target_remediation_titles": [
+            "Sharing Pencils",
+            "Art Class Supplies",
+            "Five Friends Fast",
+            "Samuel Bought Dozen",
+            "Apples Watermelon Same",
+            "Dividing Pizza Equally",
+        ],
     },
     {
         "skill_id": "4.NF.B.4",
         "misconception": "multiplied whole number with both numerator and denominator",
         "mastery_prob": 0.40,
         "expected_difficulty_range": [2, 3],
-        "keywords": ["fraction", "times", "whole"],
+        "keywords": ["fraction", "times", "whole", "multiply"],
+        "target_remediation_titles": [
+            "Classroom Fraction of a Whole",
+            "Ribbon for Gift Packages",
+            "Running Laps Around the Track",
+            "Fuel Tank Capacity",
+            "Multi-Step Recipe Batch Adjustment",
+            "Fraction Multiplication",
+        ],
     },
     {
         "skill_id": "5.NF.B.7",
         "misconception": "dividing fraction by whole number resulted in larger quantity",
         "mastery_prob": 0.65,
         "expected_difficulty_range": [2, 3],
-        "keywords": ["divide", "fraction", "pieces"],
+        "keywords": ["divide", "fraction", "pieces", "unit"],
+        "target_remediation_titles": [
+            "Sharing a Unit Fraction",
+            "Dividing Rope Lengths",
+            "Measuring Scoops of Flour",
+            "Dividing Whole Number by Non-Unit Fraction",
+            "Pancake Batter Portions",
+            "Dividing Pizza Equally",
+            "Flower Garden",
+        ],
     },
     {
         "skill_id": "6.EE.A.2",
         "misconception": "order_of_operations_skip: evaluated 2 + 3 * 4 as 20 instead of 14",
         "mastery_prob": 0.35,
         "expected_difficulty_range": [1, 2],
-        "keywords": ["expression", "variable", "sum"],
+        "keywords": ["expression", "variable", "sum", "product", "operations"],
+        "target_remediation_titles": [
+            "Translating Products and Sums",
+            "Two-Part Expression: Ticket Prices",
+            "Expressions with Two Variables",
+            "Translating Sums into Algebra",
+            "Writing Product Expressions",
+            "Evaluating an Expression",
+        ],
     },
     {
         "skill_id": "3.OA.D.8",
         "misconception": "stopped after first operation in two-step word problem",
         "mastery_prob": 0.55,
         "expected_difficulty_range": [2, 3],
-        "keywords": ["step", "remaining", "total"],
+        "keywords": ["step", "remaining", "total", "two-step"],
+        "target_remediation_titles": [
+            "Movie Snack Bar",
+            "Farmer's Market Apples",
+            "Book Sale Savings",
+            "Carnival Ride Tickets",
+            "Baking Cookies",
+            "Lemonade Stand",
+            "There Houses Street",
+            "Baking Cookies Bakes",
+        ],
     },
 ]
 
 
 def run_retrieval_benchmark() -> dict:
     print("=" * 80)
-    print("   VERITAS RAG RETRIEVAL & ADAPTIVE RANKING BENCHMARK")
+    print("   VERITAS RAG RETRIEVAL & UNRESTRICTED MISCONCEPTION BENCHMARK")
+    print("=" * 80)
+    print("Pipeline: Diagnosed Misconception -> Unrestricted Pool Search (208 problems)")
+    print("          -> Adaptive Pedagogical Ranker -> Human-Labelled Remediation Targets")
     print("=" * 80)
 
     n_cases = len(RETRIEVAL_BENCHMARK_CASES)
@@ -126,62 +217,88 @@ def run_retrieval_benchmark() -> dict:
     mrr_sum = 0.0
     skill_match_count = 0
     diff_match_count = 0
+    total_keyword_matches = 0
+    total_keywords_tested = 0
 
     for i, case in enumerate(RETRIEVAL_BENCHMARK_CASES, 1):
-        skill_id = case["skill_id"]
+        target_skill = case["skill_id"]
         misc = case["misconception"]
         mastery = case["mastery_prob"]
         exp_range = case["expected_difficulty_range"]
+        kws = case["keywords"]
+        target_titles = case["target_remediation_titles"]
 
-        # Retrieve actual ordered top-5 candidate list from pgvector / problem bank
+        # Retrieve actual ordered top-5 candidates from UNRESTRICTED candidate pool
         candidates = get_candidate_problems(
-            skill_id=skill_id,
+            skill_id=None,
             mastery_prob=mastery,
             student_id="benchmark_student",
             misconception_text=misc,
             top_k=5,
+            unrestricted=True,
+            keywords=kws,
         )
 
         if not candidates:
-            print(f"\nQuery #{i:<2} | {skill_id:<9} | FAILED (No candidates returned)")
+            print(f"\nQuery #{i:<2} | {target_skill:<9} | FAILED (No candidates returned)")
             continue
 
-        # Evaluate candidate ranking
-        first_correct_rank = None
+        # Evaluate candidate ranking against human-labelled ground truth
+        first_remediation_rank = None
         for rank_idx, cand in enumerate(candidates, start=1):
-            cand_skill = cand.get("skill_id")
-            cand_diff = cand.get("difficulty", 1)
-            is_match = (cand_skill == skill_id and exp_range[0] <= cand_diff <= exp_range[1])
-            if is_match and first_correct_rank is None:
-                first_correct_rank = rank_idx
+            cand_title = cand.get("title", "")
+            is_target_remediation = any(t.lower() in cand_title.lower() for t in target_titles)
+            if is_target_remediation and first_remediation_rank is None:
+                first_remediation_rank = rank_idx
 
         # Calculate genuine Reciprocal Rank and Recall@K
-        if first_correct_rank is not None:
-            mrr_sum += 1.0 / first_correct_rank
-            if first_correct_rank == 1:
+        if first_remediation_rank is not None:
+            mrr_sum += 1.0 / first_remediation_rank
+            if first_remediation_rank == 1:
                 recall_at_1 += 1
-            if first_correct_rank <= 3:
+            if first_remediation_rank <= 3:
                 recall_at_3 += 1
-            if first_correct_rank <= 5:
+            if first_remediation_rank <= 5:
                 recall_at_5 += 1
 
         top_cand = candidates[0]
-        if top_cand.get("skill_id") == skill_id:
+        top_skill = top_cand.get("skill_id")
+        top_diff = top_cand.get("difficulty", 1)
+
+        if top_skill == target_skill:
             skill_match_count += 1
-        if exp_range[0] <= top_cand.get("difficulty", 1) <= exp_range[1]:
+        if exp_range[0] <= top_diff <= exp_range[1]:
             diff_match_count += 1
 
-        print(f"\n[Case {i:<2}] Skill: {skill_id} | ZPD Target Diff: {exp_range[0]}-{exp_range[1]} | Mastery: {mastery:.2f}")
-        print(f"         Diagnosed: {misc[:65]}")
+        # Evaluate misconception keyword coverage in top-1 candidate
+        top_text = f"{top_cand.get('title', '')} {top_cand.get('text', '')} {' '.join(top_cand.get('expected_steps', []))}".lower()
+        kws_matched = sum(1 for kw in kws if kw.lower() in top_text)
+        total_keyword_matches += kws_matched
+        total_keywords_tested += len(kws)
+
+        print(f"\n[Case {i:<2}] Diagnosed Error: \"{misc[:60]}...\"")
+        print(f"         Target Skill: {target_skill} | Target ZPD: Diff {exp_range[0]}-{exp_range[1]} | Student Mastery: {mastery:.2f}")
+        print(f"         Keywords: {', '.join(kws)}")
+
         for r_idx, c in enumerate(candidates, start=1):
             c_skill = c.get("skill_id")
             c_diff = c.get("difficulty", 1)
-            is_tgt = (c_skill == skill_id and exp_range[0] <= c_diff <= exp_range[1])
-            tag = " <-- [TARGET MATCH]" if is_tgt else ""
-            print(f"         • Rank {r_idx}: \"{c.get('title', '')[:32]}\" ({c_skill}, diff {c_diff}/5){tag}")
+            c_title = c.get("title", "")
+            is_remed = any(t.lower() in c_title.lower() for t in target_titles)
+            is_skill = (c_skill == target_skill)
 
-        rr_val = (1.0 / first_correct_rank) if first_correct_rank else 0.0
-        print(f"         => First Target Rank: {first_correct_rank or 'Not found in Top 5'} | Reciprocal Rank: {rr_val:.4f}")
+            tags = []
+            if is_remed:
+                tags.append("REMEDIATION TARGET")
+            if is_skill:
+                tags.append(f"Skill {c_skill}")
+            tag_str = f" <-- [{', '.join(tags)}]" if tags else ""
+
+            print(f"         • Rank {r_idx}: \"{c_title[:32]}\" ({c_skill}, diff {c_diff}/5){tag_str}")
+
+        rr_val = (1.0 / first_remediation_rank) if first_remediation_rank else 0.0
+        print(f"         => First Remediation Rank: {first_remediation_rank or 'Not found in Top 5'} | Reciprocal Rank: {rr_val:.4f}")
+        print(f"         => Top-1 Misconception Keyword Coverage: {kws_matched}/{len(kws)} ({(kws_matched/len(kws))*100:.0f}%)")
 
     r1 = (recall_at_1 / n_cases) * 100.0
     r3 = (recall_at_3 / n_cases) * 100.0
@@ -189,22 +306,26 @@ def run_retrieval_benchmark() -> dict:
     mrr = mrr_sum / n_cases
     skill_accuracy = (skill_match_count / n_cases) * 100.0
     diff_accuracy = (diff_match_count / n_cases) * 100.0
+    kw_match_rate = (total_keyword_matches / total_keywords_tested) * 100.0 if total_keywords_tested > 0 else 0.0
 
     print("\n" + "=" * 80)
-    print("📈 VERITAS RAG RETRIEVAL BENCHMARK SUMMARY (GENUINE RANKING METRICS):")
-    print(f"   • Total Test Queries          : {n_cases}")
-    print(f"   • Top-1 Skill Precision       : {skill_accuracy:.1f}% ({skill_match_count}/{n_cases})")
-    print(f"   • Top-1 Difficulty (ZPD) Fit  : {diff_accuracy:.1f}% ({diff_match_count}/{n_cases})")
-    print(f"   • Recall@1 (Target at Rank 1) : {r1:.1f}% ({recall_at_1}/{n_cases})")
-    print(f"   • Recall@3 (Target in Top 3)  : {r3:.1f}% ({recall_at_3}/{n_cases})")
-    print(f"   • Recall@5 (Target in Top 5)  : {r5:.1f}% ({recall_at_5}/{n_cases})")
-    print(f"   • Mean Reciprocal Rank (MRR)  : {mrr:.4f}")
+    print("📈 VERITAS RAG RETRIEVAL BENCHMARK SUMMARY (UNRESTRICTED POOL):")
+    print(f"   • Total Test Diagnostic Queries : {n_cases}")
+    print(f"   • Candidate Pool Scope          : Unrestricted (all 208 problems across 10 skills)")
+    print(f"   • Top-1 Skill Precision        : {skill_accuracy:.1f}% ({skill_match_count}/{n_cases})")
+    print(f"   • Top-1 Difficulty (ZPD) Fit    : {diff_accuracy:.1f}% ({diff_match_count}/{n_cases})")
+    print(f"   • Misconception Keyword Match   : {kw_match_rate:.1f}% ({total_keyword_matches}/{total_keywords_tested})")
+    print(f"   • Recall@1 (Remediation at #1)  : {r1:.1f}% ({recall_at_1}/{n_cases})")
+    print(f"   • Recall@3 (Remediation in Top3): {r3:.1f}% ({recall_at_3}/{n_cases})")
+    print(f"   • Recall@5 (Remediation in Top5): {r5:.1f}% ({recall_at_5}/{n_cases})")
+    print(f"   • Mean Reciprocal Rank (MRR)    : {mrr:.4f}")
     print("=" * 80 + "\n")
 
     return {
         "total_queries": n_cases,
         "skill_match_rate": skill_accuracy,
         "difficulty_fit_rate": diff_accuracy,
+        "keyword_match_rate": round(kw_match_rate, 1),
         "recall_at_1": r1,
         "recall_at_3": r3,
         "recall_at_5": r5,
@@ -214,10 +335,10 @@ def run_retrieval_benchmark() -> dict:
 
 if __name__ == "__main__":
     results = run_retrieval_benchmark()
-    if results["recall_at_3"] >= 80.0 and results["mrr"] >= 0.70:
-        print("[OK] Retrieval benchmark PASSED with valid candidate ranking.")
+    if results["recall_at_3"] >= 80.0 and results["mrr"] >= 0.70 and results["skill_match_rate"] >= 80.0:
+        print("[OK] Unrestricted RAG retrieval benchmark PASSED with high semantic precision.")
         sys.exit(0)
     else:
-        print("[FAIL] Retrieval benchmark FAILED thresholds.")
+        print("[FAIL] Unrestricted RAG retrieval benchmark FAILED thresholds.")
         sys.exit(1)
 

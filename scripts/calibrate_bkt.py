@@ -59,10 +59,15 @@ def split_sequences(
     return train_seqs, val_seqs, test_seqs
 
 
-def fit_bkt_mle(sequences: list[list[int]], sample_limit: int | None = None) -> dict:
+def fit_bkt_mle(
+    sequences: list[list[int]],
+    val_sequences: list[list[int]] | None = None,
+    sample_limit: int | None = None,
+) -> dict:
     """
     Fit BKT parameters (prior, learn, guess, slip) on real student response sequences
-    using maximum likelihood estimation over bounded parameter grid
+    using maximum likelihood estimation over bounded parameter grid on train sequences,
+    with hyperparameter model selection calibrated against the validation split
     (Corbett & Anderson 1995; Baker, Corbett & Aleven 2008).
     If sample_limit is None, fits across all eligible training sequences.
     """
@@ -72,39 +77,72 @@ def fit_bkt_mle(sequences: list[list[int]], sample_limit: int | None = None) -> 
     guesses = [0.12, 0.18, 0.22, 0.26]
     slips = [0.05, 0.08, 0.11, 0.14]
 
-    sample = sequences[:sample_limit] if sample_limit is not None else sequences
-    best_loss = float("inf")
-    best = {"prior": 0.30, "learn": 0.15, "guess": 0.20, "slip": 0.10}
+    train_sample = sequences[:sample_limit] if sample_limit is not None else sequences
+    val_sample = val_sequences[:sample_limit] if (val_sequences and sample_limit is not None) else val_sequences
 
+    # Step 1: Compute train negative log-likelihood across all grid points
+    candidate_fits: list[tuple[float, dict]] = []
     for p in priors:
         for l in learns:
             for g in guesses:
                 for s in slips:
                     neg_log_lik = 0.0
-                    for seq in sample:
+                    for seq in train_sample:
                         mastery = p
                         for obs in seq:
-                            p_corr = mastery * (1 - s) + (1 - mastery) * g
-                            p_obs = p_corr if obs == 1 else (1 - p_corr)
+                            p_corr = mastery * (1.0 - s) + (1.0 - mastery) * g
+                            p_obs = p_corr if obs == 1 else (1.0 - p_corr)
                             p_obs = max(p_obs, 1e-5)
                             neg_log_lik -= math.log(p_obs)
 
                             # Posterior probability given observation
-                            num = mastery * (1 - s) if obs == 1 else mastery * s
+                            num = mastery * (1.0 - s) if obs == 1 else mastery * s
                             denom = p_obs
                             p_known = num / denom if denom > 0 else mastery
-                            mastery = p_known + (1 - p_known) * l
+                            mastery = p_known + (1.0 - p_known) * l
                             mastery = min(max(mastery, 0.0), 1.0)
 
-                    if neg_log_lik < best_loss:
-                        best_loss = neg_log_lik
-                        best = {
+                    candidate_fits.append((
+                        neg_log_lik,
+                        {
                             "prior": round(p, 2),
                             "learn": round(l, 2),
                             "guess": round(g, 2),
                             "slip": round(s, 2),
                         }
-    return best
+                    ))
+
+    candidate_fits.sort(key=lambda x: x[0])
+
+    # Step 2: If validation split is provided, select optimal model minimizing validation loss among top candidates
+    if val_sample and len(val_sample) > 0:
+        top_candidates = [c[1] for c in candidate_fits[:10]]
+        best_val_loss = float("inf")
+        best_model = top_candidates[0]
+        for cand in top_candidates:
+            val_loss = 0.0
+            n_val_obs = 0
+            for seq in val_sample:
+                m = cand["prior"]
+                for obs in seq:
+                    p_corr = m * (1.0 - cand["slip"]) + (1.0 - m) * cand["guess"]
+                    p_obs = p_corr if obs == 1 else (1.0 - p_corr)
+                    p_obs = max(p_obs, 1e-5)
+                    val_loss -= math.log(p_obs)
+                    n_val_obs += 1
+
+                    num = m * (1.0 - cand["slip"]) if obs == 1 else m * cand["slip"]
+                    denom = p_obs
+                    p_known = num / denom if denom > 0 else m
+                    m = p_known + (1.0 - p_known) * cand["learn"]
+                    m = min(max(m, 0.0), 1.0)
+            avg_val_loss = val_loss / max(1, n_val_obs)
+            if avg_val_loss < best_val_loss:
+                best_val_loss = avg_val_loss
+                best_model = cand
+        return best_model
+
+    return candidate_fits[0][1]
 
 
 @dataclass
@@ -211,18 +249,19 @@ def run_fit(sample_limit: int | None = 300):
     for sid, info in assist_data.get("skills", {}).items():
         seqs = info["sequences"]
         train_seqs, val_seqs, test_seqs = split_sequences(seqs)
-        fitted = fit_bkt_mle(train_seqs, sample_limit=sample_limit)
+        fitted = fit_bkt_mle(train_seqs, val_sequences=val_seqs, sample_limit=sample_limit)
         calibrated_map[sid] = {
             "params": fitted,
             "assist_name": info["assistments_skill_name"],
             "students": info["total_students"],
             "observations": info["total_observations"],
             "train_count": len(train_seqs),
+            "val_count": len(val_seqs),
             "test_count": len(test_seqs),
         }
         print(f"   ✓ {sid} ({info['skill_name']}):")
         print(f"     Prior={fitted['prior']}, Learn={fitted['learn']}, Guess={fitted['guess']}, Slip={fitted['slip']}")
-        print(f"     Fitted on {len(train_seqs)} train sequences (from {info['total_students']} students, {info['total_observations']} responses)")
+        print(f"     Fitted on {len(train_seqs)} train seqs, calibrated on {len(val_seqs)} val seqs (from {info['total_students']} students, {info['total_observations']} responses)")
 
     # Update parameters.json
     for skill in params_data.get("skills", []):
@@ -234,7 +273,7 @@ def run_fit(sample_limit: int | None = 300):
             skill["source"] = f"ASSISTments 2009-2010 ({fit_info['assist_name']})"
             actual_fit_count = min(sample_limit, fit_info["train_count"]) if sample_limit else fit_info["train_count"]
             limit_desc = f"pilot MLE fit on {actual_fit_count} sequences" if sample_limit else f"full train set fit on {actual_fit_count} sequences"
-            skill["notes"] = f"{limit_desc} (70% train split from {fit_info['students']} students, {fit_info['observations']} total ASSISTments responses)"
+            skill["notes"] = f"{limit_desc} (70% train / 15% validation model selection from {fit_info['students']} students, {fit_info['observations']} total ASSISTments responses)"
         else:
             skill["calibrated"] = False
             skill["source"] = "Corbett & Anderson Baseline"
@@ -244,11 +283,15 @@ def run_fit(sample_limit: int | None = 300):
         "description": "Bayesian Knowledge Tracing (BKT) skill parameter registry",
         "primary_calibration_source": "ASSISTments 2009-2010 Skill Builder Dataset (WPI / CAHLR)",
         "baseline_source": "Corbett & Anderson (1995) Standard Cognitive Tutor Priors",
-        "calibration_method": "Maximum Likelihood Estimation (MLE) over empirical student sequences",
-        "data_split": {"train": "70%", "validation": "15%", "test": "15%"},
+        "calibration_method": "Maximum Likelihood Estimation on 70% Train with Hyperparameter Model Selection on 15% Validation",
+        "data_split": {
+            "train": "70% (likelihood estimation over parameter grid)",
+            "validation": "15% (hyperparameter model selection & loss minimization)",
+            "test": "15% (unbiased held-out predictive evaluation)"
+        },
         "pilot_calibration_sample": f"{sample_limit} sequences/skill pilot grid MLE" if sample_limit else "full dataset sequences fit",
         "evaluation_metrics": ["Log Loss (Binary Cross-Entropy)", "Brier Score", "Accuracy", "Calibration Curve"],
-        "last_calibrated": "2026-09-16"
+        "last_calibrated": "2026-09-17"
     }
 
     with open(PARAMS_FILE, "w", encoding="utf-8") as f:

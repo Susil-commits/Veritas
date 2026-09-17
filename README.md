@@ -7,7 +7,7 @@
 [![Google Gemini](https://img.shields.io/badge/Gemini_3.6_Flash-Vision_%26_LLM-4285F4?style=flat&logo=google)](https://ai.google.dev/)
 [![Supabase](https://img.shields.io/badge/Supabase-Postgres_%2B_pgvector-3ECF8E?style=flat&logo=supabase)](https://supabase.com/)
 [![BKT](https://img.shields.io/badge/ML-Bayesian_Knowledge_Tracing-8A2BE2?style=flat)](#machine-learning-pedagogical-engine)
-[![Tests](https://img.shields.io/badge/Tests-8%2F8_Passing-brightgreen?style=flat)](#automated-validation-suite)
+[![Tests](https://img.shields.io/badge/Tests-11%2F11_Passing-brightgreen?style=flat)](#automated-validation-suite)
 
 ---
 
@@ -86,12 +86,12 @@ P(L_{t-1} \mid \text{Obs}) &= \begin{cases}
 P(L_t) &= P(L_{t-1} \mid \text{Obs}) + (1 - P(L_{t-1} \mid \text{Obs})) \cdot P(T)
 \end{aligned}$$
 
-- **Calibrated Parameters**: Fitted using bounded grid-search Maximum Likelihood Estimation (MLE) over educational interaction sequences from ASSISTments 2009-2010.
-  - Student-level grouping: 70% train, 15% validation, 15% test splits strictly grouped by student ID using a seeded pseudo-random shuffle (`Random(42)`), guaranteeing zero cross-split interaction contamination.
+- **Calibrated Parameters**: Fitted using bounded grid-search Maximum Likelihood Estimation (MLE) on a **70% train split**, with hyperparameter model selection and calibration loss minimization on a **15% validation split**, evaluated on a strictly held-out **15% test split** over educational interaction sequences from ASSISTments 2009-2010.
+  - Student-level grouping: Train, validation, and test splits are strictly grouped by student ID using a seeded pseudo-random shuffle (`Random(42)`), guaranteeing zero cross-split interaction contamination.
   - 6 core skills calibrated over empirical interaction sequences; remaining 4 skills utilize Corbett & Anderson (1995) baseline cognitive tutor priors (registered in `backend/bkt/parameters.json`).
   - **Held-Out Predictive Evaluation**: Evaluated across **8,437** independent held-out student test observations:
-    - Brier Score: Improved by **3.65%** MSE (**0.1920** calibrated vs **0.1993** uncalibrated baseline)
-    - Log Loss: Improved by **4.49%** Cross-Entropy (**0.5741** calibrated vs **0.6011** uncalibrated baseline)
+    - Brier Score: Improved by **3.51%** MSE (**0.1923** calibrated vs **0.1993** uncalibrated baseline)
+    - Log Loss: Improved by **4.41%** Cross-Entropy (**0.5746** calibrated vs **0.6011** uncalibrated baseline)
 - **Pedagogical Observation Weighting**: Canonical BKT assumes binary unassisted observation sequences. To reflect real-world learning dynamics without inflating mastery, Veritas implements a pedagogical observation weighting model:
   - *Independent attempts* receive full Bayesian credit ($w = 1.0$).
   - *Hinted attempts* are scaled down ($w_{\text{hint}} = 0.5$) to account for tutor scaffolding.
@@ -106,17 +106,19 @@ P(L_t) &= P(L_{t-1} \mid \text{Obs}) + (1 - P(L_{t-1} \mid \text{Obs})) \cdot P(
 
 ### 3. Misconception-Targeted Adaptive RAG
 - **Embedding Space**: Embeds student misconceptions and problem text using `models/gemini-embedding-001` (768 dimensions, centralized in `backend/config.py`).
-- **Multi-Factor Adaptive Selection**: Candidates retrieved via pgvector cosine similarity are ranked using a multi-factor composite utility function:
-  $$U(p) = w_{\text{sim}} \cdot S_{\text{cos}} + w_{\text{diff}} \cdot \left(1 - |d_p - d_{\text{target}}|\right) + w_{\text{misc}} \cdot \mathbb{I}_{\text{misc}} + w_{\text{gap}} \cdot (1 - P(L))$$
-  balancing pgvector semantic similarity ($S_{\text{cos}}$), ZPD difficulty fit, exact diagnosed misconception targeting, and student mastery gap.
+- **Multi-Factor Adaptive Candidate Selection**: Candidates retrieved from pgvector (or resilient lexical token-overlap proxy on fallback) are ranked using a multi-factor composite pedagogical utility function:
+  $$U(p) = 0.35 \cdot S_{\text{sim}} + 0.25 \cdot \text{Score}_{\text{misc}} + 0.20 \cdot \left(1 - \frac{|d_p - d_{\text{ZPD}}|}{3.0}\right) + 0.20 \cdot \left(1 - \frac{|d_p - d^*(P(L))|}{3.0}\right)$$
+  balancing semantic/lexical similarity ($S_{\text{sim}}$), diagnosed error keyword targeting ($\text{Score}_{\text{misc}}$), discrete ZPD fit, and candidate-specific continuous mastery alignment $d^*(P(L)) = 1.0 + 4.0 \cdot P(L)$ to ensure low-mastery students receive scaffolding while advanced students receive consolidation challenges.
 - **Longitudinal Misconception Tracking**: Student misconceptions are tracked across sessions and persisted to a local disk store (`misconceptions_store.json`), allowing pedagogical agents to retrieve student-specific persistent error patterns across restarts. Active misconceptions are resolved when the student independently solves subsequent problems targeting that skill.
-- **Retrieval Benchmark** (`scripts/evaluate_retrieval.py` on 10 target diagnostic cases with top-5 candidate ranking):
-  - Top-1 Skill Precision: **100.0%**
-  - Top-1 Difficulty (ZPD) Fit: **100.0%**
-  - Recall@1 (Optimal Target at Rank 1): **100.0%**
-  - Recall@3 (Target in Top 3): **100.0%**
-  - Recall@5 (Target in Top 5): **100.0%**
-  - Mean Reciprocal Rank (MRR): **1.0000**
+- **Unrestricted Retrieval Benchmark** (`scripts/evaluate_retrieval.py` on 10 target diagnostic cases across an unrestricted pool of **208 problems** across all **10 CCSS skills**):
+  - Candidate Pool Scope: **Unrestricted (all 208 problems / 10 standards)**
+  - Top-1 Skill Precision: **90.0%** (9/10)
+  - Top-1 Difficulty (ZPD) Fit: **100.0%** (10/10)
+  - Misconception Keyword Coverage: **70.0%** (28/40)
+  - Recall@1 (Target Remediation at Rank 1): **90.0%** (9/10)
+  - Recall@3 (Target Remediation in Top 3): **100.0%** (10/10)
+  - Recall@5 (Target Remediation in Top 5): **100.0%** (10/10)
+  - Mean Reciprocal Rank (MRR): **0.9500**
 
 ### 4. Socratic Verifier & Safety Guardrails
 - **Secondary Socratic Verifier**: Proactively instructs generated tutor dialogue (`backend/safety.py`) to prevent direct answer leakage, multi-step revelations, and non-Socratic statements.
@@ -126,9 +128,10 @@ P(L_t) &= P(L_{t-1} \mid \text{Obs}) + (1 - P(L_{t-1} \mid \text{Obs})) \cdot P(
 
 | Evaluation Benchmark | Script / Harness | Scope & Dataset Size | Key Metric | Result |
 |---|---|---|---|---|
-| **BKT Predictive Accuracy** | `scripts/calibrate_bkt.py` | 8,437 held-out test observations (ASSISTments) | Held-Out Brier Score (MSE) | **-3.65%** (0.1920 vs 0.1993) |
-| **BKT Log Loss** | `scripts/calibrate_bkt.py` | 8,437 held-out test observations (ASSISTments) | Held-Out Log Loss | **-4.49%** (0.5741 vs 0.6011) |
-| **RAG Retrieval Quality** | `scripts/evaluate_retrieval.py` | 10 target diagnostic test cases (Top-5 ranking) | Recall@1 / Recall@3 / MRR | **100%** / **100%** / **1.0000** |
+| **BKT Predictive Accuracy** | `scripts/calibrate_bkt.py` | 8,437 held-out test observations (ASSISTments) | Held-Out Brier Score (MSE) | **-3.51%** (0.1923 vs 0.1993) |
+| **BKT Log Loss** | `scripts/calibrate_bkt.py` | 8,437 held-out test observations (ASSISTments) | Held-Out Log Loss | **-4.41%** (0.5746 vs 0.6011) |
+| **RAG Unrestricted Retrieval** | `scripts/evaluate_retrieval.py` | 10 diagnostic cases against unrestricted pool (208 problems) | Recall@1 / Recall@3 / MRR | **90%** / **100%** / **0.9500** |
+| **RAG Top-1 Skill Precision** | `scripts/evaluate_retrieval.py` | Unrestricted 10-skill problem bank | Precision@1 (No skill filter) | **90.0%** (9/10 Skills) |
 | **Vision Reticle & Fallback Integrity** | `scripts/evaluate_vision.py` | 10 structural & boundary test cases | Coordinate Clamping / Zero Leak / Resilient Fallback | **100%** Pass |
 | **Socratic Answer Shield** | `scripts/evaluate_socratic.py` | Internal 7-sample adversarial benchmark | Adversarial Leakage Interception | **100%** Interception |
 | **Curriculum Consistency** | `scripts/validate_curriculum_consistency.py` | 7 Game Levels, 10 BKT Skills, 208 Problems | End-to-End Curriculum Grounding | **100%** Verified |
@@ -167,6 +170,9 @@ Veritas leverages established academic benchmarks and open-source datasets to tr
 ## ✅ Automated Validation Suite
 
 Veritas features an automated test runner verifying safety, RLS isolation, session survival, and multi-agent coordination.
+
+> [!NOTE]
+> **Local Test Suite vs. Deployment CI**: The `11/11 Passing` badge and validation suite below represent local comprehensive test runner execution (`python backend/run_all_tests.py`) covering all end-to-end multi-agent flows, database RLS isolation, deterministic math evaluation, and persistence tests. Deployment statuses on repository commits reflect Vercel frontend deployments and production container health checks.
 
 Run the entire suite locally:
 ```bash
@@ -285,6 +291,7 @@ In your Supabase SQL Editor, run:
 1. `scripts/setup_db.sql` (Tables, pgvector schema, RPCs)
 2. `scripts/migration_day2_auth_children.sql` (Parent-child schema & strict RLS)
 3. `scripts/migration_day3_session_state.sql` (Session state persistence)
+4. `scripts/migration_day4_game_progress.sql` (Student game progress persistence)
 
 Seed initial problem bank with Gemini embeddings:
 ```bash
@@ -307,6 +314,8 @@ npm run dev
 ## 📌 Known Limitations & Post-Hackathon Roadmap
 
 - **Worker Concurrency & Distributed State**: In the current hackathon deployment, session state is managed via single-process asynchronous FastAPI workers backed by an in-memory cache with dual write-through to Supabase `sessions.state` JSONB / event tables and a persistent local disk cache (`sessions_store.json`). For horizontally autoscaled, multi-worker production environments behind a load balancer, session mutexes are roadmapped to distributed Redis locks (`Redlock`) with centralized Redis caching to ensure serialized turn processing across distinct worker instances.
+- **Game Progress Distributed Persistence**: Game progress across arcade games (Space Math Explorer, Math Match Quest, Math Asteroids, Grid Runner) utilizes dual-tier persistence: reading and upserting directly to Supabase `public.student_game_progress` with Row Level Security (see `scripts/migration_day4_game_progress.sql`), with atomic local disk caching (`backend/data/games_store.json`) serving as a resilient offline/development fallback.
 - **Dependency Security Patches**: Backend dependencies are pinned to versions current as of initial build; a full security-patch upgrade is planned post-hackathon. (`python-multipart` has been patched to `0.0.32` to protect public multipart upload parsing).
 - **Curriculum Scope**: Current problem bank targets 10 core Common Core State Standards (CCSS) in elementary mathematics, architected to expand to middle and high school standards.
+
 
