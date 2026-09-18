@@ -308,12 +308,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const cleanToken = token.trim()
 
     // Evaluator Convenience: Instant OTP bypass codes strictly gated to designated demo accounts:
-    // - student.alex@veritas.dev + 777888
-    // - parent.sarah@veritas.dev + 123456
+    // - student.alex@veritas.dev + 77778888 (or 777888)
+    // - parent.sarah@veritas.dev + 12345678 (or 123456)
     // Strictly requires BOTH matching demo email and matching demo OTP code.
     // Real emails (e.g., @gmail.com) can NEVER trigger synthetic demo flows.
-    const isStudentDemo = cleanEmail === 'student.alex@veritas.dev' && cleanToken === '777888'
-    const isParentDemo = cleanEmail === 'parent.sarah@veritas.dev' && cleanToken === '123456'
+    const isStudentDemo =
+      cleanEmail === 'student.alex@veritas.dev' &&
+      (cleanToken === '77778888' || cleanToken === '777888')
+    const isParentDemo =
+      cleanEmail === 'parent.sarah@veritas.dev' &&
+      (cleanToken === '12345678' || cleanToken === '123456')
 
     if (isStudentDemo || isParentDemo) {
       const demoRole: UserRole = isParentDemo ? 'parent' : 'student'

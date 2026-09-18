@@ -155,8 +155,8 @@ export default function Landing() {
 
   // Standout modern auth states
   const [authScreen, setAuthScreen] = useState<'form' | 'otp'>('form')
-  const [otpLength, setOtpLength] = useState<6 | 8>(8) // Default to 8 digits matching Supabase project configuration
-  const [otpDigits, setOtpDigits] = useState<string[]>(['', '', '', '', '', '', '', ''])
+  const OTP_LENGTH = 8
+  const [otpDigits, setOtpDigits] = useState<string[]>(Array(OTP_LENGTH).fill(''))
   const [hasOtpError, setHasOtpError] = useState(false)
   const [shakeOtp, setShakeOtp] = useState(false)
   const [resendTimer, setResendTimer] = useState(45)
@@ -167,16 +167,8 @@ export default function Landing() {
   const otpRefs = useRef<(HTMLInputElement | null)[]>([])
   const [otpScreenSeconds, setOtpScreenSeconds] = useState(0)
 
-  const switchOtpLength = (targetLen: 6 | 8) => {
-    setOtpLength(targetLen)
-    setOtpDigits(Array(targetLen).fill(''))
-    setAuthError('')
-    setHasOtpError(false)
-    setTimeout(() => otpRefs.current[0]?.focus(), 50)
-  }
-
   const handleClearOtp = () => {
-    setOtpDigits(Array(otpLength).fill(''))
+    setOtpDigits(Array(OTP_LENGTH).fill(''))
     setHasOtpError(false)
     setAuthError('')
     setTimeout(() => otpRefs.current[0]?.focus(), 50)
@@ -601,8 +593,8 @@ export default function Landing() {
 
   const handleVerifyOtpCode = async (codeToVerify: string, overrideRole?: 'student' | 'parent', overrideEmail?: string) => {
     const cleanCode = codeToVerify.trim()
-    if (cleanCode.length !== 6 && cleanCode.length !== 8) {
-      setAuthError('Please enter all digits of the verification code (6 or 8 digits).')
+    if (cleanCode.length !== OTP_LENGTH) {
+      setAuthError('Please enter all 8 digits of your verification code.')
       return
     }
     const activeRole = overrideRole || role
@@ -666,12 +658,12 @@ export default function Landing() {
     setOtpDigits(nextDigits)
     setAuthError('')
 
-    if (char && index < otpLength - 1) {
+    if (char && index < OTP_LENGTH - 1) {
       otpRefs.current[index + 1]?.focus()
     }
 
     const fullCode = nextDigits.join('')
-    if (fullCode.length === otpLength && !nextDigits.includes('')) {
+    if (fullCode.length === OTP_LENGTH && !nextDigits.includes('')) {
       handleVerifyOtpCode(fullCode)
     }
   }
@@ -712,22 +704,14 @@ export default function Landing() {
     const rawPasted = e.clipboardData.getData('text').trim().replace(/\D/g, '')
     if (!rawPasted) return
 
-    let targetLen: 6 | 8 = otpLength
-    if (rawPasted.length === 6) {
-      targetLen = 6
-    } else if (rawPasted.length >= 8) {
-      targetLen = 8
-    }
-    setOtpLength(targetLen)
-
-    const truncated = rawPasted.slice(0, targetLen)
-    const next = Array(targetLen).fill('')
+    const truncated = rawPasted.slice(0, OTP_LENGTH)
+    const next = Array(OTP_LENGTH).fill('')
     for (let i = 0; i < truncated.length; i++) {
       next[i] = truncated[i] || ''
     }
     setOtpDigits(next)
 
-    if (truncated.length === targetLen) {
+    if (truncated.length === OTP_LENGTH) {
       handleVerifyOtpCode(truncated)
     } else {
       const firstEmpty = next.findIndex(d => !d)
@@ -741,9 +725,7 @@ export default function Landing() {
     setRole(targetRole)
     setHasOtpError(false)
     setAuthError('')
-    const targetLen: 6 | 8 = code.length === 8 ? 8 : 6
-    setOtpLength(targetLen)
-    const digits = code.slice(0, targetLen).split('')
+    const digits = code.slice(0, OTP_LENGTH).split('')
     setOtpDigits(digits)
     const demoEmail = targetRole === 'parent' ? 'parent.sarah@veritas.dev' : 'student.alex@veritas.dev'
     setMagicLinkEmail(demoEmail)
@@ -1097,28 +1079,7 @@ export default function Landing() {
                       </div>
                     )}
 
-                    {/* Format switcher for 8-digit vs 6-digit */}
-                    <div className="otp-format-toggle-row">
-                      <span className="otp-format-label">Code length:</span>
-                      <div className="otp-format-pills">
-                        <button
-                          type="button"
-                          className={`otp-format-btn ${otpLength === 8 ? 'otp-format-btn--active' : ''}`}
-                          onClick={() => switchOtpLength(8)}
-                        >
-                          8 Digits (Standard)
-                        </button>
-                        <button
-                          type="button"
-                          className={`otp-format-btn ${otpLength === 6 ? 'otp-format-btn--active' : ''}`}
-                          onClick={() => switchOtpLength(6)}
-                        >
-                          6 Digits
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className={`otp-inputs-grid otp-inputs-grid--${otpLength} ${shakeOtp ? 'otp-inputs-grid--shake' : ''}`}>
+                    <div className={`otp-inputs-grid otp-inputs-grid--8 ${shakeOtp ? 'otp-inputs-grid--shake' : ''}`}>
                       {otpDigits.map((digit, idx) => (
                         <input
                           key={idx}
@@ -1135,7 +1096,7 @@ export default function Landing() {
                           onPaste={handleOtpPaste}
                           disabled={authLoading}
                           autoFocus={idx === 0}
-                          aria-label={`Digit ${idx + 1} of ${otpLength}`}
+                          aria-label={`Digit ${idx + 1} of 8`}
                         />
                       ))}
                     </div>
@@ -1197,7 +1158,7 @@ export default function Landing() {
                       type="button"
                       className="btn-signin-gradient"
                       onClick={() => handleVerifyOtpCode(otpDigits.join(''))}
-                      disabled={authLoading || (otpDigits.join('').length !== 6 && otpDigits.join('').length !== 8)}
+                      disabled={authLoading || otpDigits.join('').length !== OTP_LENGTH}
                     >
                       {authLoading
                         ? 'Verifying Code…'
@@ -1211,16 +1172,16 @@ export default function Landing() {
                         <button
                           type="button"
                           className="evaluator-code-btn evaluator-code-student"
-                          onClick={() => handleAutofillOtp('777888', 'student')}
+                          onClick={() => handleAutofillOtp('77778888', 'student')}
                         >
-                          Student Demo: <code>777888</code>
+                          Student Demo: <code>77778888</code>
                         </button>
                         <button
                           type="button"
                           className="evaluator-code-btn evaluator-code-parent"
-                          onClick={() => handleAutofillOtp('123456', 'parent')}
+                          onClick={() => handleAutofillOtp('12345678', 'parent')}
                         >
-                          Parent Demo: <code>123456</code>
+                          Parent Demo: <code>12345678</code>
                         </button>
                       </div>
                     </div>
