@@ -203,6 +203,25 @@ Target Skill: {skill_id}"""
             HumanMessage(content=context + "\n\nNote: No image was provided. Respond with a placeholder diagnosis."),
         ]
 
+    # Zero-credit test mode bypass (used by automated test suites to consume 0 Gemini API credits)
+    is_mocked = hasattr(build_vision_llm, "mock_calls") or hasattr(build_vision_llm, "assert_called")
+    if not is_mocked and (os.environ.get("VERITAS_TEST_MODE") == "true" or os.environ.get("VERITAS_MOCK_LLM") == "true"):
+        mock_data: dict[str, Any] = {
+            "ocr_text": "3/4 + 1/4 = 4/4 = 1",
+            "is_correct": True,
+            "step_number": 1,
+            "misconception_type": "none",
+            "description": "Student correctly solved problem step-by-step.",
+            "skill_gap": skill_id,
+            "skill_gap_name": "Core Math Concept",
+            "corrective_question": "Can you explain how you verified your final answer?",
+            "bounding_box": {"x": 10.0, "y": 20.0, "width": 80.0, "height": 30.0},
+            "bounding_hint": {"x": 10.0, "y": 20.0, "width": 80.0, "height": 30.0},
+            "localization_source": "mock_test",
+            "localization_confidence": 1.0,
+        }
+        return mock_data
+
     raw = ""
     last_err: Exception | None = None
     seen = set()

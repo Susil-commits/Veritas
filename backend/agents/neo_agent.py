@@ -168,6 +168,26 @@ def run_neo_agent(
     # Append current message
     messages.append(HumanMessage(content=clean_message))
 
+    # Zero-credit test mode bypass (used by automated test suites to consume 0 Gemini API credits)
+    is_mocked = hasattr(build_neo_llm, "mock_calls") or hasattr(build_neo_llm, "assert_called")
+    if not is_mocked and (os.environ.get("VERITAS_TEST_MODE") == "true" or os.environ.get("VERITAS_MOCK_LLM") == "true"):
+        role_desc = str(user_ctx.get("role", "visitor")) if user_ctx else "visitor"
+        user_display = str(user_ctx.get("name") or ("Parent" if role_desc == "parent" else "Student")) if user_ctx else "there"
+        mock_reply = (
+            f"Hello {user_display}! As your Veritas AI guide, I'm here to help you navigate practice sessions, "
+            f"review student progress, and answer questions about our Socratic math tutor."
+        )
+        return {
+            "reply": mock_reply,
+            "guardrailed": False,
+            "guardrail_reason": None,
+            "suggested_actions": [
+                "Start a Practice Session",
+                "Explain Paper Work Reader",
+                "View Parent Dashboard",
+            ],
+        }
+
     # Layer 2: LLM generation with fallback & output guardrails
     try:
         reply_text = ""

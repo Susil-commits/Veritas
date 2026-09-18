@@ -203,6 +203,12 @@ Guide the student gently away from these specific traps if you see them recurrin
     # Add current student message
     messages.append(HumanMessage(content=student_message))
 
+    # Zero-credit test mode bypass (used by automated test suites to consume 0 Gemini API credits)
+    is_mocked = hasattr(build_tutor_llm, "mock_calls") or hasattr(build_tutor_llm, "assert_called")
+    if not is_mocked and (os.environ.get("VERITAS_TEST_MODE") == "true" or os.environ.get("VERITAS_MOCK_LLM") == "true"):
+        fallback_text = _intelligent_socratic_fallback(student_message, current_problem)
+        return {"reply": fallback_text, "problem_solved": False, "is_final_attempt": None}
+
     # Try model cascade to handle individual model quota/deprecations seamlessly
     last_err = None
     # Deduplicate cascade preserving order

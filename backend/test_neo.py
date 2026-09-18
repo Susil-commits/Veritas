@@ -6,9 +6,14 @@ Automated Test Suite for Neo AI Assistant:
 4. Authentication & User Role Context Handling
 5. Rate Limiting Protection
 """
+import os
 import sys
 import time
 from pathlib import Path
+
+# Default to zero-credit test mode for standalone test execution
+os.environ.setdefault("VERITAS_TEST_MODE", "true")
+os.environ.setdefault("VERITAS_MOCK_LLM", "true")
 
 BACKEND_DIR = Path(__file__).resolve().parent
 if str(BACKEND_DIR) not in sys.path:

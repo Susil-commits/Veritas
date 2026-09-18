@@ -14,6 +14,10 @@ import hmac
 import hashlib
 from pathlib import Path
 
+# Default to zero-credit test mode for standalone test execution
+os.environ.setdefault("VERITAS_TEST_MODE", "true")
+os.environ.setdefault("VERITAS_MOCK_LLM", "true")
+
 BACKEND_DIR = Path(__file__).resolve().parent
 if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))

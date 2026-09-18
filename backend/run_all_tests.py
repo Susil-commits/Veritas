@@ -2,6 +2,7 @@
 Veritas Master Test Runner — Runs all verified automated test suites.
 Produces a crisp terminal output designed for Demo Day screen recording.
 """
+import os
 import sys
 import subprocess
 import time
@@ -32,8 +33,18 @@ TEST_SCRIPTS = [
 ]
 
 def main():
+    live_llm = "--live-llm" in sys.argv
+    test_env = dict(os.environ)
+    if not live_llm:
+        test_env["VERITAS_TEST_MODE"] = "true"
+        test_env["VERITAS_MOCK_LLM"] = "true"
+
     print("=" * 76)
     print("   VERITAS AI SOCRATIC TUTOR — AUTOMATED VALIDATION SUITE")
+    if not live_llm:
+        print("   ⚡ Mode: ZERO-CREDIT MOCK (0 Gemini API credits consumed)")
+    else:
+        print("   ⚠️ Mode: LIVE GEMINI LLM (consumes live API credits)")
     print("=" * 76)
     start_time = time.time()
     results = []
@@ -41,7 +52,7 @@ def main():
     for script, name in TEST_SCRIPTS:
         print(f"\n▶ Running {name} ({script})...")
         t0 = time.time()
-        res = subprocess.run([sys.executable, script], cwd=str(BACKEND_DIR))
+        res = subprocess.run([sys.executable, script], cwd=str(BACKEND_DIR), env=test_env)
         elapsed = time.time() - t0
         passed = (res.returncode == 0)
         results.append({
