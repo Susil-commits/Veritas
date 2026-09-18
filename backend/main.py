@@ -361,7 +361,7 @@ async def health_full():
         "services": {
             "supabase": _cached_db_status,
             "gemini": _cached_gemini_status,
-            "orchestrator": bool(_graph is not None),
+            "orchestrator": _graph is not None,
             "session_secret_configured": is_session_secret_configured(),
             "redis": redis_service.is_connected,
             "cloudinary": cloudinary_service.is_available,
@@ -2434,23 +2434,22 @@ async def get_child_details(
                         duration_mins = max(1, int((t_max - t_min).total_seconds() / 60) + 1)
                 except Exception:
                     pass
-            if duration_mins is None:
-                duration_mins = 0
+        safe_duration_mins: int = duration_mins if duration_mins is not None else 0
 
-        if not ended and started and duration_mins > 0:
+        if not ended and started and safe_duration_mins > 0:
             try:
                 t_start = datetime.datetime.fromisoformat(started.replace("Z", "+00:00"))
-                t_end = t_start + datetime.timedelta(minutes=duration_mins)
+                t_end = t_start + datetime.timedelta(minutes=safe_duration_mins)
                 ended = t_end.isoformat()
             except Exception:
                 pass
 
-        total_session_minutes += duration_mins
+        total_session_minutes += safe_duration_mins
         enriched_sessions.append({
             **sess,
             "login_time": started,
             "logout_time": ended,
-            "duration_minutes": duration_mins,
+            "duration_minutes": safe_duration_mins,
             "problems_attempted": prob_count,
             "problems_solved": solved_count,
         })

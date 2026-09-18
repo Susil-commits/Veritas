@@ -375,9 +375,9 @@ def ensure_demo_data_seeded() -> None:
 
 
 if __name__ == "__main__":
-    if sys.platform == "win32":
+    if sys.platform == "win32" and hasattr(sys.stdout, "reconfigure"):
         try:
-            sys.stdout.reconfigure(encoding="utf-8")
+            getattr(sys.stdout, "reconfigure")(encoding="utf-8")
         except Exception:
             pass
     logging.basicConfig(level=logging.INFO)
