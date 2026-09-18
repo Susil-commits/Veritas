@@ -298,7 +298,11 @@ export default function ParentDashboard() {
         }
       })
       .catch((err: any) => {
-        setAddError(err?.response?.data?.detail || err?.message || 'Could not link child. Please try again.')
+        if (err?.response?.status === 404) {
+          setAddError('Student ID does not exist. Please enter a valid Student ID.')
+        } else {
+          setAddError(err?.response?.data?.detail || err?.message || 'Could not link child. Please try again.')
+        }
       })
       .finally(() => {
         setAddingChild(false)

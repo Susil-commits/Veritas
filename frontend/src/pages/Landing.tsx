@@ -908,7 +908,7 @@ export default function Landing() {
                   </div>
                   <div className="logged-in-title">Signed In as <strong>{user.email}</strong></div>
                   <div className="logged-in-role">Active Portal: <span className="badge badge-violet">{role === 'parent' ? 'Parent & Guardian Portal' : 'Student Socratic Workspace'}</span></div>
-                  {currentStudentId && (
+                  {role === 'student' && currentStudentId && (
                     <div className="logged-in-student-id" style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '6px', flexWrap: 'wrap' }}>
                       <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>Student ID:</span>
                       <button

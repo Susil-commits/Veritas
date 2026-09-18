@@ -2041,6 +2041,14 @@ async def add_child(
         except Exception as e:
             print(f"[WARN] Supabase admin user search: {e}")
 
+    # A student code must already belong to a real student. Never create a
+    # new student when a parent enters an unknown UUID.
+    if is_uuid and not student_id:
+        raise HTTPException(
+            status_code=404,
+            detail="Student ID not found. Ask the student to open their account and copy the current Student ID.",
+        )
+
     # 3. If student doesn't exist yet, create a registered student record
     if not student_id:
         student_id = str(uuid.uuid4())
