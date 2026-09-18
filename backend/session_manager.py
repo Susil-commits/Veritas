@@ -40,7 +40,8 @@ def _load_sessions_from_disk() -> dict[str, Any]:
             return _disk_sessions_memory
         try:
             with open(SESSIONS_STORE_PATH, "r", encoding="utf-8") as f:
-                _disk_sessions_memory = json.load(f)
+                loaded = json.load(f)
+                _disk_sessions_memory = loaded if isinstance(loaded, dict) else {}
                 return _disk_sessions_memory
         except Exception as e:
             print(f"[WARN] SessionManager: Failed to read sessions from disk: {e}")
@@ -56,16 +57,18 @@ def _write_session_to_disk(session_id: str, state: dict[str, Any]) -> None:
                 if SESSIONS_STORE_PATH.exists():
                     try:
                         with open(SESSIONS_STORE_PATH, "r", encoding="utf-8") as f:
-                            _disk_sessions_memory = json.load(f)
+                            loaded = json.load(f)
+                            _disk_sessions_memory = loaded if isinstance(loaded, dict) else {}
                     except Exception:
                         _disk_sessions_memory = {}
                 else:
                     _disk_sessions_memory = {}
-            _disk_sessions_memory[session_id] = state
+            store = _disk_sessions_memory
+            store[session_id] = state
             # Atomic file write via temp file with fast serialization
             temp_path = SESSIONS_STORE_PATH.with_suffix(".tmp")
             with open(temp_path, "w", encoding="utf-8") as f:
-                json.dump(_disk_sessions_memory, f, separators=(",", ":"))
+                json.dump(store, f, separators=(",", ":"))
             temp_path.replace(SESSIONS_STORE_PATH)
         except Exception as e:
             print(f"[WARN] SessionManager: Failed to write session {session_id} to disk: {e}")
@@ -79,16 +82,18 @@ def _remove_session_from_disk(session_id: str) -> None:
                 if SESSIONS_STORE_PATH.exists():
                     try:
                         with open(SESSIONS_STORE_PATH, "r", encoding="utf-8") as f:
-                            _disk_sessions_memory = json.load(f)
+                            loaded = json.load(f)
+                            _disk_sessions_memory = loaded if isinstance(loaded, dict) else {}
                     except Exception:
                         _disk_sessions_memory = {}
                 else:
                     _disk_sessions_memory = {}
-            if session_id in _disk_sessions_memory:
-                del _disk_sessions_memory[session_id]
+            store = _disk_sessions_memory
+            if session_id in store:
+                del store[session_id]
                 temp_path = SESSIONS_STORE_PATH.with_suffix(".tmp")
                 with open(temp_path, "w", encoding="utf-8") as f:
-                    json.dump(_disk_sessions_memory, f, separators=(",", ":"))
+                    json.dump(store, f, separators=(",", ":"))
                 temp_path.replace(SESSIONS_STORE_PATH)
         except Exception as e:
             print(f"[WARN] SessionManager: Failed to remove session {session_id} from disk: {e}")
@@ -474,7 +479,8 @@ def _load_misconceptions_from_disk() -> dict[str, dict[str, Any]]:
             return _misconceptions_memory
         try:
             with open(MISCONCEPTIONS_STORE_PATH, "r", encoding="utf-8") as f:
-                _misconceptions_memory = json.load(f)
+                loaded = json.load(f)
+                _misconceptions_memory = loaded if isinstance(loaded, dict) else {}
                 return _misconceptions_memory
         except Exception as e:
             print(f"[WARN] SessionManager: Failed to read misconceptions from disk: {e}")

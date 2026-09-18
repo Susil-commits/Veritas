@@ -19,6 +19,7 @@ load_dotenv()
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 _EPHEMERAL_KEY: Optional[str] = None
+_JWKS_CLIENT: Any = None
 
 
 def is_session_secret_configured() -> bool:

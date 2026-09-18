@@ -289,7 +289,7 @@ export default function MathArcade() {
     }
   })()
   const studentId = user?.id || cachedSession?.student_id || '24e836e3-3b42-41a0-8a27-222f883eaa10'
-  const studentName = user?.user_metadata?.name || cachedSession?.student_name || user?.email?.split('@')[0] || 'Aditya'
+  const studentName = user?.user_metadata?.name || cachedSession?.student_name || user?.email?.split('@')[0] || 'Student'
   const [showAvatarModal, setShowAvatarModal] = useState(false)
 
   const [loading, setLoading] = useState(true)

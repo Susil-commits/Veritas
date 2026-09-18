@@ -17,6 +17,7 @@ try:
     import cloudinary.uploader
     CLOUDINARY_AVAILABLE = True
 except ImportError:
+    cloudinary = None  # type: ignore[assignment]
     CLOUDINARY_AVAILABLE = False
 
 
@@ -26,7 +27,7 @@ class CloudinaryService:
         self._init_client()
 
     def _init_client(self):
-        if not CLOUDINARY_AVAILABLE:
+        if not CLOUDINARY_AVAILABLE or cloudinary is None:
             return
 
         cloud_name = os.getenv("CLOUDINARY_CLOUD_NAME")
@@ -68,7 +69,7 @@ class CloudinaryService:
         Applies face-centered cropping to 256x256 and WebP/AVIF auto compression.
         Returns the secure HTTPS CDN URL, or None on failure.
         """
-        if not self.is_available:
+        if not self.is_available or cloudinary is None:
             return None
 
         try:
@@ -101,7 +102,7 @@ class CloudinaryService:
         Preserves image details for OCR inspection while optimizing bandwidth.
         Returns secure HTTPS CDN URL, or None on failure.
         """
-        if not self.is_available:
+        if not self.is_available or cloudinary is None:
             return None
 
         try:

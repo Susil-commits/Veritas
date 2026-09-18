@@ -16,6 +16,7 @@ try:
     import redis
     REDIS_AVAILABLE = True
 except ImportError:
+    redis = None  # type: ignore[assignment]
     REDIS_AVAILABLE = False
 
 
@@ -30,7 +31,7 @@ class ResilientRedisService:
 
     def _init_connection(self):
         redis_uri = os.getenv("REDIS_URI") or os.getenv("REDIS_URL")
-        if not redis_uri or not REDIS_AVAILABLE:
+        if not redis_uri or not REDIS_AVAILABLE or redis is None:
             self._client = None
             self._is_connected = False
             return
@@ -45,9 +46,12 @@ class ResilientRedisService:
                 retry_on_timeout=False,
             )
             # Test ping
-            self._client.ping()
-            self._is_connected = True
-            print("[INFO] RedisService: Connected to Upstash Redis.")
+            if self._client is not None:
+                self._client.ping()
+                self._is_connected = True
+                print("[INFO] RedisService: Connected to Upstash Redis.")
+            else:
+                self._is_connected = False
         except Exception as e:
             self._client = None
             self._is_connected = False

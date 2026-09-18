@@ -428,6 +428,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setAvatar(null)
     localStorage.removeItem('veritas_demo_user')
     localStorage.removeItem('ainerd_demo_user')
+    localStorage.removeItem('veritas_user_role')
+    localStorage.removeItem('ainerd_user_role')
     sessionStorage.removeItem('session')
     sessionStorage.removeItem('veritas_cloud_tts_disabled')
     // Clear remembered profile on explicit sign-out so landing page shows fresh sign-in
