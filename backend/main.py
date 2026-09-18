@@ -179,6 +179,13 @@ async def lifespan(app: FastAPI):
         print("[INFO] Auth: Dedicated SESSION_SECRET_KEY detected and active.")
     else:
         print("[WARN] Auth: SESSION_SECRET_KEY not explicitly configured in environment. Using fallback/ephemeral keying.")
+
+    try:
+        from db.seed_demo_data import ensure_demo_data_seeded
+        asyncio.create_task(asyncio.to_thread(ensure_demo_data_seeded))
+    except Exception as e:
+        logger.warning("Auto demo-seed hook failed to schedule: %s", e)
+
     yield
 
 
@@ -563,8 +570,6 @@ async def _get_student_game_progress(student_id: str) -> dict[str, Any]:
                             solved_skills.add(p["skill_id"])
     except Exception as e:
         logger.warning("Failed to fetch solved problems for games progress: %s", e)
-
-    is_demo_student = (student_id == DEMO_STUDENT_ID)
     levels_output = []
     total_stars = 0
     total_score = 0
@@ -584,16 +589,12 @@ async def _get_student_game_progress(student_id: str) -> dict[str, Any]:
         skill_solved = (req_skill in solved_skills) or (bool(alt_skill) and alt_skill in solved_skills)
         skill_mastered = (effective_mastery >= 0.45) or skill_solved
 
-        # Level 1-4 are unlocked for demo account or if required skill is solved
         item_level = int(item["level"])
-        if is_demo_student and item_level <= 4:
-            skill_mastered = True
-        elif item_level == 1 and skill_mastered:
-            skill_mastered = True
-
-        is_unlocked = previous_unlocked and skill_mastered
-        if not previous_unlocked and not (is_demo_student and item_level <= 4):
-            is_unlocked = False
+        # Level 1 is unlocked as the introductory arcade tier or upon mastering the prerequisite
+        if item_level == 1:
+            is_unlocked = True
+        else:
+            is_unlocked = previous_unlocked and skill_mastered
 
         if is_unlocked:
             progress_pct = 100
@@ -605,11 +606,6 @@ async def _get_student_game_progress(student_id: str) -> dict[str, Any]:
         saved_game = student_records.get(gid, {})
         high_score = saved_game.get("high_score", 0)
         stars = saved_game.get("stars", 0)
-
-        # Demo account preview defaults only if not yet initialized in store
-        if is_demo_student and gid == "multiplier_matrix" and gid not in student_records:
-            high_score = 420
-            stars = 2
 
         total_stars += stars
         total_score += high_score
@@ -2424,7 +2420,7 @@ async def get_child_details(
             try:
                 t1 = datetime.datetime.fromisoformat(started.replace("Z", "+00:00"))
                 t2 = datetime.datetime.fromisoformat(ended.replace("Z", "+00:00"))
-                duration_mins = max(3, int((t2 - t1).total_seconds() / 60))
+                duration_mins = max(1, int((t2 - t1).total_seconds() / 60))
             except Exception:
                 pass
 
@@ -2435,13 +2431,13 @@ async def get_child_details(
                     if ev_times:
                         t_min = min(ev_times)
                         t_max = max(ev_times)
-                        duration_mins = max(5, int((t_max - t_min).total_seconds() / 60) + 4)
+                        duration_mins = max(1, int((t_max - t_min).total_seconds() / 60) + 1)
                 except Exception:
                     pass
             if duration_mins is None:
-                duration_mins = max(15, 35 - (idx * 4))
+                duration_mins = 0
 
-        if not ended and started and duration_mins:
+        if not ended and started and duration_mins > 0:
             try:
                 t_start = datetime.datetime.fromisoformat(started.replace("Z", "+00:00"))
                 t_end = t_start + datetime.timedelta(minutes=duration_mins)
@@ -2449,29 +2445,29 @@ async def get_child_details(
             except Exception:
                 pass
 
-        total_session_minutes += (duration_mins or 20)
+        total_session_minutes += duration_mins
         enriched_sessions.append({
             **sess,
             "login_time": started,
             "logout_time": ended,
-            "duration_minutes": duration_mins or 20,
+            "duration_minutes": duration_mins,
             "problems_attempted": prob_count,
             "problems_solved": solved_count,
         })
 
-    # Summary metrics
+    # Summary metrics (strictly database-backed, no synthetic demo fallbacks)
     total_attempts = len(events_list)
     total_solved = sum(1 for e in events_list if e.get("is_correct"))
-    acc_rate = round((total_solved / total_attempts) * 100) if total_attempts > 0 else (75 if child_id == DEMO_STUDENT else 0)
+    acc_rate = round((total_solved / total_attempts) * 100) if total_attempts > 0 else 0
 
     total_game_plays = sum(g.get("times_played", 0) for g in games_data.get("levels", []))
 
     activity_summary = {
-        "total_time_spent_minutes": total_session_minutes or (110 if child_id == DEMO_STUDENT else 0),
-        "total_questions_attempted": total_attempts or (12 if child_id == DEMO_STUDENT else 0),
-        "total_questions_solved": total_solved or (9 if child_id == DEMO_STUDENT else 0),
+        "total_time_spent_minutes": total_session_minutes,
+        "total_questions_attempted": total_attempts,
+        "total_questions_solved": total_solved,
         "accuracy_percent": acc_rate,
-        "total_games_played": total_game_plays or (10 if child_id == DEMO_STUDENT else 0),
+        "total_games_played": total_game_plays,
         "total_stars": games_data.get("total_stars", 0),
     }
 

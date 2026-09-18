@@ -64,7 +64,7 @@ export default function Dashboard() {
         if (typeof item === 'object' && item?.stars) totalStars += item.stars
         else if (typeof item === 'number' && item > 0) totalStars += Math.min(3, Math.floor(item / 30) + 1)
       })
-      return { gamesPlayed: gamesCount, totalStars: Math.max(totalStars, gamesCount * 2) }
+      return { gamesPlayed: gamesCount, totalStars }
     } catch {
       return { gamesPlayed: 0, totalStars: 0 }
     }

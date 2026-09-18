@@ -25,174 +25,12 @@ const DEFAULT_DEMO_CHILD: ChildItem = {
   student_id: DEMO_STUDENT_ID,
   student_name: 'Alex Jenkins',
   student_email: 'student.alex@veritas.dev',
-  last_session_at: new Date(Date.now() - 3600000 * 4).toISOString(),
-  days_since_practice: 5,
-  has_fraction_gap: true,
-  fraction_alert_message: 'Fraction practice recommended — 5 days since last session',
-  fraction_mastery: 0.38,
-  session_count: 6,
-}
-
-const DEFAULT_DEMO_SKILLS: SkillItem[] = [
-  { skill_id: '3.OA.A.1', name: 'Understanding Multiplication', mastery_prob: 0.88 },
-  { skill_id: '3.OA.A.2', name: 'Understanding Division', mastery_prob: 0.74 },
-  { skill_id: '3.OA.D.8', name: 'Two-Step Word Problems', mastery_prob: 0.62 },
-  { skill_id: '4.NF.A.1', name: 'Equivalent Fractions', mastery_prob: 0.38 },
-  { skill_id: '4.NF.B.3', name: 'Adding & Subtracting Fractions', mastery_prob: 0.35 },
-]
-
-const DEFAULT_DEMO_DETAILS = {
-  student_id: DEMO_STUDENT_ID,
-  mastery: DEFAULT_DEMO_SKILLS.map(s => ({ skill_id: s.skill_id, mastery_prob: s.mastery_prob })),
-  all_skills: DEFAULT_DEMO_SKILLS.map(s => ({ id: s.skill_id, name: s.name })),
-  sessions: [
-    {
-      id: 'sess-demo-1',
-      started_at: new Date(Date.now() - 3600000 * 3).toISOString(),
-      login_time: new Date(Date.now() - 3600000 * 3).toISOString(),
-      logout_time: new Date(Date.now() - 3600000 * 3 + 1000 * 60 * 35).toISOString(),
-      duration_minutes: 35,
-      problems_attempted: 5,
-      problems_solved: 4,
-    },
-    {
-      id: 'sess-demo-2',
-      started_at: new Date(Date.now() - 86400000 * 2).toISOString(),
-      login_time: new Date(Date.now() - 86400000 * 2).toISOString(),
-      logout_time: new Date(Date.now() - 86400000 * 2 + 1000 * 60 * 40).toISOString(),
-      duration_minutes: 40,
-      problems_attempted: 6,
-      problems_solved: 4,
-    },
-    {
-      id: 'sess-demo-3',
-      started_at: new Date(Date.now() - 86400000 * 5).toISOString(),
-      login_time: new Date(Date.now() - 86400000 * 5).toISOString(),
-      logout_time: new Date(Date.now() - 86400000 * 5 + 1000 * 60 * 30).toISOString(),
-      duration_minutes: 30,
-      problems_attempted: 4,
-      problems_solved: 3,
-    },
-  ],
-  games: {
-    total_stars: 6,
-    levels: [
-      {
-        id: 'multiplier_matrix',
-        name: 'Multiplier Matrix',
-        subtitle: 'Space Blitz',
-        theme: 'Space Blitz',
-        skill_name: 'Understanding Multiplication',
-        times_played: 6,
-        high_score: 420,
-        stars: 3,
-        is_unlocked: true,
-      },
-      {
-        id: 'division_dungeons',
-        name: 'Division Dungeons',
-        subtitle: 'Gem Chest Quest',
-        theme: 'Fantasy Dungeon',
-        skill_name: 'Understanding Division',
-        times_played: 4,
-        high_score: 310,
-        stars: 2,
-        is_unlocked: true,
-      },
-      {
-        id: 'two_step_runner',
-        name: 'Two-Step Runner',
-        subtitle: 'Formula Fortress',
-        theme: 'Castle Fortress',
-        skill_name: 'Two-Step Word Problems',
-        times_played: 3,
-        high_score: 290,
-        stars: 2,
-        is_unlocked: true,
-      },
-      {
-        id: 'fraction_fusion',
-        name: 'Pizza Fraction Fusion',
-        subtitle: 'The Master Slicer',
-        theme: 'Kitchen Artisan',
-        skill_name: 'Equivalent Fractions',
-        times_played: 2,
-        high_score: 180,
-        stars: 1,
-        is_unlocked: true,
-      },
-      {
-        id: 'equation_alchemist',
-        name: 'Equation Alchemist',
-        subtitle: 'Cosmic Balance Scale',
-        theme: 'Alchemist Lab',
-        skill_name: 'Solving One-Step Equations',
-        times_played: 0,
-        high_score: 0,
-        stars: 0,
-        is_unlocked: false,
-      },
-      {
-        id: 'decimal_dash',
-        name: 'Decimal Dash',
-        subtitle: 'Neon Hyperlane',
-        theme: 'Cyber City',
-        skill_name: 'Operations with Decimals',
-        times_played: 0,
-        high_score: 0,
-        stars: 0,
-        is_unlocked: false,
-      },
-      {
-        id: 'geometry_odyssey',
-        name: 'Geometry Odyssey',
-        subtitle: 'Cosmic Architect',
-        theme: 'Celestial Galaxy',
-        skill_name: 'Area & Perimeter',
-        times_played: 0,
-        high_score: 0,
-        stars: 0,
-        is_unlocked: false,
-      },
-    ],
-  },
-  activity_summary: {
-    total_time_spent_minutes: 105,
-    total_questions_attempted: 15,
-    total_questions_solved: 11,
-    accuracy_percent: 73,
-    total_games_played: 12,
-    total_stars: 6,
-  },
-  recent_events: [
-    {
-      id: 'evt-demo-1',
-      is_correct: false,
-      problems: {
-        title: 'GSM8K: Knit Scarves Using Yarn',
-        text: 'May can knit 3 scarves using one yarn. She bought 2 red yarns, 6 blue yarns, and 4 yellow yarns. How many scarves will she be able to make in total?',
-      },
-      agent_response: "I like how you're using addition to find total yarn. Now think: if 1 yarn makes 3 scarves, how do you find scarves for all 12 yarns?",
-    },
-    {
-      id: 'evt-demo-2',
-      is_correct: true,
-      problems: {
-        title: 'Crayon Boxes',
-        text: 'A teacher bought 6 boxes of crayons. Each box contains 8 crayons. How many crayons are there in all?',
-      },
-      agent_response: 'Great job multiplying 6 × 8 = 48! Can you walk me through your steps out loud?',
-    },
-    {
-      id: 'evt-demo-3',
-      is_correct: false,
-      problems: {
-        title: 'Fraction Sharing',
-        text: 'Sam ate 2/4 of a pizza and Leo ate 1/4. How much pizza did they eat altogether?',
-      },
-      agent_response: 'Remember, when the denominators are already the same, what happens to the numerators?',
-    },
-  ],
+  last_session_at: null,
+  days_since_practice: 0,
+  has_fraction_gap: false,
+  fraction_alert_message: '',
+  fraction_mastery: 0,
+  session_count: 0,
 }
 
 function formatDateTime(isoString?: string | null): string {
@@ -240,18 +78,8 @@ export default function ParentDashboard() {
       !user?.email
     return isDemo ? DEMO_STUDENT_ID : null
   })
-  const [childDetails, setChildDetails] = useState<any>(() => {
-    const isDemo = Boolean(localStorage.getItem('veritas_demo_user')) ||
-      (user?.email || '').endsWith('@veritas.dev') ||
-      !user?.email
-    return isDemo ? DEFAULT_DEMO_DETAILS : null
-  })
-  const [skills, setSkills] = useState<SkillItem[]>(() => {
-    const isDemo = Boolean(localStorage.getItem('veritas_demo_user')) ||
-      (user?.email || '').endsWith('@veritas.dev') ||
-      !user?.email
-    return isDemo ? DEFAULT_DEMO_SKILLS : []
-  })
+  const [childDetails, setChildDetails] = useState<any>(null)
+  const [skills, setSkills] = useState<SkillItem[]>([])
   const [loadError, setLoadError] = useState<string | null>(null)
   const [childrenLoading, setChildrenLoading] = useState(false)
   const [detailsError, setDetailsError] = useState<string | null>(null)
@@ -357,40 +185,29 @@ export default function ParentDashboard() {
   // Fetch selected child details & mastery
   const refreshChildDetails = useCallback((childId: string) => {
     setDetailsError(null)
+    setDetailsLoading(true)
     return getChildDetails(parentId, childId)
       .then((data) => {
-        if (!data || !data.mastery || data.mastery.length === 0) {
-          if (isDemoParent && childId === DEMO_STUDENT_ID) {
-            setChildDetails(DEFAULT_DEMO_DETAILS)
-            setSkills(DEFAULT_DEMO_SKILLS)
-            return
-          }
-        }
         setChildDetails(data)
 
         const skillMap: Record<string, string> = {}
-        for (const s of data.all_skills ?? []) skillMap[s.id] = s.name
+        for (const s of data?.all_skills ?? []) skillMap[s.id] = s.name
 
-        const skillsArr: SkillItem[] = (data.mastery || []).map((row: any) => ({
+        const skillsArr: SkillItem[] = (data?.mastery || []).map((row: any) => ({
           skill_id: row.skill_id,
           name: skillMap[row.skill_id] ?? row.skill_id,
           mastery_prob: row.mastery_prob,
         }))
-        setSkills(skillsArr.length > 0 ? skillsArr : (isDemoParent ? DEFAULT_DEMO_SKILLS : []))
+        setSkills(skillsArr)
       })
       .catch((err) => {
         console.error('Error loading child details:', err)
-        if (isDemoParent && childId === DEMO_STUDENT_ID) {
-          setChildDetails(DEFAULT_DEMO_DETAILS)
-          setSkills(DEFAULT_DEMO_SKILLS)
-        } else {
-          setDetailsError('Could not load learning details for this student. Please try again.')
-        }
+        setDetailsError('Could not load learning details for this student. Please try again.')
       })
       .finally(() => {
         setDetailsLoading(false)
       })
-  }, [parentId, isDemoParent])
+  }, [parentId])
 
   useEffect(() => {
     if (selectedChildId) {
@@ -507,25 +324,25 @@ export default function ParentDashboard() {
       return childDetails.activity_summary
     }
     const sessList = childDetails?.sessions || []
-    const totalMins = sessList.reduce((acc: number, s: any) => acc + (s.duration_minutes || 25), 0)
-    const totalAttempted = sessList.reduce((acc: number, s: any) => acc + (s.problems_attempted || 4), 0)
-    const totalSolved = sessList.reduce((acc: number, s: any) => acc + (s.problems_solved || 3), 0)
-    const accRate = totalAttempted > 0 ? Math.round((totalSolved / totalAttempted) * 100) : 75
-    const levels = childDetails?.games?.levels || DEFAULT_DEMO_DETAILS.games.levels
+    const totalMins = sessList.reduce((acc: number, s: any) => acc + (s.duration_minutes || 0), 0)
+    const totalAttempted = sessList.reduce((acc: number, s: any) => acc + (s.problems_attempted || 0), 0)
+    const totalSolved = sessList.reduce((acc: number, s: any) => acc + (s.problems_solved || 0), 0)
+    const accRate = totalAttempted > 0 ? Math.round((totalSolved / totalAttempted) * 100) : 0
+    const levels = childDetails?.games?.levels || []
     const totalGames = levels.reduce((acc: number, g: any) => acc + (g.times_played || 0), 0)
     const totalStars = childDetails?.games?.total_stars || levels.reduce((acc: number, g: any) => acc + (g.stars || 0), 0)
     return {
-      total_time_spent_minutes: totalMins || 105,
-      total_questions_attempted: totalAttempted || 15,
-      total_questions_solved: totalSolved || 11,
+      total_time_spent_minutes: totalMins,
+      total_questions_attempted: totalAttempted,
+      total_questions_solved: totalSolved,
       accuracy_percent: accRate,
-      total_games_played: totalGames || 12,
-      total_stars: totalStars || 6,
+      total_games_played: totalGames,
+      total_stars: totalStars,
     }
   }, [childDetails])
 
   const arcadeGames = useMemo(() => {
-    return childDetails?.games?.levels || DEFAULT_DEMO_DETAILS.games.levels
+    return childDetails?.games?.levels || []
   }, [childDetails])
 
   return (
