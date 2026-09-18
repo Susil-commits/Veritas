@@ -10,7 +10,7 @@ import re
 from typing import Any
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import SystemMessage, HumanMessage
-from config import VISION_MODEL, extract_clean_text
+from config import VISION_MODEL, VISION_MODEL_CASCADE, extract_clean_text
 
 # Real misconception examples from Eedi/NeurIPS 2020 education research
 # These few-shot examples teach the model to name SPECIFIC misconceptions
@@ -92,11 +92,11 @@ If the work is correct, set is_correct=true, misconception_type="step_skipped_co
 Be specific and educational — a teacher should be able to show this diagnosis to a student."""
 
 
-def build_vision_llm() -> ChatGoogleGenerativeAI:
-    model_name = os.environ.get("GEMINI_VISION_MODEL") or VISION_MODEL
+def build_vision_llm(model_name: str | None = None) -> ChatGoogleGenerativeAI:
+    selected = model_name or os.environ.get("GEMINI_VISION_MODEL") or VISION_MODEL
     api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY", "")
     return ChatGoogleGenerativeAI(
-        model=model_name,
+        model=selected,
         google_api_key=api_key,
         max_output_tokens=2048,
         max_retries=0,
@@ -203,13 +203,25 @@ Target Skill: {skill_id}"""
             HumanMessage(content=context + "\n\nNote: No image was provided. Respond with a placeholder diagnosis."),
         ]
 
-    try:
-        llm = build_vision_llm()
-        response = llm.invoke(messages)
-        raw = extract_clean_text(response.content)
-    except Exception as e:
+    raw = ""
+    last_err: Exception | None = None
+    seen = set()
+    models_to_try = [m for m in VISION_MODEL_CASCADE if m and not (m in seen or seen.add(m))]
+
+    for m_name in models_to_try:
+        try:
+            llm = build_vision_llm(m_name)
+            response = llm.invoke(messages)
+            raw = extract_clean_text(response.content)
+            if raw:
+                break
+        except Exception as e:
+            last_err = e
+            print(f"[WARN] Diagnostic agent vision call on '{m_name}' failed: {e}")
+
+    if not raw and last_err is not None:
+        e = last_err
         err_str = str(e).lower()
-        print(f"[WARN] Diagnostic agent vision call failed: {e}")
         if "429" in err_str or "quota" in err_str or "resource_exhausted" in err_str or "rate" in err_str:
             res: dict[str, Any] = {
                 "ocr_text": "[Rate Limit Encountered]",

@@ -14,6 +14,7 @@ import threading
 import warnings
 import logging
 import httpx
+import hashlib
 from pathlib import Path
 
 logger = logging.getLogger("veritas-backend")
@@ -340,32 +341,9 @@ async def health_full():
             _cached_db_status = False
             _last_db_check_time = now - 20.0  # retry in 10s if failed
 
-    # 2. Gemini API reachability check (cached 60s)
-    if (now - _last_gemini_check_time) > 60.0:
-        try:
-            gemini_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY", "")
-            if not gemini_key:
-                _cached_gemini_status = False
-            else:
-                from config import CHAT_MODEL
-                from langchain_google_genai import ChatGoogleGenerativeAI
-                llm: Any = ChatGoogleGenerativeAI(
-                    model=CHAT_MODEL,
-                    google_api_key=gemini_key,
-                    max_retries=0,
-                    timeout=5,
-                )
-                resp = await asyncio.to_thread(llm.invoke, "Respond with exactly: OK")
-                _cached_gemini_status = bool(resp and resp.content)
-                _last_gemini_check_time = now
-        except Exception as e:
-            if "429" in str(e) or "ResourceExhausted" in str(e) or "quota" in str(e).lower():
-                _cached_gemini_status = True  # API is reachable and responded with quota headers
-                _last_gemini_check_time = now
-            else:
-                print(f"[WARN] Health Gemini check: {e}")
-                _cached_gemini_status = False
-                _last_gemini_check_time = now - 45.0  # retry in 15s if failed
+    # 2. Gemini API configuration check (zero quota consumption on health pings)
+    gemini_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY", "")
+    _cached_gemini_status = bool(gemini_key and len(gemini_key.strip()) > 10)
 
     overall_ok = _cached_db_status and _cached_gemini_status
 
@@ -1745,6 +1723,10 @@ async def get_mastery(
     return {"student_id": student_id, "mastery": result.data, "all_skills": skills}
 
 
+# Cache generated session summaries to avoid re-invoking LLM on dashboard page reloads
+_SESSION_SUMMARY_CACHE: dict[str, str] = {}
+
+
 @app.get("/student/{student_id}/summary")
 async def get_summary(
     student_id: str,
@@ -1754,13 +1736,18 @@ async def get_summary(
     """Generate an LLM session summary for teacher/parent dashboard (protected by scoped session token)."""
     supabase = get_supabase()
 
-    student_row = await db_exec(supabase.table("students").select("*").eq("id", student_id).single())
     events = await db_exec(
         supabase.table("session_events")
         .select("*")
         .eq("session_id", session_id)
         .order("created_at")
     )
+
+    # Return cached summary if already generated for this session to save LLM quota
+    if session_id in _SESSION_SUMMARY_CACHE:
+        return {"summary": _SESSION_SUMMARY_CACHE[session_id], "events": events.data}
+
+    student_row = await db_exec(supabase.table("students").select("*").eq("id", student_id).single())
     mastery_rows = await db_exec(
         supabase.table("student_skill_mastery")
         .select("*")
@@ -1768,13 +1755,19 @@ async def get_summary(
     )
     mastery_state = {r["skill_id"]: r["mastery_prob"] for r in (mastery_rows.data or [])}
 
+    student_name = student_row.data.get("name", "Student") if (student_row and student_row.data) else "Student"
     summary = await asyncio.to_thread(
         generate_session_summary,
-        student_name=student_row.data["name"],
+        student_name=student_name,
         problems_attempted=events.data or [],
         mastery_state=mastery_state,
         skill_params=get_all_skills(),
     )
+    if summary:
+        if len(_SESSION_SUMMARY_CACHE) > 100:
+            _SESSION_SUMMARY_CACHE.pop(next(iter(_SESSION_SUMMARY_CACHE)))
+        _SESSION_SUMMARY_CACHE[session_id] = summary
+
     return {"summary": summary, "events": events.data}
 
 
@@ -1817,8 +1810,9 @@ async def upload_user_avatar(req: AvatarUploadRequest):
     }
 
 
-# Cache ElevenLabs quota exhaustion state to prevent repeated failing requests
+# Cache ElevenLabs quota exhaustion state and audio bytes to save credits
 _elevenlabs_exhausted_until: float = 0.0
+_TTS_CACHE: dict[str, bytes] = {}
 
 @app.post("/tts")
 async def text_to_speech(text: str):
@@ -1846,6 +1840,11 @@ async def text_to_speech(text: str):
             headers={"X-TTS-Fallback": "browser", "X-TTS-Reason": "not_configured"}
         )
 
+    clean_text = text.strip()[:500]
+    tts_key = hashlib.md5(f"{voice_id}:{clean_text}".encode("utf-8")).hexdigest()
+    if tts_key in _TTS_CACHE:
+        return Response(content=_TTS_CACHE[tts_key], media_type="audio/mpeg", headers={"X-TTS-Source": "cache"})
+
     try:
         async with httpx.AsyncClient() as client:
             resp = await client.post(
@@ -1855,7 +1854,7 @@ async def text_to_speech(text: str):
                     "Content-Type": "application/json",
                 },
                 json={
-                    "text": text[:500],  # free tier limit
+                    "text": clean_text,  # free tier limit
                     "model_id": "eleven_multilingual_v2",
                     "voice_settings": {"stability": 0.5, "similarity_boost": 0.75},
                 },
@@ -1880,6 +1879,9 @@ async def text_to_speech(text: str):
                 headers={"X-TTS-Fallback": "browser", "X-TTS-Reason": f"status_{resp.status_code}"}
             )
 
+        if len(_TTS_CACHE) > 100:
+            _TTS_CACHE.pop(next(iter(_TTS_CACHE)))
+        _TTS_CACHE[tts_key] = resp.content
         return Response(content=resp.content, media_type="audio/mpeg")
     except Exception as e:
         logger.warning("TTS request error: %s", e)

@@ -13,21 +13,34 @@ from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGener
 from langchain_core.messages import SystemMessage, HumanMessage
 from db.supabase_client import get_supabase
 from bkt.tracker import get_skill_params
-from config import EMBEDDING_MODEL, EMBEDDING_DIMENSION, CHAT_MODEL, extract_clean_text
+from config import EMBEDDING_MODEL, EMBEDDING_DIMENSION, CHAT_MODEL, CHAT_MODEL_CASCADE, extract_clean_text
 
 
 # Centralized Embedding Model Configuration
 EMBEDDING_MODEL_NAME: str = EMBEDDING_MODEL
 
 
+# In-memory LRU-style embedding cache to prevent rate-limit spikes (e.g. 100 RPM quota)
+_EMBEDDING_CACHE: dict[str, list[float]] = {}
+
+
 def embed_text(text: str) -> list[float]:
-    """Embed a text string using Gemini embedding model."""
+    """Embed a text string using Gemini embedding model with caching to conserve quota."""
+    cached = _EMBEDDING_CACHE.get(text)
+    if cached is not None:
+        return cached
+
     api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY", "")
     embeddings = GoogleGenerativeAIEmbeddings(
         model=EMBEDDING_MODEL_NAME,
         google_api_key=SecretStr(api_key),
     )
-    return embeddings.embed_query(text, output_dimensionality=EMBEDDING_DIMENSION)
+    res = embeddings.embed_query(text, output_dimensionality=EMBEDDING_DIMENSION)
+    # Cache up to 200 distinct problem query vectors in memory
+    if len(_EMBEDDING_CACHE) > 200:
+        _EMBEDDING_CACHE.pop(next(iter(_EMBEDDING_CACHE)))
+    _EMBEDDING_CACHE[text] = res
+    return res
 
 
 LOCAL_SEED_FILE = Path(__file__).resolve().parent.parent.parent / "data" / "seed_problems.json"
@@ -385,16 +398,6 @@ def generate_session_summary(
     """
     Generate an LLM-written session summary for the teacher/parent dashboard.
     """
-    model_name = os.environ.get("GEMINI_MODEL", CHAT_MODEL)
-    api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY", "")
-    llm = ChatGoogleGenerativeAI(
-        model=model_name,
-        google_api_key=api_key,
-        max_output_tokens=500,
-        max_retries=0,
-        timeout=10,
-    )
-
     # Build mastery summary string
     skill_lookup = {s["id"]: s["name"] for s in skill_params}
     mastery_lines = []
@@ -427,9 +430,25 @@ Keep it under 150 words total. Warm, specific, actionable."""
         SystemMessage(content="You are an expert education data analyst writing parent-facing session reports."),
         HumanMessage(content=prompt),
     ]
-    try:
-        response = llm.invoke(messages)
-        return extract_clean_text(response.content)
-    except Exception as e:
-        print(f"[WARN] Failed to generate LLM summary: {e}")
-        return f"{student_name} completed an active practice session today. The tutor tracked student engagement across core math concepts. Continued practice with targeted guidance is recommended to solidify problem-solving fluency."
+
+    api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY", "")
+    seen = set()
+    models_to_try = [m for m in CHAT_MODEL_CASCADE if m and not (m in seen or seen.add(m))]
+
+    for m_name in models_to_try:
+        try:
+            llm = ChatGoogleGenerativeAI(
+                model=m_name,
+                google_api_key=api_key,
+                max_output_tokens=500,
+                max_retries=0,
+                timeout=10,
+            )
+            response = llm.invoke(messages)
+            text = extract_clean_text(response.content)
+            if text:
+                return text
+        except Exception as e:
+            print(f"[WARN] Failed to generate LLM summary on '{m_name}': {e}")
+
+    return f"{student_name} completed an active practice session today. The tutor tracked student engagement across core math concepts. Continued practice with targeted guidance is recommended to solidify problem-solving fluency."
