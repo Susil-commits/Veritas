@@ -285,6 +285,7 @@ export default function Landing() {
     document.title = "Veritas — The Math Tutor That Guides Your Thinking"
     let mounted = true
     let timer: ReturnType<typeof setTimeout> | null = null
+    let retries = 0
 
     const poll = async () => {
       const ready = await checkConnection()
@@ -293,6 +294,12 @@ export default function Landing() {
         setConnStatus('connected')
         setConnMessage('Connected to learning space')
       } else {
+        retries += 1
+        if (retries >= 36) {
+          setConnStatus('error')
+          setConnMessage('Connection is taking longer than expected. Please retry.')
+          return
+        }
         setConnStatus('waking_up')
         setConnMessage('Connecting to learning space... please wait a moment')
         timer = setTimeout(poll, 2500)
@@ -870,14 +877,15 @@ export default function Landing() {
         {/* Modern Standout Split-Card Auth */}
         <div className="auth-card-container" id="auth-card">
           {user ? (
-            <div className="auth-logged-in-card animate-fadein">
+            <>
               {roleMismatchNotice && (
                 <div className="auth-info-banner animate-fadein">
                   <span className="info-banner-icon">🛡️</span>
                   <span className="info-banner-text">{roleMismatchNotice}</span>
                 </div>
               )}
-              <div className="logged-in-badge">
+              <div className="auth-logged-in-card animate-fadein">
+                <div className="logged-in-badge">
                 <UserAvatar
                   avatar={avatar}
                   name={user.user_metadata?.name || rememberedProfile?.name || ''}
@@ -924,8 +932,8 @@ export default function Landing() {
                     </div>
                   )}
                 </div>
-              </div>
-              <div className="logged-in-actions">
+                </div>
+                <div className="logged-in-actions">
                 <button
                   type="button"
                   className="btn btn-violet btn-lg logged-in-primary-cta"
@@ -967,8 +975,9 @@ export default function Landing() {
                     Log Out
                   </button>
                 </div>
+                </div>
               </div>
-            </div>
+            </>
           ) : (
             <div className="auth-split-card">
               {/* Left Panel */}
