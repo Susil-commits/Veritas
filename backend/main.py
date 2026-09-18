@@ -202,7 +202,7 @@ app.add_middleware(GZipMiddleware, minimum_size=1000)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
-    allow_origin_regex=r"^https://veritas-tutor(-[a-z0-9-]+)?\.vercel\.app$",
+    allow_origin_regex=r"^https://.*(\.vercel\.app|\.onrender\.com)$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
