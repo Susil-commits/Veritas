@@ -76,34 +76,54 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (!studentId) return
-    setLoading(true)
-    setLoadError(null)
-    setAuthDenied(null)
-    Promise.all([
-      getMastery(studentId),
-      sessionId ? getSummary(studentId, sessionId) : Promise.resolve(null),
-    ]).then(([masteryData, summaryData]) => {
-      const skillMap: Record<string, string> = {}
-      for (const s of masteryData?.all_skills ?? []) skillMap[s.id] = s.name
+    let isMounted = true
+    let retryTimeout: any = null
 
-      const skillsArr: SkillMastery[] = (masteryData?.mastery || []).map((row: any) => ({
-        skill_id: row.skill_id,
-        name: skillMap[row.skill_id] ?? row.skill_id,
-        mastery_prob: row.mastery_prob,
-      }))
-      setSkills(skillsArr)
-      if (summaryData?.summary) setSummary(summaryData.summary)
-    }).catch((err: any) => {
-      console.error('Dashboard load failed:', err)
-      const status = err?.response?.status
-      if (status === 401) {
-        setAuthDenied('Your session has expired or is invalid. Please sign in again.')
-      } else if (status === 403) {
-        setAuthDenied('You do not have permission to view this student’s learning progress.')
-      } else {
-        setLoadError('Could not load your progress right now. Please try refreshing.')
-      }
-    }).finally(() => setLoading(false))
+    const fetchDashboard = (attempt = 0) => {
+      setLoading(true)
+      setLoadError(null)
+      setAuthDenied(null)
+      Promise.all([
+        getMastery(studentId),
+        sessionId ? getSummary(studentId, sessionId) : Promise.resolve(null),
+      ]).then(([masteryData, summaryData]) => {
+        if (!isMounted) return
+        const skillMap: Record<string, string> = {}
+        for (const s of masteryData?.all_skills ?? []) skillMap[s.id] = s.name
+
+        const skillsArr: SkillMastery[] = (masteryData?.mastery || []).map((row: any) => ({
+          skill_id: row.skill_id,
+          name: skillMap[row.skill_id] ?? row.skill_id,
+          mastery_prob: row.mastery_prob,
+        }))
+        setSkills(skillsArr)
+        if (summaryData?.summary) setSummary(summaryData.summary)
+      }).catch((err: any) => {
+        if (!isMounted) return
+        console.error('Dashboard load failed:', err)
+        const status = err?.response?.status
+        if (status === 401) {
+          setAuthDenied('Your session has expired or is invalid. Please sign in again.')
+        } else if (status === 403) {
+          setAuthDenied('You do not have permission to view this student’s learning progress.')
+        } else if ((!err.response || err.code === 'ERR_NETWORK') && attempt < 2) {
+          // Render waking up or brief redeployment restart: auto-retry once after 1.5s
+          retryTimeout = setTimeout(() => fetchDashboard(attempt + 1), 1500)
+          return
+        } else {
+          setLoadError('Could not load your progress right now. Please try refreshing.')
+        }
+      }).finally(() => {
+        if (isMounted) setLoading(false)
+      })
+    }
+
+    fetchDashboard(0)
+
+    return () => {
+      isMounted = false
+      if (retryTimeout) clearTimeout(retryTimeout)
+    }
   }, [studentId, sessionId, retryTrigger])
 
   const avgMastery = useMemo(() => (
