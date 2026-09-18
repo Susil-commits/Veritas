@@ -228,11 +228,11 @@ export default function Dashboard() {
               <div className="dash-hero-badge-row">
                 <span className="badge badge-violet">Active Socratic Student</span>
                 <span className="badge badge-emerald">Grade 6-8 Curriculum</span>
-                <span className="badge badge-cyan">Bayesian Knowledge Tracing (BKT)</span>
+                <span className="badge badge-cyan">Personalized Learning</span>
               </div>
               <h1 className="dash-hero-title">{studentName}'s Learning Dashboard</h1>
               <div className="dash-hero-id-row">
-                <span className="dash-hero-subtitle">Continuous Real-Time Mastery Tracker</span>
+                <span className="dash-hero-subtitle">See how your math skills are growing</span>
                 {studentId && (
                   <button
                     type="button"
@@ -274,7 +274,7 @@ export default function Dashboard() {
           <div className="metric-card metric-card--mastery">
             <div className="metric-card-top">
               <span className="metric-label">Overall Progress</span>
-              <span className="metric-badge metric-badge--violet">Cumulative BKT</span>
+              <span className="metric-badge metric-badge--violet">Overall Skill Growth</span>
             </div>
             <div className="metric-value-row">
               <span className="metric-number">{Math.round(avgMastery * 100)}%</span>
@@ -406,7 +406,7 @@ export default function Dashboard() {
       {!authDenied && (loading ? (
         <div className="dash-loading">
           <div className="spinner" style={{ width: '28px', height: '28px', marginBottom: '12px' }} />
-          <span>Analyzing your knowledge state & mastery history…</span>
+          <span>Updating your progress…</span>
         </div>
       ) : (
         <div className="dash-content">
@@ -415,8 +415,8 @@ export default function Dashboard() {
             <div className="card dash-radar-card">
               <div className="dash-section-header">
                 <div>
-                  <h3 className="dash-section-title">Visual Knowledge Map</h3>
-                  <p className="dash-section-subtitle">Real-time multidimensional mastery distribution</p>
+                  <h3 className="dash-section-title">Your Progress</h3>
+                  <p className="dash-section-subtitle">See how you are doing across each math topic</p>
                 </div>
                 <span className="badge badge-violet">{skills.length} Monitored Topics</span>
               </div>
@@ -427,8 +427,8 @@ export default function Dashboard() {
             <div className="card dash-skills-breakdown-card">
               <div className="dash-section-header">
                 <div>
-                  <h3 className="dash-section-title">Topic-by-Topic Mastery Breakdown</h3>
-                  <p className="dash-section-subtitle">Detailed BKT probability scores & curriculum domains</p>
+                  <h3 className="dash-section-title">Topic Progress</h3>
+                  <p className="dash-section-subtitle">A closer look at each math topic</p>
                 </div>
               </div>
 
@@ -460,7 +460,7 @@ export default function Dashboard() {
                         <div className="skill-card-top">
                           <div className="skill-title-block">
                             <span className="skill-name">{s.name}</span>
-                            <span className="skill-std">{meta.domain} • Standard: {meta.id} • {meta.grade}</span>
+                            <span className="skill-std">{meta.domain} • {meta.grade} level</span>
                           </div>
                           <div className="skill-pct-block">
                             <span className={`skill-badge skill-badge--${level}`}>
@@ -503,13 +503,13 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Right Column: AI Session Summary & Socratic Action Recommendations */}
+          {/* Right Column: Tutor Summary & Practice Recommendations */}
           <div className="dash-right">
             <div className="card summary-card">
               <div className="dash-section-header">
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <span style={{ fontSize: '1.25rem' }}>🤖</span>
-                  <h3 className="dash-section-title">AI Tutor Notes</h3>
+                  <h3 className="dash-section-title">Tutor Notes</h3>
                 </div>
                 <span className="badge badge-emerald">Live Summary</span>
               </div>
@@ -519,7 +519,7 @@ export default function Dashboard() {
                 </div>
               ) : (
                 <p className="summary-empty">
-                  Complete your next tutoring turns to generate an updated pedagogical assessment for yourself and your parents.
+                  Complete your next practice session to see fresh notes about your learning.
                 </p>
               )}
               <div className="summary-cta-box">
