@@ -275,18 +275,8 @@ export default function Landing() {
   const checkConnection = async (): Promise<boolean> => {
     try {
       const data = await checkHealth()
-      if (data && data.status === 'ok') {
-        setConnStatus('connected')
-        setConnMessage('Connected to learning space')
-        return true
-      } else {
-        setConnStatus('waking_up')
-        setConnMessage('Connecting to learning space... please wait a moment')
-        return false
-      }
+      return data?.status === 'ok'
     } catch {
-      setConnStatus('waking_up')
-      setConnMessage('Connecting to learning space... please wait a moment')
       return false
     }
   }
@@ -294,20 +284,18 @@ export default function Landing() {
   useEffect(() => {
     document.title = "Veritas — The Math Tutor That Guides Your Thinking"
     let mounted = true
-    let timer: any = null
-    let retries = 0
+    let timer: ReturnType<typeof setTimeout> | null = null
 
     const poll = async () => {
       const ready = await checkConnection()
       if (!mounted) return
-      if (!ready) {
-        retries++
-        if (retries < 25) {
-          timer = setTimeout(poll, 2500)
-        } else {
-          setConnStatus('error')
-          setConnMessage('Connection taking longer than expected. Please refresh.')
-        }
+      if (ready) {
+        setConnStatus('connected')
+        setConnMessage('Connected to learning space')
+      } else {
+        setConnStatus('waking_up')
+        setConnMessage('Connecting to learning space... please wait a moment')
+        timer = setTimeout(poll, 2500)
       }
     }
 
