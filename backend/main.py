@@ -38,7 +38,7 @@ BACKEND_DIR = Path(__file__).resolve().parent
 if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
-from fastapi import FastAPI, UploadFile, File, HTTPException, Depends, Header, Request, status
+from fastapi import FastAPI, UploadFile, File, HTTPException, Depends, Header, Query, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import StreamingResponse, Response
@@ -224,6 +224,7 @@ async def add_security_headers(request: Request, call_next):
     response.headers["X-XSS-Protection"] = "1; mode=block"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     response.headers["Permissions-Policy"] = "camera=(self), microphone=(self), geolocation=()"
+    response.headers["Content-Security-Policy"] = "default-src 'self'; frame-ancestors 'none'; object-src 'none'"
     return response
 
 
@@ -515,6 +516,15 @@ def _write_games_store(data: dict[str, Any]) -> None:
             logger.warning("Error writing games store to %s: %s", GAMES_STORE_PATH, e)
 
 
+def _remove_student_game_records(student_id: str) -> None:
+    """Remove local game records after a destructive student-data operation."""
+    with _games_store_lock:
+        store = _read_games_store()
+        if student_id in store:
+            del store[student_id]
+            _write_games_store(store)
+
+
 async def _get_student_game_progress(student_id: str) -> dict[str, Any]:
     store = _read_games_store()
     student_records = store.get(student_id, {})
@@ -701,6 +711,10 @@ async def record_game_score(
     valid_game_ids = {item["id"] for item in GAME_LEVELS_CONFIG}
     if clean_game_id not in valid_game_ids:
         raise HTTPException(400, f"Invalid game_id '{clean_game_id}'. Allowed: {sorted(valid_game_ids)}")
+    progress = await _get_student_game_progress(clean_student_id)
+    selected_level = next(level for level in progress["levels"] if level["id"] == clean_game_id)
+    if not selected_level["is_unlocked"]:
+        raise HTTPException(403, "This game level is still locked. Complete the required curriculum first.")
     if req.score < 0:
         raise HTTPException(400, "Score must be non-negative")
     if req.stars not in (1, 2, 3):
@@ -788,32 +802,32 @@ async def reset_game_score(
         if req.game_id.strip() not in valid_game_ids:
             raise HTTPException(400, f"Invalid game_id '{req.game_id}'. Allowed: {sorted(valid_game_ids)}")
 
-    store = _read_games_store()
+    with _games_store_lock:
+        store = _read_games_store()
 
-    if clean_student_id in store:
-        if req.game_id and req.game_id.strip():
-            clean_game_id = req.game_id.strip()
-            if clean_game_id in store[clean_student_id]:
-                store[clean_student_id][clean_game_id] = {
-                    "high_score": 0,
-                    "stars": 0,
-                    "times_played": 0,
-                    "last_played": None,
-                    "history": [],
+        if clean_student_id in store:
+            if req.game_id and req.game_id.strip():
+                clean_game_id = req.game_id.strip()
+                if clean_game_id in store[clean_student_id]:
+                    store[clean_student_id][clean_game_id] = {
+                        "high_score": 0,
+                        "stars": 0,
+                        "times_played": 0,
+                        "last_played": None,
+                        "history": [],
+                    }
+            else:
+                store[clean_student_id] = {
+                    item["id"]: {
+                        "high_score": 0,
+                        "stars": 0,
+                        "times_played": 0,
+                        "last_played": None,
+                        "history": [],
+                    }
+                    for item in GAME_LEVELS_CONFIG
                 }
-        else:
-            # Reset all games for this student by zeroing them out
-            store[clean_student_id] = {
-                item["id"]: {
-                    "high_score": 0,
-                    "stars": 0,
-                    "times_played": 0,
-                    "last_played": None,
-                    "history": [],
-                }
-                for item in GAME_LEVELS_CONFIG
-            }
-        _write_games_store(store)
+            _write_games_store(store)
 
     # Synchronize reset with Supabase student_game_progress
     try:
@@ -1064,6 +1078,7 @@ async def start_session(
         "latest_input": "",
         "latest_image_bytes": None,
         "current_problem": _public_problem(problem),
+        "current_problem_evaluation": problem,
         "current_problem_credited": False,
         "problems_attempted": [problem["id"]],
         "mastery_state": mastery_state,
@@ -1171,6 +1186,19 @@ async def reset_session_endpoint(
     else:
         evict_student_sessions(clean_student_id)
 
+    # Stateless tokens cannot be individually revoked, so remove the old
+    # database sessions that would otherwise allow them to be rehydrated.
+    try:
+        if req.session_id:
+            await db_exec(supabase.table("session_events").delete().eq("session_id", req.session_id))
+            await db_exec(supabase.table("sessions").delete().eq("id", req.session_id))
+        else:
+            await db_exec(supabase.table("session_events").delete().eq("student_id", clean_student_id))
+            await db_exec(supabase.table("sessions").delete().eq("student_id", clean_student_id))
+    except Exception as e:
+        logger.error("Failed to invalidate old sessions during reset: %s", e)
+        raise HTTPException(status_code=503, detail="Could not safely invalidate the previous session.")
+
     # 2. Reset student skill mastery in database back to baseline and clear longitudinal misconceptions
     try:
         await db_exec(
@@ -1237,6 +1265,7 @@ async def reset_session_endpoint(
         "latest_input": "",
         "latest_image_bytes": None,
         "current_problem": _public_problem(first_prob),
+        "current_problem_evaluation": first_prob,
         "current_problem_credited": False,
         "problems_attempted": [first_prob["id"]],
         "mastery_state": fresh_mastery,
@@ -1253,7 +1282,7 @@ async def reset_session_endpoint(
         "student_id": req.student_id,
         "student_name": student_name,
         "session_token": session_token,
-        "current_problem": first_prob,
+        "current_problem": _public_problem(first_prob),
         "mastery_state": fresh_mastery,
         "welcome_message": f"Welcome fresh, {student_name}! We've reset your practice session and mastery. Let's start from problem 1. Read it carefully and share your first thoughts!",
         "resumed": False,
@@ -1496,6 +1525,7 @@ async def next_problem_endpoint(
             raise HTTPException(status_code=503, detail="No further practice problems found in problem bank.")
 
         session_state["current_problem"] = next_prob
+        session_state["current_problem_evaluation"] = next_prob
         session_state["current_problem_credited"] = False
         session_state["current_skill_id"] = next_skill
         if next_prob.get("id") and next_prob["id"] not in attempted:
@@ -1602,12 +1632,13 @@ async def upload_work(
                 fresh_state = await asyncio.to_thread(get_session, session_id)
                 current_state = fresh_state or state
                 current_problem = current_state.get("current_problem") or {}
+                evaluation_problem = current_state.get("current_problem_evaluation") or current_problem
                 yield f"data: {json.dumps({'type': 'thinking', 'content': 'Checking your steps...'})}\n\n"
 
                 diagnosis = await asyncio.to_thread(
                     run_diagnostic_agent,
                     image_bytes=image_bytes,
-                    expected_steps=current_problem.get("expected_steps", []),
+                    expected_steps=evaluation_problem.get("expected_steps", []),
                     problem_text=current_problem.get("text", ""),
                     skill_id=current_state.get("current_skill_id", ""),
                 )
@@ -1723,6 +1754,7 @@ async def upload_work(
                     )
                     if next_problem:
                         current_state["current_problem"] = next_problem
+                        current_state["current_problem_evaluation"] = next_problem
                         current_state["current_problem_credited"] = False
                         current_state["current_skill_id"] = next_skill
                         current_state["problems_attempted"] = current_state.get("problems_attempted", []) + [next_problem["id"]]
@@ -1894,7 +1926,7 @@ _TTS_CACHE: dict[str, bytes] = {}
 
 @app.post("/tts")
 async def text_to_speech(
-    text: str,
+    text: str = Query(..., min_length=1, max_length=2000),
     authorization: Optional[str] = Header(None),
     x_session_token: Optional[str] = Header(None),
 ):
@@ -2370,6 +2402,9 @@ async def get_parent_children(
     for student_id, child in children_map.items():
         latest_session_time = None
         session_count = 0
+        sessions_available = True
+        mastery_available = True
+        events_available = True
         try:
             sess_res = await db_exec(
                 supabase.table("sessions")
@@ -2388,7 +2423,7 @@ async def get_parent_children(
             )
             session_count = count_res.count or len(count_res.data or [])
         except Exception:
-            pass
+            sessions_available = False
 
         # Check skill mastery & activity
         all_mastery_map: dict[str, float] = {}
@@ -2402,9 +2437,9 @@ async def get_parent_children(
                 for r in m_res.data:
                     all_mastery_map[r["skill_id"]] = float(r["mastery_prob"])
         except Exception:
-            pass
+            mastery_available = False
 
-        days_since = 3
+        days_since = 0
         if latest_session_time:
             try:
                 ts = datetime.datetime.fromisoformat(
@@ -2413,7 +2448,7 @@ async def get_parent_children(
                 diff_seconds = now - ts.timestamp()
                 days_since = max(0, int(diff_seconds // 86400))
             except Exception:
-                days_since = 3
+                sessions_available = False
 
         # Load longitudinal student misconceptions
         active_misc = await asyncio.to_thread(get_student_misconceptions, student_id)
@@ -2429,16 +2464,25 @@ async def get_parent_children(
             )
             recent_events = recent_res.data or []
         except Exception:
-            pass
+            events_available = False
 
         # Generate learner-aware alerts across all CCSS skills
-        alerts, generic_alert_msg, has_gap, alert_msg, fraction_mastery, top_gap_skill_id, top_gap_skill_name = generate_student_alerts(
-            student_id=student_id,
-            all_mastery_map=all_mastery_map,
-            days_since=days_since,
-            active_misconceptions=active_misc,
-            recent_events=recent_events,
-        )
+        if sessions_available and mastery_available and events_available:
+            alerts, generic_alert_msg, has_gap, alert_msg, fraction_mastery, top_gap_skill_id, top_gap_skill_name = generate_student_alerts(
+                student_id=student_id,
+                all_mastery_map=all_mastery_map,
+                days_since=days_since,
+                active_misconceptions=active_misc,
+                recent_events=recent_events,
+            )
+        else:
+            alerts = []
+            generic_alert_msg = "Learner data is temporarily unavailable"
+            has_gap = False
+            alert_msg = "Learner data is temporarily unavailable"
+            fraction_mastery = 0.0
+            top_gap_skill_id = None
+            top_gap_skill_name = None
 
         results.append({
             "student_id": student_id,
@@ -2513,14 +2557,12 @@ async def get_child_details(
             .select("*")
             .eq("student_id", child_id)
             .order("started_at", desc=True)
-            .limit(10)
         ),
         db_exec(
             supabase.table("session_events")
             .select("id, session_id, student_id, problem_id, attempt_text, is_correct, agent_response, created_at, problems(title, text)")
             .eq("student_id", child_id)
             .order("created_at", desc=True)
-            .limit(20)
         ),
         _get_student_game_progress(child_id),
     )
@@ -2667,6 +2709,16 @@ async def delete_parent_data(
         if student_ids:
             # Delete session events, sessions, and skill mastery profiles for these students
             for sid in student_ids:
+                try:
+                    session_rows = await db_exec(
+                        supabase.table("sessions").select("id").eq("student_id", sid)
+                    )
+                    for session_row in session_rows.data or []:
+                        session_id = session_row.get("id")
+                        if session_id:
+                            evict_session(session_id)
+                except Exception as e:
+                    logger.warning("Could not evict all student sessions before deletion: %s", e)
                 other_links = await db_exec(
                     supabase.table("children")
                     .select("parent_id")
@@ -2694,6 +2746,7 @@ async def delete_parent_data(
                         await db_exec(supabase.table("student_game_progress").delete().eq("student_id", sid))
                     except Exception:
                         pass
+                    _remove_student_game_records(sid)
                     clear_student_misconceptions(sid)
                     await asyncio.to_thread(cloudinary_service.delete_student_assets, sid)
                 # Summaries are keyed by session only, so clear the bounded cache

@@ -9,6 +9,7 @@ import asyncio
 import threading
 import json
 import datetime
+import time
 from pathlib import Path
 from collections import OrderedDict
 from typing import Any
@@ -101,7 +102,9 @@ def _remove_session_from_disk(session_id: str) -> None:
 
 # Per-session asyncio.Lock registry to serialize concurrent read-modify-write operations
 _session_locks: dict[str, asyncio.Lock] = {}
+_session_lock_times: dict[str, float] = {}
 _locks_guard = threading.Lock()
+MAX_SESSION_LOCKS = int(os.getenv("MAX_SESSION_LOCKS", "10000"))
 
 
 def get_session_lock(session_id: str) -> asyncio.Lock:
@@ -109,6 +112,16 @@ def get_session_lock(session_id: str) -> asyncio.Lock:
     with _locks_guard:
         if session_id not in _session_locks:
             _session_locks[session_id] = asyncio.Lock()
+        _session_lock_times[session_id] = time.time()
+        if len(_session_locks) > MAX_SESSION_LOCKS:
+            stale_ids = sorted(_session_lock_times, key=_session_lock_times.get)
+            for stale_id in stale_ids:
+                stale_lock = _session_locks.get(stale_id)
+                if stale_id != session_id and stale_lock is not None and not stale_lock.locked():
+                    _session_locks.pop(stale_id, None)
+                    _session_lock_times.pop(stale_id, None)
+                if len(_session_locks) <= MAX_SESSION_LOCKS:
+                    break
         return _session_locks[session_id]
 
 # Maximum number of active sessions kept in RAM cache (LRU eviction).
@@ -390,6 +403,7 @@ def evict_session(session_id: str) -> None:
     try:
         with _locks_guard:
             _session_locks.pop(session_id, None)
+            _session_lock_times.pop(session_id, None)
     except Exception:
         pass
 

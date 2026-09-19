@@ -69,7 +69,7 @@ export interface Problem {
   text: string
   skill_id: string
   difficulty: number
-  expected_steps: string[]
+  expected_steps?: string[]
 }
 
 export interface SessionData {
@@ -358,10 +358,23 @@ export function streamMessage(
       throw new Error(`HTTP ${res.status}: ${res.statusText}`)
     }
 
-    if (!res.body) return
+    if (!res.body) {
+      onError?.(new Error('Tutor response did not include a readable stream'))
+      return
+    }
     const reader = res.body.getReader()
     const decoder = new TextDecoder()
     let buffer = ''
+
+    const handleLine = (line: string) => {
+      if (!line.startsWith('data: ')) return
+      try {
+        const payload = JSON.parse(line.slice(6))
+        if (payload.type === 'thinking') onThinking(payload.content)
+        if (payload.type === 'response') onResponse(payload.content, payload.done)
+        if (payload.type === 'done') onDone(payload.mastery_state ?? {}, Boolean(payload.problem_solved))
+      } catch {}
+    }
 
     while (true) {
       const { done, value } = await reader.read()
@@ -369,16 +382,9 @@ export function streamMessage(
       buffer += decoder.decode(value, { stream: true })
       const lines = buffer.split('\n')
       buffer = lines.pop() ?? ''
-      for (const line of lines) {
-        if (!line.startsWith('data: ')) continue
-        try {
-          const payload = JSON.parse(line.slice(6))
-          if (payload.type === 'thinking') onThinking(payload.content)
-          if (payload.type === 'response') onResponse(payload.content, payload.done)
-          if (payload.type === 'done') onDone(payload.mastery_state ?? {}, Boolean(payload.problem_solved))
-        } catch {}
-      }
+      for (const line of lines) handleLine(line)
     }
+    if (buffer.trim()) handleLine(buffer)
   }).catch((err) => {
     console.warn('streamMessage error:', err)
     onError?.(err)

@@ -317,25 +317,21 @@ def validate_image_upload(
             detail=f"Unsupported file type '{clean_mime}'. Please upload a PNG, JPEG, or WebP photo of your work.",
         )
 
-    # Validate header magic bytes (if file is at least 8 bytes)
-    if len(file_bytes) >= 8:
-        is_valid_magic = False
-        if file_bytes.startswith(b"\xff\xd8\xff"):  # JPEG
-            is_valid_magic = True
-        elif file_bytes.startswith(b"\x89PNG\r\n\x1a\n"):  # PNG
-            is_valid_magic = True
-        elif file_bytes.startswith(b"RIFF") and b"WEBP" in file_bytes[:16]:  # WebP
-            is_valid_magic = True
-        elif b"ftyp" in file_bytes[:16]:  # HEIC/HEIF
-            is_valid_magic = True
-        elif clean_mime in {"image/heic", "image/heif"} and b"ftyp" in file_bytes[:32]:
-            is_valid_magic = True
+    is_valid_magic = False
+    if file_bytes.startswith(b"\xff\xd8\xff"):
+        is_valid_magic = True
+    elif file_bytes.startswith(b"\x89PNG\r\n\x1a\n"):
+        is_valid_magic = True
+    elif file_bytes.startswith(b"RIFF") and b"WEBP" in file_bytes[:16]:
+        is_valid_magic = True
+    elif b"ftyp" in file_bytes[:32] and clean_mime in {"image/heic", "image/heif"}:
+        is_valid_magic = True
 
-        if not is_valid_magic:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="File header does not match a recognized image format. Please upload a clear photo of your math work.",
-            )
+    if not is_valid_magic:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="File header does not match a recognized image format. Please upload a clear photo of your math work.",
+        )
 
     if not file_bytes.startswith(b"RIFF") or b"WEBP" not in file_bytes[:16]:
         try:
