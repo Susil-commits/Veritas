@@ -7,5 +7,10 @@ DROP POLICY IF EXISTS "Public read problems" ON public.problems;
 -- Keep problem content server-only. The backend uses the service role key.
 ALTER TABLE public.problems ENABLE ROW LEVEL SECURITY;
 
+-- The application permits students with the same name. Remove the legacy
+-- constraint left by older database versions.
+ALTER TABLE public.students
+DROP CONSTRAINT IF EXISTS students_name_key;
+
 COMMENT ON TABLE public.problems IS
-    'Server-only curriculum content; expected_steps and answer metadata must not be exposed to browser clients.';
+    'Server-only curriculum content; expected_steps and answer metadata must not be exposed to browser clients.'; 
