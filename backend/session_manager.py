@@ -200,25 +200,24 @@ def get_session(session_id: str) -> dict[str, Any] | None:
     if session_id in _sessions_cache:
         return _sessions_cache[session_id]
 
-    # 2. Fast distributed Redis lookup (cross-worker synchronization)
-    try:
-        redis_state = redis_service.get_json(f"veritas:session:{session_id}")
-        if isinstance(redis_state, dict) and "student_id" in redis_state:
-            _sessions_cache[session_id] = redis_state
-            return redis_state
-    except Exception:
-        pass
-
-    # 3. Check local disk store
-    disk_sessions = _load_sessions_from_disk()
-    if session_id in disk_sessions:
-        state = disk_sessions[session_id]
-        _sessions_cache[session_id] = state
-        return state
+    def fallback_state() -> dict[str, Any] | None:
+        try:
+            redis_state = redis_service.get_json(f"veritas:session:{session_id}")
+            if isinstance(redis_state, dict) and "student_id" in redis_state:
+                _sessions_cache[session_id] = redis_state
+                return redis_state
+        except Exception:
+            pass
+        disk_sessions = _load_sessions_from_disk()
+        if session_id in disk_sessions:
+            state = disk_sessions[session_id]
+            _sessions_cache[session_id] = state
+            return state
+        return None
 
     supabase = get_supabase()
 
-    # 3. Query Supabase sessions table
+    # Query the authoritative database before distributed/local fallbacks.
     try:
         sess_res = (
             supabase.table("sessions")
@@ -229,10 +228,10 @@ def get_session(session_id: str) -> dict[str, Any] | None:
         )
     except Exception as e:
         print(f"[WARN] SessionManager: Failed to query sessions table for {session_id}: {e}")
-        return None
+        return fallback_state()
 
     if not sess_res.data:
-        return None
+        return fallback_state()
 
     sess_row = sess_res.data[0]
     student_id = sess_row.get("student_id")
@@ -328,6 +327,7 @@ def get_session(session_id: str) -> dict[str, Any] | None:
             "problems_attempted": problems_attempted,
             "mastery_state": mastery_state,
             "current_skill_id": current_problem.get("skill_id", current_skill) if current_problem else current_skill,
+            "active_misconceptions": get_student_misconceptions(student_id),
             "diagnosis": None,
             "agent_response": "",
             "thinking_steps": [],

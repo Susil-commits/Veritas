@@ -7,6 +7,7 @@ import time
 import threading
 from collections import defaultdict
 from fastapi import HTTPException, status
+from services.redis_service import redis_service
 
 class RateLimiter:
     def __init__(self):
@@ -66,6 +67,19 @@ class RateLimiter:
             self._request_history[key] = active_history
             self._last_request_time[key] = now
 
+            if redis_service.is_connected and cooldown_seconds >= 1.0:
+                allowed, _remaining = redis_service.check_rate_limit(
+                    key=f"cooldown:{key}",
+                    limit=max_per_minute,
+                    window_seconds=60,
+                )
+                if not allowed:
+                    raise HTTPException(
+                        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                        detail=f"Rate limit exceeded: maximum {max_per_minute} {action} per minute reached. Please pause for a moment.",
+                        headers={"Retry-After": "30"},
+                    )
+
             self._cleanup_if_needed(now)
 
     def enforce_auth_rate_limit(
@@ -98,6 +112,19 @@ class RateLimiter:
             active_attempts.append(now)
             self._request_history[auth_key] = active_attempts
             self._last_request_time[auth_key] = now
+
+            if redis_service.is_connected:
+                allowed, _remaining = redis_service.check_rate_limit(
+                    key=f"auth:{key}",
+                    limit=max_attempts,
+                    window_seconds=int(window_seconds),
+                )
+                if not allowed:
+                    raise HTTPException(
+                        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                        detail="Too many authentication attempts. Please try again later.",
+                        headers={"Retry-After": str(max(1, int(window_seconds)))},
+                    )
 
             self._cleanup_if_needed(now)
 

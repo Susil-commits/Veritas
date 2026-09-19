@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS sessions (
     started_at  TIMESTAMPTZ DEFAULT now(),
     ended_at    TIMESTAMPTZ
 );
+ALTER TABLE sessions ADD COLUMN IF NOT EXISTS state JSONB DEFAULT '{}'::jsonb;
 
 -- ── Skills (Common Core taxonomy) ───────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS skills (
@@ -83,16 +84,30 @@ CREATE TABLE IF NOT EXISTS session_events (
     created_at      TIMESTAMPTZ DEFAULT now()
 );
 
+-- ── Arcade Progress ─────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS student_game_progress (
+    student_id   UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+    game_id      TEXT NOT NULL,
+    high_score   INTEGER NOT NULL DEFAULT 0,
+    stars        INTEGER NOT NULL DEFAULT 0,
+    times_played INTEGER NOT NULL DEFAULT 0,
+    last_played  TIMESTAMPTZ,
+    history      JSONB NOT NULL DEFAULT '[]'::jsonb,
+    updated_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (student_id, game_id)
+);
+
 -- ── RLS Policies (Row Level Security for anon key safety) ───────────────────
 ALTER TABLE students ENABLE ROW LEVEL SECURITY;
 ALTER TABLE sessions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE problems ENABLE ROW LEVEL SECURITY;
 ALTER TABLE student_skill_mastery ENABLE ROW LEVEL SECURITY;
 ALTER TABLE session_events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE student_game_progress ENABLE ROW LEVEL SECURITY;
 
 -- Allow backend (service role) to bypass RLS — no policy needed
--- Allow frontend (anon key) read-only on problems and skills
-CREATE POLICY "Public read problems" ON problems FOR SELECT USING (true);
+-- Problem rows contain expected solution steps and must remain server-only.
+-- The backend exposes a safe student projection after authorization.
 CREATE POLICY "Public read skills" ON skills FOR SELECT USING (true);
 
 -- ── Similarity Search Function (used by content agent) ───────────────────────

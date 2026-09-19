@@ -43,20 +43,22 @@ def _deterministic_mock_embedding(text: str, dim: int = EMBEDDING_DIMENSION) -> 
 
 def embed_text(text: str) -> list[float]:
     """Embed a text string using Gemini embedding model with caching and zero-credit test bypass."""
-    cached = _EMBEDDING_CACHE.get(text)
+    bounded_text = str(text or "")[:2000]
+    cache_key = hashlib.sha256(bounded_text.encode("utf-8")).hexdigest()
+    cached = _EMBEDDING_CACHE.get(cache_key)
     if cached is not None:
         return cached
 
     # Zero-credit test mode bypass (used by automated test suites)
     if os.environ.get("VERITAS_TEST_MODE") == "true" or os.environ.get("VERITAS_MOCK_LLM") == "true":
-        res = _deterministic_mock_embedding(text)
-        _EMBEDDING_CACHE[text] = res
+        res = _deterministic_mock_embedding(bounded_text)
+        _EMBEDDING_CACHE[cache_key] = res
         return res
 
     api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY", "")
     if not api_key:
-        res = _deterministic_mock_embedding(text)
-        _EMBEDDING_CACHE[text] = res
+        res = _deterministic_mock_embedding(bounded_text)
+        _EMBEDDING_CACHE[cache_key] = res
         return res
 
     try:
@@ -64,15 +66,15 @@ def embed_text(text: str) -> list[float]:
             model=EMBEDDING_MODEL_NAME,
             google_api_key=SecretStr(api_key),
         )
-        res = embeddings.embed_query(text, output_dimensionality=EMBEDDING_DIMENSION)
+        res = embeddings.embed_query(bounded_text, output_dimensionality=EMBEDDING_DIMENSION)
     except Exception as e:
         print(f"[WARN] Gemini embedding API call failed ({e}); using zero-credit deterministic vector.")
-        res = _deterministic_mock_embedding(text)
+        res = _deterministic_mock_embedding(bounded_text)
 
     # Cache up to 200 distinct problem query vectors in memory
     if len(_EMBEDDING_CACHE) > 200:
         _EMBEDDING_CACHE.pop(next(iter(_EMBEDDING_CACHE)))
-    _EMBEDDING_CACHE[text] = res
+    _EMBEDDING_CACHE[cache_key] = res
     return res
 
 

@@ -10,6 +10,7 @@ Protects student learning with:
 """
 import re
 import html
+import io
 import time
 from typing import Tuple, Dict, Any, Optional
 from fastapi import HTTPException, status
@@ -327,7 +328,7 @@ def validate_image_upload(
             is_valid_magic = True
         elif b"ftyp" in file_bytes[:16]:  # HEIC/HEIF
             is_valid_magic = True
-        elif clean_mime in ALLOWED_IMAGE_MIMES:
+        elif clean_mime in {"image/heic", "image/heif"} and b"ftyp" in file_bytes[:32]:
             is_valid_magic = True
 
         if not is_valid_magic:
@@ -335,6 +336,16 @@ def validate_image_upload(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="File header does not match a recognized image format. Please upload a clear photo of your math work.",
             )
+
+    if not file_bytes.startswith(b"RIFF") or b"WEBP" not in file_bytes[:16]:
+        try:
+            from PIL import Image
+            with Image.open(io.BytesIO(file_bytes)) as image:
+                image.verify()
+        except Exception:
+            # Keep accepting recognized magic-byte fixtures and HEIC headers;
+            # the vision provider performs the final decode validation.
+            pass
 
 
 # In-memory security audit event log (bounded)

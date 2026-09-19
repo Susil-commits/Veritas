@@ -22,6 +22,34 @@ _EPHEMERAL_KEY: Optional[str] = None
 _JWKS_CLIENT: Any = None
 
 
+def _validate_jwt_claims(payload: dict) -> None:
+    """Validate identity claims when supplied by a Supabase JWT."""
+    if not payload.get("sub"):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication token is missing a subject",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    expected_audience = os.getenv("SUPABASE_JWT_AUDIENCE", "authenticated")
+    token_audience = payload.get("aud")
+    if token_audience and token_audience != expected_audience:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication token audience is invalid",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    token_issuer = payload.get("iss")
+    supabase_url = os.getenv("SUPABASE_URL", "").rstrip("/")
+    if token_issuer and supabase_url and token_issuer != f"{supabase_url}/auth/v1":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication token issuer is invalid",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+
 def is_session_secret_configured() -> bool:
     """Check whether a dedicated SESSION_SECRET_KEY is configured in the environment."""
     return bool(os.getenv("SESSION_SECRET_KEY"))
@@ -171,6 +199,7 @@ def verify_session_token(token: str) -> dict:
                     algorithms=[alg],
                     options={"verify_exp": True, "verify_aud": False},
                 )
+                _validate_jwt_claims(payload)
             except HTTPException:
                 raise
             except Exception as e:
@@ -250,6 +279,7 @@ def verify_session_token(token: str) -> dict:
                     detail="Failed to decode authentication token payload",
                     headers={"WWW-Authenticate": "Bearer"},
                 )
+            _validate_jwt_claims(payload)
         else:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,

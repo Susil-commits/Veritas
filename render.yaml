@@ -32,5 +32,7 @@ services:
         value: 21m00Tcm4TlvDq8ikWAM
       - key: FRONTEND_URL
         sync: false
+      - key: ENABLE_DEMO_SEED
+        value: "false"
       - key: SESSION_SECRET_KEY
         generateValue: true

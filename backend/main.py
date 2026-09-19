@@ -42,7 +42,7 @@ from fastapi import FastAPI, UploadFile, File, HTTPException, Depends, Header, R
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import StreamingResponse, Response
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -180,11 +180,12 @@ async def lifespan(app: FastAPI):
     else:
         print("[WARN] Auth: SESSION_SECRET_KEY not explicitly configured in environment. Using fallback/ephemeral keying.")
 
-    try:
-        from db.seed_demo_data import ensure_demo_data_seeded
-        asyncio.create_task(asyncio.to_thread(ensure_demo_data_seeded))
-    except Exception as e:
-        logger.warning("Auto demo-seed hook failed to schedule: %s", e)
+    if os.getenv("ENABLE_DEMO_SEED", "false").lower() == "true":
+        try:
+            from db.seed_demo_data import ensure_demo_data_seeded
+            asyncio.create_task(asyncio.to_thread(ensure_demo_data_seeded))
+        except Exception as e:
+            logger.warning("Auto demo-seed hook failed to schedule: %s", e)
 
     yield
 
@@ -209,7 +210,6 @@ app.add_middleware(GZipMiddleware, minimum_size=1000)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
-    allow_origin_regex=r"^https://.*(\.vercel\.app|\.onrender\.com)$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -238,8 +238,17 @@ async def root():
 
 
 @app.get("/auth/security-status")
-async def get_security_status():
+async def get_security_status(
+    authorization: Optional[str] = Header(None),
+    x_session_token: Optional[str] = Header(None),
+):
     """Real-time platform security, guardrails status, and defense health."""
+    token = authorization.strip() if authorization else (x_session_token.strip() if x_session_token else "")
+    if token.lower().startswith("bearer "):
+        token = token.split(None, 1)[1]
+    if not token:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    verify_session_token(token)
     return get_security_telemetry()
 
 
@@ -253,22 +262,22 @@ _cached_gemini_status: bool = False
 # ── Pydantic Models ──────────────────────────────────────────────────────────
 
 class StartSessionRequest(BaseModel):
-    student_name: str
-    student_id: str | None = None
-    student_email: str | None = None
+    student_name: str = Field(min_length=1, max_length=120)
+    student_id: str | None = Field(default=None, max_length=64)
+    student_email: str | None = Field(default=None, max_length=320)
 
 
 class AddChildRequest(BaseModel):
-    parent_id: str
-    parent_email: str | None = None
-    child_email: str
-    child_name: str | None = None
-    student_id: str | None = None
+    parent_id: str = Field(max_length=64)
+    parent_email: str | None = Field(default=None, max_length=320)
+    child_email: str = Field(max_length=320)
+    child_name: str | None = Field(default=None, max_length=120)
+    student_id: str | None = Field(default=None, max_length=64)
 
 
 class MessageRequest(BaseModel):
-    session_id: str
-    message: str
+    session_id: str = Field(max_length=64)
+    message: str = Field(min_length=1, max_length=4000)
 
 
 class MasteryUpdateRequest(BaseModel):
@@ -278,9 +287,9 @@ class MasteryUpdateRequest(BaseModel):
 
 
 class NeoChatRequest(BaseModel):
-    message: str
-    history: list[dict] = []
-    visitor_id: str | None = None
+    message: str = Field(min_length=1, max_length=2000)
+    history: list[dict[str, str]] = Field(default_factory=list, max_length=12)
+    visitor_id: str | None = Field(default=None, max_length=128)
 
 
 class NextProblemRequest(BaseModel):
@@ -294,12 +303,12 @@ class ResetSessionRequest(BaseModel):
 
 
 class GameScoreRequest(BaseModel):
-    student_id: str
-    game_id: str
-    score: int
-    stars: int = 1
-    mode: str | None = "blitz"
-    streak_max: int | None = 0
+    student_id: str = Field(max_length=64)
+    game_id: str = Field(max_length=64)
+    score: int = Field(le=1_000_000)
+    stars: int = Field(default=1)
+    mode: str | None = Field(default="blitz", max_length=32)
+    streak_max: int | None = Field(default=0, ge=0, le=100_000)
 
 
 class ResetGameScoreRequest(BaseModel):
@@ -308,11 +317,20 @@ class ResetGameScoreRequest(BaseModel):
 
 
 class AvatarUploadRequest(BaseModel):
-    image: str
-    user_id: Optional[str] = "user"
+    image: str = Field(min_length=1, max_length=8 * 1024 * 1024)
+    user_id: Optional[str] = Field(default="user", max_length=128)
 
 
 # ── Routes ───────────────────────────────────────────────────────────────────
+
+def _public_problem(problem: dict | None) -> dict | None:
+    """Return problem fields safe for the browser; solution metadata stays server-side."""
+    if not problem:
+        return None
+    public = dict(problem)
+    for secret_field in ("expected_steps", "answer", "solution", "embedding", "misconception_type"):
+        public.pop(secret_field, None)
+    return public
 
 @app.api_route("/health", methods=["GET", "HEAD"])
 async def health():
@@ -375,7 +393,7 @@ async def health_full():
 GAMES_DATA_DIR = BACKEND_DIR / "data"
 GAMES_DATA_DIR.mkdir(parents=True, exist_ok=True)
 GAMES_STORE_PATH = GAMES_DATA_DIR / "games_store.json"
-_games_store_lock = threading.Lock()
+_games_store_lock = threading.RLock()
 
 DEMO_STUDENT_ID = "24e836e3-3b42-41a0-8a27-222f883eaa10"
 
@@ -562,7 +580,7 @@ async def _get_student_game_progress(student_id: str) -> dict[str, Any]:
             prob_ids = [e["problem_id"] for e in events_res.data if e.get("problem_id")]
             if prob_ids:
                 p_res = await db_exec(
-                    supabase.table("problems").select("id, skill_id").in_("id", prob_ids[:50])
+                    supabase.table("problems").select("id, skill_id").in_("id", prob_ids)
                 )
                 if p_res.data:
                     for p in p_res.data:
@@ -690,35 +708,36 @@ async def record_game_score(
 
     now_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
 
-    store = _read_games_store()
-    student_record = store.setdefault(clean_student_id, {})
-    game_record = student_record.setdefault(clean_game_id, {
-        "high_score": 0,
-        "stars": 0,
-        "times_played": 0,
-        "last_played": None,
-        "history": [],
-    })
+    with _games_store_lock:
+        store = _read_games_store()
+        student_record = store.setdefault(clean_student_id, {})
+        game_record = student_record.setdefault(clean_game_id, {
+            "high_score": 0,
+            "stars": 0,
+            "times_played": 0,
+            "last_played": None,
+            "history": [],
+        })
 
-    game_record["times_played"] = game_record.get("times_played", 0) + 1
-    game_record["last_played"] = now_iso
-    if req.score > game_record.get("high_score", 0):
-        game_record["high_score"] = req.score
-    if req.stars > game_record.get("stars", 0):
-        game_record["stars"] = min(3, max(1, req.stars))
+        game_record["times_played"] = game_record.get("times_played", 0) + 1
+        game_record["last_played"] = now_iso
+        if req.score > game_record.get("high_score", 0):
+            game_record["high_score"] = req.score
+        if req.stars > game_record.get("stars", 0):
+            game_record["stars"] = min(3, max(1, req.stars))
 
-    history_list = game_record.setdefault("history", [])
-    history_list.append({
-        "score": req.score,
-        "stars": req.stars,
-        "mode": req.mode or "blitz",
-        "streak_max": req.streak_max or 0,
-        "timestamp": now_iso,
-    })
-    if len(history_list) > 20:
-        history_list.pop(0)
+        history_list = game_record.setdefault("history", [])
+        history_list.append({
+            "score": req.score,
+            "stars": req.stars,
+            "mode": req.mode or "blitz",
+            "streak_max": req.streak_max or 0,
+            "timestamp": now_iso,
+        })
+        if len(history_list) > 20:
+            history_list.pop(0)
 
-    _write_games_store(store)
+        _write_games_store(store)
 
     # Dual-write write-through to Supabase student_game_progress table
     try:
@@ -821,14 +840,21 @@ async def reset_game_score(
 @app.post("/session/start")
 async def start_session(
     req: StartSessionRequest,
+    request: Request,
     authorization: Optional[str] = Header(None),
     x_session_token: Optional[str] = Header(None),
 ):
     """Create a new tutoring session, issue a scoped session token, and return the first problem."""
     # Auth & token issuance rate limit: throttle automated session creation per student identity
     auth_identity = (req.student_email.strip().lower() if req.student_email else None) or (req.student_id.strip() if req.student_id else None)
-    auth_key = auth_identity or f"anon_{uuid.uuid4()}"
+    requester = request.client.host if request.client else "unknown"
+    auth_key = auth_identity or f"anon_{requester}"
     limiter.enforce_auth_rate_limit(auth_key, max_attempts=10, window_seconds=60.0)
+    limiter.enforce_auth_rate_limit(
+        f"session_start_ip_{requester}",
+        max_attempts=30,
+        window_seconds=60.0,
+    )
 
     supabase = get_supabase()
 
@@ -989,7 +1015,7 @@ async def start_session(
                         "student_id": student_id,
                         "student_name": existing_state.get("student_name", req.student_name),
                         "session_token": session_token,
-                        "current_problem": existing_state["current_problem"],
+                        "current_problem": _public_problem(existing_state["current_problem"]),
                         "mastery_state": existing_state.get("mastery_state", mastery_state),
                         "active_misconceptions": active_misc,
                         "welcome_message": f"Welcome back, {req.student_name}! Picking up right where we left off with **{prob_title}**. Let's keep solving!",
@@ -1037,7 +1063,7 @@ async def start_session(
         "conversation_history": [],
         "latest_input": "",
         "latest_image_bytes": None,
-        "current_problem": problem,
+        "current_problem": _public_problem(problem),
         "current_problem_credited": False,
         "problems_attempted": [problem["id"]],
         "mastery_state": mastery_state,
@@ -1055,7 +1081,7 @@ async def start_session(
         "student_id": student_id,
         "student_name": req.student_name,
         "session_token": session_token,
-        "current_problem": problem,
+        "current_problem": _public_problem(problem),
         "mastery_state": mastery_state,
         "active_misconceptions": active_misc,
         "welcome_message": f"Hi {req.student_name}! I'm your math tutor. Let's start with this problem. Read it carefully, then tell me what you think the first step is!",
@@ -1076,21 +1102,42 @@ async def reset_session_endpoint(
     except (ValueError, AttributeError):
         raise HTTPException(422, "Invalid student_id: Must be a valid UUID format.")
 
+    supabase = get_supabase()
     caller_sub = auth.get("sub")
     clean_student_id = req.student_id.strip()
-    if caller_sub != clean_student_id and caller_sub != DEMO_STUDENT_ID and auth.get("role") != "parent":
+    if caller_sub != clean_student_id and auth.get("role") != "parent":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=f"Access denied: caller {caller_sub} cannot reset progress for student {clean_student_id}",
         )
+
+    if auth.get("role") == "parent" and caller_sub != clean_student_id:
+        try:
+            linked = await db_exec(
+                supabase.table("children")
+                .select("student_id")
+                .eq("parent_id", caller_sub)
+                .eq("student_id", clean_student_id)
+                .limit(1)
+            )
+            if not linked.data:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Access denied: parent is not linked to this student",
+                )
+        except HTTPException:
+            raise
+        except Exception:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access denied: unable to verify parent-student relationship",
+            )
 
     if req.session_id and auth.get("sid") and auth["sid"] != req.session_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Session mismatch: token does not authorize this session reset",
         )
-
-    supabase = get_supabase()
 
     # 1. Verify session ownership and invalidate only sessions owned by this student
     if req.session_id:
@@ -1189,7 +1236,7 @@ async def reset_session_endpoint(
         "conversation_history": [],
         "latest_input": "",
         "latest_image_bytes": None,
-        "current_problem": first_prob,
+        "current_problem": _public_problem(first_prob),
         "current_problem_credited": False,
         "problems_attempted": [first_prob["id"]],
         "mastery_state": fresh_mastery,
@@ -1245,7 +1292,7 @@ async def send_message(
     session_state: dict[str, Any] = state
 
     caller_sub = auth.get("sub")
-    if caller_sub and caller_sub != session_state.get("student_id") and caller_sub != DEMO_STUDENT_ID and auth.get("role") != "parent":
+    if caller_sub and caller_sub != session_state.get("student_id"):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Access denied: caller does not own this tutoring session",
@@ -1409,7 +1456,7 @@ async def next_problem_endpoint(
         session_state: dict[str, Any] = state
 
         caller_sub = auth.get("sub")
-        if caller_sub and caller_sub != session_state.get("student_id") and caller_sub != DEMO_STUDENT_ID and auth.get("role") != "parent":
+        if caller_sub and caller_sub != session_state.get("student_id"):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Access denied: caller does not own this tutoring session",
@@ -1485,7 +1532,7 @@ async def next_problem_endpoint(
 
         return {
             "status": "ok",
-            "current_problem": next_prob,
+            "current_problem": _public_problem(next_prob),
             "mastery_state": session_state["mastery_state"],
             "tutor_message": tutor_intro,
         }
@@ -1523,13 +1570,21 @@ async def upload_work(
         raise HTTPException(status_code=404, detail="Session not found")
 
     caller_sub = auth.get("sub")
-    if caller_sub and caller_sub != state.get("student_id") and caller_sub != DEMO_STUDENT_ID and auth.get("role") != "parent":
+    if caller_sub and caller_sub != state.get("student_id"):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Access denied: caller does not own this tutoring session",
         )
 
-    image_bytes = await file.read()
+    content_length = file.headers.get("content-length") if file.headers else None
+    if content_length:
+        try:
+            if int(content_length) > 10 * 1024 * 1024:
+                raise HTTPException(status_code=413, detail="Uploaded image is too large. Maximum allowed is 10MB.")
+        except ValueError:
+            pass
+
+    image_bytes = await file.read(10 * 1024 * 1024 + 1)
 
     # Safety: Validate image format, MIME type, and max 10MB file limit
     validate_image_upload(
@@ -1565,8 +1620,8 @@ async def upload_work(
                         session_id,
                         current_state.get("student_id"),
                     )
-                    if cloud_url:
-                        diagnosis["image_url"] = cloud_url
+                    # Keep handwritten work private; the CDN asset is not exposed
+                    # in the student response and is removed during account deletion.
                 except Exception as c_err:
                     print(f"[WARN] Cloudinary student work upload skipped/failed: {c_err}")
 
@@ -1673,7 +1728,7 @@ async def upload_work(
                         current_state["problems_attempted"] = current_state.get("problems_attempted", []) + [next_problem["id"]]
                         await asyncio.to_thread(save_session, session_id, current_state)
 
-                yield f"data: {json.dumps({'type': 'diagnosis', 'diagnosis': diagnosis, 'mastery_state': current_state['mastery_state'], 'active_misconceptions': current_state.get('active_misconceptions', {}), 'next_problem': current_state.get('current_problem')})}\n\n"
+                yield f"data: {json.dumps({'type': 'diagnosis', 'diagnosis': diagnosis, 'mastery_state': current_state['mastery_state'], 'active_misconceptions': current_state.get('active_misconceptions', {}), 'next_problem': _public_problem(current_state.get('current_problem'))})}\n\n"
                 yield f"data: {json.dumps({'type': 'done'})}\n\n"
         except asyncio.CancelledError:
             # Client disconnected or cancelled upload stream; terminate cleanly
@@ -1732,10 +1787,21 @@ async def get_summary(
     """Generate an LLM session summary for teacher/parent dashboard (protected by scoped session token)."""
     supabase = get_supabase()
 
+    session_owner = await db_exec(
+        supabase.table("sessions")
+        .select("id")
+        .eq("id", session_id)
+        .eq("student_id", student_id)
+        .limit(1)
+    )
+    if not session_owner.data:
+        raise HTTPException(status_code=404, detail="Session not found for this student")
+
     events = await db_exec(
         supabase.table("session_events")
         .select("*")
         .eq("session_id", session_id)
+        .eq("student_id", student_id)
         .order("created_at")
     )
 
@@ -1768,7 +1834,11 @@ async def get_summary(
 
 
 @app.post("/user/avatar/upload")
-async def upload_user_avatar(req: AvatarUploadRequest):
+async def upload_user_avatar(
+    req: AvatarUploadRequest,
+    authorization: Optional[str] = Header(None),
+    x_session_token: Optional[str] = Header(None),
+):
     """
     Upload a user profile avatar to Cloudinary CDN with automatic face-detection crop
     and WebP optimization. Falls back seamlessly to returning the input data if CDN is offline.
@@ -1776,7 +1846,19 @@ async def upload_user_avatar(req: AvatarUploadRequest):
     if not req.image or not req.image.strip():
         raise HTTPException(status_code=400, detail="Image data cannot be empty.")
 
-    clean_user = sanitize_input(req.user_id or "user", max_length=120)
+    token = authorization.strip() if authorization else (x_session_token.strip() if x_session_token else "")
+    if token.lower().startswith("bearer "):
+        token = token.split(None, 1)[1]
+    if not token:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    payload = verify_session_token(token)
+    caller_id = str(payload.get("sub") or "").strip()
+    if not caller_id:
+        raise HTTPException(status_code=401, detail="Authenticated subject is required")
+    if len(req.image) > 8 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="Avatar image is too large.")
+
+    clean_user = caller_id
     limiter.enforce_cooldown(
         key=f"avatar_{clean_user}",
         cooldown_seconds=1.0,
@@ -1811,11 +1893,26 @@ _elevenlabs_exhausted_until: float = 0.0
 _TTS_CACHE: dict[str, bytes] = {}
 
 @app.post("/tts")
-async def text_to_speech(text: str):
+async def text_to_speech(
+    text: str,
+    authorization: Optional[str] = Header(None),
+    x_session_token: Optional[str] = Header(None),
+):
     """Proxy ElevenLabs TTS to protect the API key with seamless fallback to browser synthesis on quota exhaustion."""
     global _elevenlabs_exhausted_until
     if not text or not text.strip():
         raise HTTPException(status_code=400, detail="Text cannot be empty for TTS synthesis.")
+
+    token = authorization.strip() if authorization else (x_session_token.strip() if x_session_token else "")
+    if token.lower().startswith("bearer "):
+        token = token.split(None, 1)[1]
+    if not token:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    payload = verify_session_token(token)
+    caller_id = str(payload.get("sub") or "").strip()
+    if not caller_id:
+        raise HTTPException(status_code=401, detail="Authenticated subject is required")
+    limiter.enforce_cooldown(f"tts_{caller_id}", cooldown_seconds=1.0, action="TTS request", max_per_minute=30)
     
     # If quota was recently exhausted (within 1 hour), signal frontend to use browser speech synthesis cleanly
     now = time.time()
@@ -1891,6 +1988,7 @@ async def text_to_speech(text: str):
 # ── Parent Dashboard & Child Management Endpoints ───────────────────────────
 
 CHILDREN_FALLBACK_FILE = BACKEND_DIR.parent / "data" / "children_store.json"
+_children_fallback_lock = threading.Lock()
 
 
 def _get_fallback_children(parent_id: str) -> list[dict]:
@@ -1905,38 +2003,44 @@ def _get_fallback_children(parent_id: str) -> list[dict]:
 
 
 def _save_fallback_child(record: dict):
-    CHILDREN_FALLBACK_FILE.parent.mkdir(parents=True, exist_ok=True)
-    current = []
-    if CHILDREN_FALLBACK_FILE.exists():
-        try:
-            with open(CHILDREN_FALLBACK_FILE, "r", encoding="utf-8") as f:
-                current = json.load(f)
-        except Exception:
-            current = []
-    current = [
-        c
-        for c in current
-        if not (
-            c.get("parent_id") == record.get("parent_id")
-            and c.get("student_id") == record.get("student_id")
-        )
-    ]
-    current.append(record)
-    with open(CHILDREN_FALLBACK_FILE, "w", encoding="utf-8") as f:
-        json.dump(current, f, indent=2)
+    with _children_fallback_lock:
+        CHILDREN_FALLBACK_FILE.parent.mkdir(parents=True, exist_ok=True)
+        current = []
+        if CHILDREN_FALLBACK_FILE.exists():
+            try:
+                with open(CHILDREN_FALLBACK_FILE, "r", encoding="utf-8") as f:
+                    current = json.load(f)
+            except Exception:
+                current = []
+        current = [
+            c
+            for c in current
+            if not (
+                c.get("parent_id") == record.get("parent_id")
+                and c.get("student_id") == record.get("student_id")
+            )
+        ]
+        current.append(record)
+        temp_path = CHILDREN_FALLBACK_FILE.with_suffix(".tmp")
+        with open(temp_path, "w", encoding="utf-8") as f:
+            json.dump(current, f, indent=2)
+        temp_path.replace(CHILDREN_FALLBACK_FILE)
 
 
 def _sync_purge_fallback_file(parent_id: str):
-    if not CHILDREN_FALLBACK_FILE.exists():
-        return
-    try:
-        with open(CHILDREN_FALLBACK_FILE, "r", encoding="utf-8") as f:
-            current = json.load(f)
-        cleaned = [c for c in current if c.get("parent_id") != parent_id]
-        with open(CHILDREN_FALLBACK_FILE, "w", encoding="utf-8") as f:
-            json.dump(cleaned, f, indent=2)
-    except Exception:
-        pass
+    with _children_fallback_lock:
+        if not CHILDREN_FALLBACK_FILE.exists():
+            return
+        try:
+            with open(CHILDREN_FALLBACK_FILE, "r", encoding="utf-8") as f:
+                current = json.load(f)
+            cleaned = [c for c in current if c.get("parent_id") != parent_id]
+            temp_path = CHILDREN_FALLBACK_FILE.with_suffix(".tmp")
+            with open(temp_path, "w", encoding="utf-8") as f:
+                json.dump(cleaned, f, indent=2)
+            temp_path.replace(CHILDREN_FALLBACK_FILE)
+        except Exception:
+            pass
 
 
 @app.post("/parent/add-child")
@@ -2314,12 +2418,26 @@ async def get_parent_children(
         # Load longitudinal student misconceptions
         active_misc = await asyncio.to_thread(get_student_misconceptions, student_id)
 
+        recent_events: list[dict] = []
+        try:
+            recent_res = await db_exec(
+                supabase.table("session_events")
+                .select("is_correct, created_at, problem_id")
+                .eq("student_id", student_id)
+                .order("created_at", desc=True)
+                .limit(6)
+            )
+            recent_events = recent_res.data or []
+        except Exception:
+            pass
+
         # Generate learner-aware alerts across all CCSS skills
         alerts, generic_alert_msg, has_gap, alert_msg, fraction_mastery, top_gap_skill_id, top_gap_skill_name = generate_student_alerts(
             student_id=student_id,
             all_mastery_map=all_mastery_map,
             days_since=days_since,
             active_misconceptions=active_misc,
+            recent_events=recent_events,
         )
 
         results.append({
@@ -2399,7 +2517,7 @@ async def get_child_details(
         ),
         db_exec(
             supabase.table("session_events")
-            .select("*, problems(title, text)")
+            .select("id, session_id, student_id, problem_id, attempt_text, is_correct, agent_response, created_at, problems(title, text)")
             .eq("student_id", child_id)
             .order("created_at", desc=True)
             .limit(20)
@@ -2549,6 +2667,13 @@ async def delete_parent_data(
         if student_ids:
             # Delete session events, sessions, and skill mastery profiles for these students
             for sid in student_ids:
+                other_links = await db_exec(
+                    supabase.table("children")
+                    .select("parent_id")
+                    .eq("student_id", sid)
+                    .neq("parent_id", parent_id)
+                )
+                evict_student_sessions(sid)
                 try:
                     ev_del = await db_exec(supabase.table("session_events").delete().eq("student_id", sid))
                     deleted_events += len(ev_del.data or [])
@@ -2564,6 +2689,16 @@ async def delete_parent_data(
                     deleted_mastery += len(m_del.data or [])
                 except Exception:
                     pass
+                if not other_links.data:
+                    try:
+                        await db_exec(supabase.table("student_game_progress").delete().eq("student_id", sid))
+                    except Exception:
+                        pass
+                    clear_student_misconceptions(sid)
+                    await asyncio.to_thread(cloudinary_service.delete_student_assets, sid)
+                # Summaries are keyed by session only, so clear the bounded cache
+                # after destructive deletion rather than risk retaining old data.
+                _SESSION_SUMMARY_CACHE.clear()
 
         # 2. Delete child link records from children table
         await db_exec(supabase.table("children").delete().eq("parent_id", parent_id))
@@ -2601,9 +2736,13 @@ async def delete_student_data(
     """Purge a student's practice history, skill mastery profile, and session logs (authenticated)."""
     supabase = get_supabase()
     try:
+        evict_student_sessions(student_id)
         await db_exec(supabase.table("session_events").delete().eq("student_id", student_id))
         await db_exec(supabase.table("sessions").delete().eq("student_id", student_id))
         await db_exec(supabase.table("student_skill_mastery").delete().eq("student_id", student_id))
+        await db_exec(supabase.table("student_game_progress").delete().eq("student_id", student_id))
+        clear_student_misconceptions(student_id)
+        await asyncio.to_thread(cloudinary_service.delete_student_assets, student_id)
         return {"status": "ok", "message": "Student practice sessions, events, and skill mastery profile purged."}
     except Exception as e:
         raise HTTPException(500, detail=f"Failed to purge student data: {e}")
@@ -2642,7 +2781,8 @@ async def neo_chat(
     elif x_session_token:
         token = x_session_token.strip()
 
-    client_identifier = req.visitor_id or x_visitor_id or (request.client.host if request.client else "visitor_anon")
+    trusted_client_identifier = request.client.host if request.client else "visitor_anon"
+    client_identifier = req.visitor_id or x_visitor_id or trusted_client_identifier
 
     if token:
         try:
@@ -2661,20 +2801,19 @@ async def neo_chat(
             else:
                 user_context["student_id"] = sub
                 client_identifier = f"student_{sub}"
+        except HTTPException:
+            raise
         except Exception:
-            # Check for demo user token or decode claims
-            token_lower = token.lower()
-            DEMO_PARENT = "99999999-8888-7777-6666-555555555555"
-            DEMO_STUDENT = "24e836e3-3b42-41a0-8a27-222f883eaa10"
-            if "parent" in token_lower and ("demo" in token_lower or DEMO_PARENT in token_lower):
-                user_context = {"role": "parent", "name": "Demo Parent", "authenticated": True, "parent_id": DEMO_PARENT}
-                client_identifier = "demo_parent"
-            elif "student" in token_lower and ("demo" in token_lower or DEMO_STUDENT in token_lower):
-                user_context = {"role": "student", "name": "Demo Student", "authenticated": True, "student_id": DEMO_STUDENT}
-                client_identifier = "demo_student"
+            raise HTTPException(status_code=401, detail="Invalid authentication token")
 
     # 2. Rate Limiting Protection (burst: 1s, window: 30 msgs/min for auth, 20 msgs/min for guests)
     max_rate = 35 if user_context["authenticated"] else 20
+    if not user_context["authenticated"]:
+        limiter.enforce_auth_rate_limit(
+            key=f"neo_ip_{trusted_client_identifier}",
+            max_attempts=60,
+            window_seconds=60.0,
+        )
     limiter.enforce_cooldown(
         key=f"neo_{client_identifier}",
         cooldown_seconds=1.0,

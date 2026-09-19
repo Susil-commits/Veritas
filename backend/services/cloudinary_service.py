@@ -114,6 +114,7 @@ class CloudinaryService:
                 folder=folder,
                 public_id=f"{session_id[:8]}_{timestamp}",
                 overwrite=True,
+                type="authenticated",
                 transformation=[
                     {"quality": "auto:good", "fetch_format": "auto"},
                 ],
@@ -122,6 +123,24 @@ class CloudinaryService:
         except Exception as e:
             print(f"[WARN] CloudinaryService: Student work upload failed for session {session_id}: {e}")
             return None
+
+    def delete_student_assets(self, student_id: str) -> None:
+        """Best-effort removal of student-owned images during account deletion."""
+        if not self.is_available or cloudinary is None or not student_id:
+            return
+        try:
+            from cloudinary import api as cloudinary_api
+            cloudinary_api.delete_resources_by_prefix(
+                f"veritas/work/{student_id.replace(' ', '_')}",
+                resource_type="image",
+                type="authenticated",
+            )
+            cloudinary_api.delete_resources(
+                [f"veritas/avatars/avatar_{student_id}"],
+                resource_type="image",
+            )
+        except Exception as e:
+            print(f"[WARN] CloudinaryService: Student asset deletion skipped: {e}")
 
 
 # Singleton instance

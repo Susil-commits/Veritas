@@ -33,10 +33,10 @@
 
 Instead of solving problems for the learner, Veritas employs:
 - **Socratic Active Inquiry**: Multi-turn dialogue structured through a compiled **LangGraph state machine** that provides scaffolded conceptual hints without ever revealing calculations or final numbers.
-- **Multimodal Visual Diagnosis**: Camera-based recognition of student handwritten scratchpad work using **Google Gemini 3.6 Flash**, locating calculation errors with normalized coordinate bounding reticles and mapping them to empirical misconception taxonomies.
+- **Multimodal Visual Diagnosis**: Camera-based recognition of student handwritten scratchpad work using the configured Google Gemini chat/vision models, locating calculation errors with normalized coordinate bounding reticles and mapping them to empirical misconception taxonomies.
 - **Calibrated Cognitive Modeling**: Tracking latent knowledge mastery across 10 Common Core State Standards (CCSS) using **Bayesian Knowledge Tracing (BKT)**, fitted on empirical student interaction sequences via bounded Maximum Likelihood Estimation (MLE).
 - **Misconception-Targeted Adaptive RAG**: Dynamic problem retrieval from a **pgvector** embedding bank using a composite utility function that balances semantic relevance, error remediation, and Zone of Proximal Development (ZPD) difficulty.
-- **Live Parent Transparency**: A real-time 10-skill CCSS mastery radar chart synchronized through **Supabase Realtime WebSockets** with automated inactivity watchdog alerts.
+- **Live Parent Transparency**: A 10-skill CCSS mastery radar chart backed by Supabase data with inactivity and learner-progress alerts.
 
 ---
 
@@ -82,7 +82,7 @@ Veritas delivers a comprehensive, multi-tiered architecture that addresses each 
 
 ### 2. Handwritten Scratchpad Vision Diagnostic Agent
 - Students photograph their physical handwritten math work directly from their mobile device or webcam.
-- **Gemini 3.6 Flash Multimodal OCR** transcribes handwritten calculations step-by-step, contrasts each step against canonical mathematical rules, and pinpoints the exact line where the logical break occurred.
+- **Configured Gemini vision model** transcribes handwritten calculations step-by-step, contrasts each step against canonical mathematical rules, and pinpoints the exact line where the logical break occurred.
 - Outputs normalized visual bounding reticles `[ymin, xmin, ymax, xmax]` directly onto the frontend canvas, visually highlighting errors while classifying the underlying misconception (e.g., `fraction_inversion`, `denominator_addition`, `variable_coefficient_ignored`).
 
 ### 3. Calibrated Bayesian Knowledge Tracing (BKT)
@@ -97,13 +97,13 @@ Veritas delivers a comprehensive, multi-tiered architecture that addresses each 
 - Connects diagnosed errors directly to curriculum progression. Misconceptions are embedded into a dense 768-dimensional vector space using `models/gemini-embedding-001`.
 - An adaptive utility ranking function scores candidate problems from **pgvector** based on semantic relevance, diagnosed error tags, and the student's Zone of Proximal Development (ZPD), delivering targeted remediation before advancing.
 
-### 5. Real-Time Parent Radar & Inactivity Watchdog
+### 5. Parent Radar & Inactivity Alerts
 - A live 10-skill CCSS radar chart rendered via SVG updates instantaneously as the child solves problems, powered by **Supabase Realtime WebSockets**.
 - Automated inactivity background tasks monitor student engagement and alert parents if learning sessions stall.
 
 ### 6. Gamified Math Arcade with Cross-Session Persistence
 - 7 progressive game levels covering foundational arithmetic through multi-step pre-algebra.
-- Backed by a dual-tier persistence engine: sub-millisecond RAM caching backed by Supabase `sessions.state` JSONB and local disk fallbacks, ensuring students never lose progress across page reloads or network drops.
+- Backed by RAM caching with Supabase `sessions.state` JSONB as the authoritative persistent store and Redis/local disk fallbacks for outages and development.
 
 ---
 
@@ -132,7 +132,7 @@ flowchart TD
         subgraph LangGraphSM ["LangGraph State Machine Orchestrator"]
             StateNode["Session State Machine"]
             SafetyNode["Boundary Guard Node"]
-            TutorNode["Socratic Tutor Agent (Gemini 3.6 Flash)"]
+            TutorNode["Socratic Tutor Agent (configured Gemini model)"]
         end
         VisionAgent["Diagnostic Vision Agent (Gemini OCR + Reticle)"]
         ContentAgent["Adaptive Content Agent (ZPD + RAG)"]
@@ -201,7 +201,7 @@ flowchart TD
 
 #### Part 3: Multi-Agent Orchestration Layer
 - **LangGraph State Machine Orchestrator**: The conversational tutoring flow at `/session/message` is compiled as a cyclical `StateGraph`. It manages student message history, current problem state, turn attempt counts, and safety intervention branches.
-- **Socratic Tutor Agent**: Powered by **Gemini 3.6 Flash**. Prompt-engineered with strict pedagogical rules: never reveal final answers, provide single-concept guiding questions, adapt tone to student frustration, and reference student scratchpad observations.
+- **Socratic Tutor Agent**: Powered by the configured Gemini model. Prompt-engineered with strict pedagogical rules: never reveal final answers, provide single-concept guiding questions, adapt tone to student frustration, and reference student scratchpad observations.
 - **Safety Boundary Agent**: Acts as an active circuit breaker, evaluating candidate tutor outputs against canonical solutions. If a leak is detected, it overrides the stream with a foundational diagnostic question.
 - **Diagnostic Vision Agent**: Invoked at `/session/upload-work`. Processes uploaded handwritten work, conducts step-by-step mathematical OCR, detects the exact erroneous step, maps the mistake to an educational misconception category, and returns normalized bounding coordinates.
 - **Adaptive Content Agent**: Invoked at `/session/next-problem`. Coordinates candidate retrieval from the 208-problem curriculum bank using pgvector embeddings and adaptive utility scoring.
@@ -213,7 +213,7 @@ flowchart TD
 - **Composite Pedagogical Utility Scorer**: Ranks candidate problems across semantic similarity, diagnosed error alignment, and individual ZPD difficulty fit.
 
 #### Part 5: Persistence, Vector Storage & Cloud Services
-- **PostgreSQL with pgvector**: Stores structured parent-child profiles, game achievements, problem banks, and 768-dimensional dense vector embeddings indexed via HNSW / Cosine distance (`<->`).
+- **PostgreSQL with pgvector**: Stores structured parent-child profiles, game achievements, problem banks, and 768-dimensional dense vector embeddings indexed via IVFFLAT / cosine distance.
 - **Supabase Realtime**: Listens to PostgreSQL Change-Data-Capture (CDC) events on student progress tables and broadcasts WebSocket events directly to the frontend radar chart.
 - **Upstash Redis**: Manages distributed session storage, LLM response caching, and rate limiting.
 - **Cloudinary CDN**: Ingests, optimizes, and serves student scratchpad images and profile avatars with automated WebP format selection.
@@ -230,8 +230,8 @@ Veritas integrates both state-of-the-art foundation models and specialized mathe
 ├──────────────────────────┬─────────────────────────────┬────────────────────┤
 │ Model                    │ Type / Architecture         │ Primary Role       │
 ├──────────────────────────┼─────────────────────────────┼────────────────────┤
-│ Gemini 3.6 Flash         │ Multimodal LLM              │ Socratic Dialogue  │
-│ Gemini 3.6 Flash (Vision)│ Vision-Language Model       │ Scratchpad OCR &   │
+│ Configured Gemini model  │ Multimodal LLM              │ Socratic Dialogue  │
+│ Configured Gemini vision │ Vision-Language Model       │ Scratchpad OCR &   │
 │                          │                             │ Error Localization │
 │ gemini-embedding-001     │ Dense 768-dim Embeddings    │ Semantic Vector RAG│
 │ Bayesian Knowledge       │ Probabilistic Hidden Markov │ Latent Competency  │
@@ -478,9 +478,9 @@ Every cloud service and infrastructure component in Veritas was selected to sati
 
 | Service / Provider | Architectural Role | Why Configured (Engineering & Pedagogical Rationale) |
 |---|---|---|
-| **Google Gemini 3.6 Flash** | Primary Dialogue & Vision Engine | Provides high-speed multimodal token streaming and advanced visual OCR. It accurately transcribes messy student handwriting, outputs strict structured JSON bounding reticles, and sustains Socratic dialogue at sub-second latency. |
+| **Configured Google Gemini models** | Primary Dialogue & Vision Engine | Provides multimodal dialogue and visual OCR with structured diagnostic output. |
 | **models/gemini-embedding-001** | Dense Vector Representation | Generates 768-dimensional embeddings for math problem text and student misconception queries. Enables semantic similarity matching against curriculum databases via vector cosine distance. |
-| **Supabase (PostgreSQL + pgvector)** | Relational Persistence & Vector Store | Combines relational integrity for student profiles, parent-child linkages, and BKT mastery states with vector similarity searching via `pgvector` HNSW indexes (`<->`). Provides defense-in-depth via Row-Level Security (RLS). |
+| **Supabase (PostgreSQL + pgvector)** | Relational Persistence & Vector Store | Combines relational integrity for student profiles, parent-child linkages, and BKT mastery states with vector similarity searching via `pgvector` IVFFLAT indexes. Provides defense-in-depth via Row-Level Security (RLS). |
 | **Supabase Realtime (WebSockets)** | Live Event Replication | Subscribes frontend clients to database change-data-capture (CDC) events. Powers instantaneous SVG radar chart animations when mastery probabilities update, eliminating polling overhead. |
 | **Upstash Redis** | Distributed Cache & Rate Limiting | Provides serverless, low-latency Redis caching for LLM responses, shared session states, and distributed token-bucket rate limiting across horizontally scaled backend containers. Includes an automatic in-memory fallback. |
 | **Cloudinary** | Media Asset Optimization & CDN | Manages student handwritten work uploads and user avatars. Performs automated face-detection cropping, WebP format conversion, and responsive CDN delivery, preventing heavy image payloads on backend servers. |
