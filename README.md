@@ -29,7 +29,7 @@
 
 ## 1. Introduction
 
-**Veritas** (also developed as **AINerd**) is an enterprise-grade, voice-first AI Socratic Math Tutor engineered to emulate an elite 1-on-1 human educator. Traditional AI educational tools function as calculation engines—spoon-feeding final answers and completing homework on behalf of students. Veritas operates under a foundational pedagogical mandate: **zero answer leakage**.
+**Veritas** is an enterprise-grade, voice-first AI Socratic Math Tutor engineered to emulate an elite 1-on-1 human educator. Traditional AI educational tools function as calculation engines—spoon-feeding final answers and completing homework on behalf of students. Veritas operates under a foundational pedagogical mandate: **zero answer leakage**.
 
 Instead of solving problems for the learner, Veritas employs:
 - **Socratic Active Inquiry**: Multi-turn dialogue structured through a compiled **LangGraph state machine** that provides scaffolded conceptual hints without ever revealing calculations or final numbers.
