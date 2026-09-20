@@ -602,5 +602,3 @@ async def verify_student_caller(
         )
 
     return verify_session_token(token)
-
-

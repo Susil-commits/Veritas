@@ -147,6 +147,8 @@ async def _update_mastery_for_skill(session_state: dict, skill_id: str, attempt_
         # Commit in-memory state only after successful DB write
         session_state["current_problem_credited"] = True
         session_state.setdefault("mastery_state", {})[skill_id] = round(new_m, 4)
+        # Invalidate stale session summary so the parent dashboard reflects the new mastery
+        _SESSION_SUMMARY_CACHE.pop(session_state.get("session_id", ""), None)
     except Exception as e:
         logger.warning("Failed to persist updated mastery to Supabase; in-memory state NOT mutated: %s", e)
 
@@ -1898,6 +1900,13 @@ async def get_summary(
         .eq("student_id", student_id)
         .order("created_at")
     )
+
+    # Skip LLM call if no events yet — student hasn't attempted any problem
+    if not events.data:
+        return {
+            "summary": f"{student_id}'s session is just getting started! No problems have been attempted yet.",
+            "events": [],
+        }
 
     # Return cached summary if already generated for this session to save LLM quota
     if session_id in _SESSION_SUMMARY_CACHE:

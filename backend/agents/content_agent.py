@@ -3,6 +3,7 @@ Content Agent — RAG-based problem selection using pgvector + mastery state.
 Picks the NEXT problem targeted at the student's diagnosed skill gap.
 """
 # pyright: reportMissingImports=false
+import hashlib
 import os
 import re
 import json
@@ -20,11 +21,26 @@ from config import EMBEDDING_MODEL, EMBEDDING_DIMENSION, CHAT_MODEL, CHAT_MODEL_
 EMBEDDING_MODEL_NAME: str = EMBEDDING_MODEL
 
 
-# In-memory LRU-style embedding cache to prevent rate-limit spikes (e.g. 100 RPM quota)
+# In-memory FIFO embedding cache to prevent rate-limit spikes (e.g. 100 RPM quota).
+# Evicts the oldest-inserted entry when the 200-item limit is reached.
 _EMBEDDING_CACHE: dict[str, list[float]] = {}
 
+# Singleton Gemini embedding client — constructed once at first use, reused for all subsequent
+# cache misses. Avoids repeated gRPC channel/HTTP client setup overhead per embed_text() call.
+_EMBEDDING_CLIENT: GoogleGenerativeAIEmbeddings | None = None
 
-import hashlib
+
+def _get_embedding_client() -> GoogleGenerativeAIEmbeddings:
+    """Return the module-level singleton GoogleGenerativeAIEmbeddings client, creating it on first call."""
+    global _EMBEDDING_CLIENT
+    if _EMBEDDING_CLIENT is None:
+        api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY", "")
+        _EMBEDDING_CLIENT = GoogleGenerativeAIEmbeddings(
+            model=EMBEDDING_MODEL_NAME,
+            google_api_key=SecretStr(api_key),
+        )
+    return _EMBEDDING_CLIENT
+
 
 def _deterministic_mock_embedding(text: str, dim: int = EMBEDDING_DIMENSION) -> list[float]:
     """
@@ -43,7 +59,7 @@ def _deterministic_mock_embedding(text: str, dim: int = EMBEDDING_DIMENSION) -> 
 
 def embed_text(text: str) -> list[float]:
     """Embed a text string using Gemini embedding model with caching and zero-credit test bypass."""
-    bounded_text = str(text or "")[:2000]
+    bounded_text = (text or "")[:2000]
     cache_key = hashlib.sha256(bounded_text.encode("utf-8")).hexdigest()
     cached = _EMBEDDING_CACHE.get(cache_key)
     if cached is not None:
@@ -62,11 +78,8 @@ def embed_text(text: str) -> list[float]:
         return res
 
     try:
-        embeddings = GoogleGenerativeAIEmbeddings(
-            model=EMBEDDING_MODEL_NAME,
-            google_api_key=SecretStr(api_key),
-        )
-        res = embeddings.embed_query(bounded_text, output_dimensionality=EMBEDDING_DIMENSION)
+        client = _get_embedding_client()
+        res = client.embed_query(bounded_text, output_dimensionality=EMBEDDING_DIMENSION)
     except Exception as e:
         print(f"[WARN] Gemini embedding API call failed ({e}); using zero-credit deterministic vector.")
         res = _deterministic_mock_embedding(bounded_text)
@@ -488,7 +501,7 @@ Keep it under 150 words total. Warm, specific, actionable."""
                 max_retries=0,
                 timeout=10,
             )
-            response = llm.invoke(messages)
+            response = llm.invoke(messages)  # type: ignore[arg-type]
             text = extract_clean_text(response.content)
             if text:
                 return text

@@ -20,7 +20,7 @@ MISCONCEPTION LIBRARY (use these categories when diagnosing):
 1. "sign_flip_division_negative" — Student flips the inequality/sign when dividing by a positive (should only flip for negative)
    Example: 2x < 8 → student writes x > 4 instead of x < 4
 
-2. "fraction_inversion" — Student invides numerator and denominator when they shouldn't
+2. "fraction_inversion" — Student inverts numerator and denominator when they shouldn't
    Example: 3/4 + 1/4 → student computes 4/3 + 4/1
 
 3. "wrong_operation_keyword" — Student uses wrong operation despite correct keywords (e.g., "total" → multiplication instead of addition)
@@ -230,7 +230,7 @@ Target Skill: {skill_id}"""
     for m_name in models_to_try:
         try:
             llm = build_vision_llm(m_name)
-            response = llm.invoke(messages)
+            response = llm.invoke(messages)  # type: ignore[arg-type]
             raw = extract_clean_text(response.content)
             if raw:
                 break
@@ -259,7 +259,7 @@ Target Skill: {skill_id}"""
             res["localization_confidence"] = conf
             return res
         elif "image" in err_str or "decode" in err_str or "format" in err_str:
-            res: dict[str, Any] = {
+            res = {
                 "ocr_text": "[Image format unreadable]",
                 "is_correct": False,
                 "step_number": 1,
@@ -276,7 +276,7 @@ Target Skill: {skill_id}"""
             res["localization_confidence"] = conf
             return res
         else:
-            res: dict[str, Any] = {
+            res = {
                 "ocr_text": "[Analysis temporarily unavailable]",
                 "is_correct": False,
                 "step_number": 1,

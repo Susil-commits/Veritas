@@ -386,7 +386,7 @@ def save_session(session_id: str, state: Any) -> None:
     try:
         redis_service.set_json(f"veritas:session:{session_id}", cleaned_state, ex=7 * 86400)
     except Exception as re_err:
-        pass
+        print(f"[DEBUG] SessionManager: Redis sync skipped for session {session_id}: {re_err}")
 
     # 4. Persist to Supabase sessions table
     try:

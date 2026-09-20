@@ -62,11 +62,9 @@ class RateLimiter:
                     headers={"Retry-After": "30"},
                 )
 
-            # Record this request
-            active_history.append(now)
-            self._request_history[key] = active_history
-            self._last_request_time[key] = now
-
+            # Check distributed Redis rate limit BEFORE committing local state.
+            # If Redis rejects the request, we must NOT record it locally — otherwise
+            # the local counter would be inflated, accelerating future false lockouts.
             if redis_service.is_connected and cooldown_seconds >= 1.0:
                 allowed, _remaining = redis_service.check_rate_limit(
                     key=f"cooldown:{key}",
@@ -79,6 +77,11 @@ class RateLimiter:
                         detail=f"Rate limit exceeded: maximum {max_per_minute} {action} per minute reached. Please pause for a moment.",
                         headers={"Retry-After": "30"},
                     )
+
+            # Record this request only after all checks pass
+            active_history.append(now)
+            self._request_history[key] = active_history
+            self._last_request_time[key] = now
 
             self._cleanup_if_needed(now)
 
@@ -109,10 +112,7 @@ class RateLimiter:
                     headers={"Retry-After": str(remaining_lockout)},
                 )
 
-            active_attempts.append(now)
-            self._request_history[auth_key] = active_attempts
-            self._last_request_time[auth_key] = now
-
+            # Check distributed Redis rate limit BEFORE committing local state.
             if redis_service.is_connected:
                 allowed, _remaining = redis_service.check_rate_limit(
                     key=f"auth:{key}",
@@ -125,6 +125,11 @@ class RateLimiter:
                         detail="Too many authentication attempts. Please try again later.",
                         headers={"Retry-After": str(max(1, int(window_seconds)))},
                     )
+
+            # Record attempt only after all checks pass
+            active_attempts.append(now)
+            self._request_history[auth_key] = active_attempts
+            self._last_request_time[auth_key] = now
 
             self._cleanup_if_needed(now)
 

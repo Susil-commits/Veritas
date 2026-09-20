@@ -2,7 +2,9 @@
 Centralized AI Model & Infrastructure Configuration — Veritas / AINerd.
 Single source of truth for Gemini model names, embedding specifications, and cascades.
 """
+import ast
 import os
+from typing import Any
 
 # Primary chat & Socratic dialogue LLM (500 RPD / 15 RPM on Free Tier)
 CHAT_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite")
@@ -14,24 +16,25 @@ VISION_MODEL: str = os.getenv("GEMINI_VISION_MODEL", "gemini-3.5-flash-lite")
 EMBEDDING_MODEL: str = os.getenv("GEMINI_EMBEDDING_MODEL", "models/gemini-embedding-001")
 EMBEDDING_DIMENSION: int = int(os.getenv("EMBEDDING_DIMENSION", "768"))
 
-# Resilience cascade for chat endpoints when primary model encounters quota/maintenance
-CHAT_MODEL_CASCADE: list[str] = [
-    CHAT_MODEL,
-    "gemini-3.5-flash-lite",
-    "gemini-3.1-flash-lite",
-    "gemini-flash-lite-latest",
-]
+# Cascade fallback models for chat — override via .env if needed
+# Priority: GEMINI_MODEL → GEMINI_MODEL_FALLBACK_1 → GEMINI_MODEL_FALLBACK_2
+_CHAT_FALLBACK_1: str = os.getenv("GEMINI_MODEL_FALLBACK_1", "gemini-3.1-flash-lite")
+_CHAT_FALLBACK_2: str = os.getenv("GEMINI_MODEL_FALLBACK_2", "gemini-flash-lite-latest")
 
-# Resilience cascade for OCR and vision endpoints
-VISION_MODEL_CASCADE: list[str] = [
-    VISION_MODEL,
-    "gemini-3.5-flash-lite",
-    "gemini-3.1-flash-lite",
-    "gemini-flash-lite-latest",
-]
+# dict.fromkeys preserves order and deduplicates (e.g. if primary == fallback_1)
+CHAT_MODEL_CASCADE: list[str] = list(dict.fromkeys(
+    m for m in [CHAT_MODEL, _CHAT_FALLBACK_1, _CHAT_FALLBACK_2] if m
+))
 
-import ast
-from typing import Any
+# Cascade fallback models for vision/OCR — override via .env if needed
+# Priority: GEMINI_VISION_MODEL → GEMINI_VISION_MODEL_FALLBACK_1 → GEMINI_VISION_MODEL_FALLBACK_2
+_VISION_FALLBACK_1: str = os.getenv("GEMINI_VISION_MODEL_FALLBACK_1", "gemini-3.1-flash-lite")
+_VISION_FALLBACK_2: str = os.getenv("GEMINI_VISION_MODEL_FALLBACK_2", "gemini-flash-lite-latest")
+
+VISION_MODEL_CASCADE: list[str] = list(dict.fromkeys(
+    m for m in [VISION_MODEL, _VISION_FALLBACK_1, _VISION_FALLBACK_2] if m
+))
+
 
 def extract_clean_text(content: Any) -> str:
     """
