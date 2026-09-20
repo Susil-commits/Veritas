@@ -67,6 +67,7 @@ from auth import (
     verify_student_caller,
     verify_session_token,
     is_session_secret_configured,
+    revoke_session_token,
 )
 from agents.neo_agent import run_neo_agent, DEFAULT_SUGGESTIONS
 from rate_limiter import limiter
@@ -131,21 +132,23 @@ async def _update_mastery_for_skill(session_state: dict, skill_id: str, attempt_
         )
         return
 
-    session_state["current_problem_credited"] = True
     old_m = session_state.get("mastery_state", {}).get(skill_id, 0.3)
     new_m = update_mastery(old_m, True, skill_id, attempt_type=attempt_type)
-    session_state.setdefault("mastery_state", {})[skill_id] = round(new_m, 4)
+    # Persist to DB BEFORE committing in-memory mutation so we can roll back on failure
     try:
         supabase = get_supabase()
         await asyncio.to_thread(
             lambda: supabase.table("student_skill_mastery").upsert({
                 "student_id": session_state["student_id"],
                 "skill_id": skill_id,
-                "mastery_prob": session_state["mastery_state"][skill_id],
+                "mastery_prob": round(new_m, 4),
             }, on_conflict="student_id,skill_id").execute()
         )
+        # Commit in-memory state only after successful DB write
+        session_state["current_problem_credited"] = True
+        session_state.setdefault("mastery_state", {})[skill_id] = round(new_m, 4)
     except Exception as e:
-        logger.warning("Failed to persist updated mastery to Supabase: %s", e)
+        logger.warning("Failed to persist updated mastery to Supabase; in-memory state NOT mutated: %s", e)
 
 
 # SSE Response headers to prevent proxy/CDN buffering (Render, Cloudflare, Nginx)
@@ -192,7 +195,8 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="AI Socratic Tutor API", lifespan=lifespan)
 
-# CORS — allow frontend (local, custom FRONTEND_URL, and all Vercel domains)
+# CORS — allow frontend origins explicitly via FRONTEND_URL env var (comma-separated).
+# For Vercel deployments, set FRONTEND_URL=https://your-app.vercel.app in the backend environment.
 frontend_env = os.getenv("FRONTEND_URL", "")
 origins = [
     "http://localhost:5173",
@@ -218,6 +222,19 @@ app.add_middleware(
 # Enforce security response headers on all routes (Defense-in-depth)
 @app.middleware("http")
 async def add_security_headers(request: Request, call_next):
+    # Pre-check upload size before multipart parsing to prevent memory abuse at the transport layer
+    if request.url.path == "/session/upload-work":
+        content_length = request.headers.get("content-length")
+        if content_length:
+            try:
+                if int(content_length) > 10 * 1024 * 1024 + 1:
+                    from fastapi.responses import JSONResponse
+                    return JSONResponse(
+                        status_code=413,
+                        content={"detail": "Uploaded image exceeds 10MB limit."},
+                    )
+            except ValueError:
+                pass
     response = await call_next(request)
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
@@ -243,13 +260,18 @@ async def get_security_status(
     authorization: Optional[str] = Header(None),
     x_session_token: Optional[str] = Header(None),
 ):
-    """Real-time platform security, guardrails status, and defense health."""
+    """Real-time platform security, guardrails status, and defense health. Restricted to parent role."""
     token = authorization.strip() if authorization else (x_session_token.strip() if x_session_token else "")
     if token.lower().startswith("bearer "):
         token = token.split(None, 1)[1]
     if not token:
         raise HTTPException(status_code=401, detail="Authentication required")
-    verify_session_token(token)
+    payload = verify_session_token(token)
+    if payload.get("role") != "parent":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Security telemetry is restricted to parent accounts.",
+        )
     return get_security_telemetry()
 
 
@@ -481,11 +503,16 @@ GAME_LEVELS_CONFIG = [
 ]
 
 
+# Maximum score accepted per game session submission — prevents absurd client-side score inflation
+MAX_SCORE_PER_GAME = int(os.getenv("MAX_SCORE_PER_GAME", "100000"))
+
 _games_store_cache: dict[str, Any] | None = None
 
 
 def _read_games_store() -> dict[str, Any]:
+    """Read games store, always under the lock to prevent race conditions across threads."""
     global _games_store_cache
+    # NOTE: Callers must NOT hold _games_store_lock when calling this — it acquires the lock internally.
     with _games_store_lock:
         if _games_store_cache is not None:
             return _games_store_cache
@@ -504,16 +531,18 @@ def _read_games_store() -> dict[str, Any]:
 
 
 def _write_games_store(data: dict[str, Any]) -> None:
+    """Write games store and invalidate the in-memory cache so the next read re-loads from disk."""
     global _games_store_cache
-    with _games_store_lock:
-        _games_store_cache = data
-        try:
-            tmp = GAMES_STORE_PATH.with_suffix(".tmp")
-            with open(tmp, "w", encoding="utf-8") as f:
-                json.dump(data, f, separators=(",", ":"))
-            tmp.replace(GAMES_STORE_PATH)
-        except Exception as e:
-            logger.warning("Error writing games store to %s: %s", GAMES_STORE_PATH, e)
+    # Caller MUST already hold _games_store_lock
+    try:
+        tmp = GAMES_STORE_PATH.with_suffix(".tmp")
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(data, f, separators=(",", ":"))
+        tmp.replace(GAMES_STORE_PATH)
+        # Invalidate cache after disk write so other workers re-load fresh data
+        _games_store_cache = None
+    except Exception as e:
+        logger.warning("Error writing games store to %s: %s", GAMES_STORE_PATH, e)
 
 
 def _remove_student_game_records(student_id: str) -> None:
@@ -717,13 +746,25 @@ async def record_game_score(
         raise HTTPException(403, "This game level is still locked. Complete the required curriculum first.")
     if req.score < 0:
         raise HTTPException(400, "Score must be non-negative")
+    if req.score > MAX_SCORE_PER_GAME:
+        raise HTTPException(422, f"Score {req.score} exceeds the maximum allowed per session ({MAX_SCORE_PER_GAME:,}).")
     if req.stars not in (1, 2, 3):
         raise HTTPException(400, "Stars must be between 1 and 3 (allowed: 1, 2, 3)")
 
     now_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
 
     with _games_store_lock:
-        store = _read_games_store()
+        # Re-read inside lock to get the freshest state (handles multi-thread writes)
+        _games_store_cache_inner: dict[str, Any] | None = None  # read directly from disk
+        if GAMES_STORE_PATH.exists():
+            try:
+                with open(GAMES_STORE_PATH, "r", encoding="utf-8") as _f:
+                    _loaded = json.load(_f)
+                    _games_store_cache_inner = _loaded if isinstance(_loaded, dict) else {}
+            except Exception:
+                pass
+        store: dict[str, Any] = _games_store_cache_inner or {}
+
         student_record = store.setdefault(clean_student_id, {})
         game_record = student_record.setdefault(clean_game_id, {
             "high_score": 0,
@@ -1186,15 +1227,30 @@ async def reset_session_endpoint(
     else:
         evict_student_sessions(clean_student_id)
 
-    # Stateless tokens cannot be individually revoked, so remove the old
-    # database sessions that would otherwise allow them to be rehydrated.
+    # Stateless tokens cannot be individually revoked, so we:
+    # 1. Delete the DB rows to prevent rehydration from Supabase.
+    # 2. Write revoked session IDs to a short-lived Redis blocklist so active tokens are rejected immediately.
     try:
         if req.session_id:
+            # Write revocation entry before deleting DB row
+            await asyncio.to_thread(revoke_session_token, req.session_id)
             await db_exec(supabase.table("session_events").delete().eq("session_id", req.session_id))
             await db_exec(supabase.table("sessions").delete().eq("id", req.session_id))
         else:
+            # Enumerate all student sessions and revoke each
+            try:
+                all_sess = await db_exec(
+                    supabase.table("sessions").select("id").eq("student_id", clean_student_id)
+                )
+                for sr in (all_sess.data or []):
+                    if sr.get("id"):
+                        await asyncio.to_thread(revoke_session_token, sr["id"])
+            except Exception as rev_e:
+                logger.warning("Could not enumerate sessions for revocation during full reset: %s", rev_e)
             await db_exec(supabase.table("session_events").delete().eq("student_id", clean_student_id))
             await db_exec(supabase.table("sessions").delete().eq("student_id", clean_student_id))
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error("Failed to invalidate old sessions during reset: %s", e)
         raise HTTPException(status_code=503, detail="Could not safely invalidate the previous session.")
@@ -1342,6 +1398,12 @@ async def send_message(
             "reason": injection_reason,
             "preview": clean_message[:80],
         })
+        # Hard-block: return the Socratic boundary response immediately without invoking the graph
+        async def _injection_stream() -> AsyncGenerator[str, None]:
+            yield f"data: {json.dumps({'type': 'response', 'content': SOCRATIC_BOUNDARY_RESPONSE, 'done': True})}\n\n"
+            yield f"data: {json.dumps({'type': 'done', 'mastery_state': session_state.get('mastery_state', {}), 'problem_solved': False})}\n\n"
+        return StreamingResponse(_injection_stream(), media_type="text/event-stream", headers=SSE_HEADERS)
+
     if is_harmful:
         record_security_event("harmful_content_flagged", {
             "session_id": req.session_id,
@@ -2149,33 +2211,12 @@ async def add_child(
         except Exception as e:
             print(f"[DEBUG] Search students table: {e}")
 
-    # Fallback search by student name if provided
-    if not student_id and req.child_name:
-        try:
-            found_name = await db_exec(
-                supabase.table("students")
-                .select("id, name")
-                .eq("name", req.child_name)
-                .limit(1)
-            )
-            if found_name.data:
-                student_id = found_name.data[0]["id"]
-        except Exception:
-            pass
+    # Name-based fallback removed: common names can match the wrong student.
+    # Only link by exact email address or UUID.
 
-    # 2. If not found in students table, fallback to search in Supabase Auth users
-    if not student_id:
-        try:
-            users = await asyncio.to_thread(supabase.auth.admin.list_users)
-            for u in users:
-                if getattr(u, "email", "").lower() == email_clean:
-                    student_id = u.id
-                    student_name = (
-                        getattr(u, "user_metadata", {}).get("name") or student_name
-                    )
-                    break
-        except Exception as e:
-            print(f"[WARN] Supabase admin user search: {e}")
+    # 2. If not found in students table by email, we do NOT scan auth admin users
+    #    (admin.list_users() is slow, expensive, and exposes account metadata).
+    #    The student must be registered in the students table to be linkable.
 
     # A student code must already belong to a real student. Never create a
     # new student when a parent enters an unknown UUID.
@@ -2315,10 +2356,13 @@ def generate_student_alerts(
         })
 
     # 4. Stagnation / Plateau Alert
+    # Only count events with explicit True/False correctness; skip NULL/None attempts
+    # (NULL events represent exploratory inputs or system events, not actual failures)
     if recent_events and len(recent_events) >= 4:
         recent_slice = recent_events[:6]
-        recent_correct = sum(1 for e in recent_slice if e.get("is_correct"))
-        if recent_correct == 0:
+        graded_events = [e for e in recent_slice if e.get("is_correct") is not None]
+        recent_correct = sum(1 for e in graded_events if e.get("is_correct") is True)
+        if len(graded_events) >= 2 and recent_correct == 0:
             stagnant_id = lowest_skill[0] if lowest_skill else None
             stagnant_name = lowest_skill[1] if lowest_skill else "Current Topic"
             alerts.append({
@@ -2700,85 +2744,114 @@ async def delete_parent_data(
     deleted_sessions = 0
     deleted_events = 0
     deleted_mastery = 0
+    deletion_errors: list[str] = []
 
+    # 1. Fetch children for this parent
     try:
-        # 1. Fetch children for this parent
         res = await db_exec(supabase.table("children").select("student_id").eq("parent_id", parent_id))
         student_ids = [c["student_id"] for c in (res.data or [])]
+    except Exception as e:
+        raise HTTPException(500, detail=f"Failed to retrieve child records: {e}")
 
-        if student_ids:
-            # Delete session events, sessions, and skill mastery profiles for these students
-            for sid in student_ids:
-                try:
-                    session_rows = await db_exec(
-                        supabase.table("sessions").select("id").eq("student_id", sid)
-                    )
-                    for session_row in session_rows.data or []:
-                        session_id = session_row.get("id")
-                        if session_id:
-                            evict_session(session_id)
-                except Exception as e:
-                    logger.warning("Could not evict all student sessions before deletion: %s", e)
+    if student_ids:
+        # Delete session events, sessions, and skill mastery profiles for these students
+        for sid in student_ids:
+            # Collect all session IDs for Redis revocation before deleting DB rows
+            session_id_list: list[str] = []
+            try:
+                session_rows = await db_exec(
+                    supabase.table("sessions").select("id").eq("student_id", sid)
+                )
+                for session_row in session_rows.data or []:
+                    s_id = session_row.get("id")
+                    if s_id:
+                        session_id_list.append(s_id)
+                        evict_session(s_id)
+            except Exception as e:
+                logger.warning("Could not evict all student sessions before deletion: %s", e)
+
+            other_links = None
+            try:
                 other_links = await db_exec(
                     supabase.table("children")
                     .select("parent_id")
                     .eq("student_id", sid)
                     .neq("parent_id", parent_id)
                 )
-                evict_student_sessions(sid)
+            except Exception as e:
+                deletion_errors.append(f"children_check:{sid}:{e}")
+
+            evict_student_sessions(sid)
+
+            try:
+                ev_del = await db_exec(supabase.table("session_events").delete().eq("student_id", sid))
+                deleted_events += len(ev_del.data or [])
+            except Exception as e:
+                deletion_errors.append(f"session_events:{sid}:{e}")
+
+            try:
+                sess_del = await db_exec(supabase.table("sessions").delete().eq("student_id", sid))
+                deleted_sessions += len(sess_del.data or [])
+            except Exception as e:
+                deletion_errors.append(f"sessions:{sid}:{e}")
+
+            try:
+                m_del = await db_exec(supabase.table("student_skill_mastery").delete().eq("student_id", sid))
+                deleted_mastery += len(m_del.data or [])
+            except Exception as e:
+                deletion_errors.append(f"mastery:{sid}:{e}")
+
+            if other_links is not None and not other_links.data:
                 try:
-                    ev_del = await db_exec(supabase.table("session_events").delete().eq("student_id", sid))
-                    deleted_events += len(ev_del.data or [])
-                except Exception:
-                    pass
+                    await db_exec(supabase.table("student_game_progress").delete().eq("student_id", sid))
+                except Exception as e:
+                    deletion_errors.append(f"game_progress:{sid}:{e}")
+                _remove_student_game_records(sid)
+                clear_student_misconceptions(sid)
                 try:
-                    sess_del = await db_exec(supabase.table("sessions").delete().eq("student_id", sid))
-                    deleted_sessions += len(sess_del.data or [])
-                except Exception:
-                    pass
-                try:
-                    m_del = await db_exec(supabase.table("student_skill_mastery").delete().eq("student_id", sid))
-                    deleted_mastery += len(m_del.data or [])
-                except Exception:
-                    pass
-                if not other_links.data:
-                    try:
-                        await db_exec(supabase.table("student_game_progress").delete().eq("student_id", sid))
-                    except Exception:
-                        pass
-                    _remove_student_game_records(sid)
-                    clear_student_misconceptions(sid)
                     await asyncio.to_thread(cloudinary_service.delete_student_assets, sid)
-                # Summaries are keyed by session only, so clear the bounded cache
-                # after destructive deletion rather than risk retaining old data.
-                _SESSION_SUMMARY_CACHE.clear()
+                except Exception as e:
+                    deletion_errors.append(f"cloudinary:{sid}:{e}")
 
-        # 2. Delete child link records from children table
+            # Summaries are keyed by session only, so clear the bounded cache
+            # after destructive deletion rather than risk retaining old data.
+            _SESSION_SUMMARY_CACHE.clear()
+
+    # 2. Delete child link records from children table
+    try:
         await db_exec(supabase.table("children").delete().eq("parent_id", parent_id))
-
-        # 3. Clean fallback file if present
-        await asyncio.to_thread(_sync_purge_fallback_file, parent_id)
-
-        record_security_event("user_data_deleted", {
-            "parent_id": parent_id,
-            "student_count": len(student_ids),
-            "sessions_purged": deleted_sessions,
-            "mastery_purged": deleted_mastery,
-        })
-
-        return {
-            "status": "ok",
-            "message": "All session activity, skill mastery profiles, and child links have been securely purged.",
-            "purged_records": {
-                "children_unlinked": len(student_ids),
-                "sessions_deleted": deleted_sessions,
-                "events_deleted": deleted_events,
-                "mastery_records_deleted": deleted_mastery,
-            }
-        }
     except Exception as e:
-        print(f"[ERROR] Failed to delete parent data: {e}")
-        raise HTTPException(500, detail=f"Failed to delete parent data: {str(e)}")
+        deletion_errors.append(f"children_links:{e}")
+
+    # 3. Clean fallback file if present
+    try:
+        await asyncio.to_thread(_sync_purge_fallback_file, parent_id)
+    except Exception as e:
+        deletion_errors.append(f"fallback_file:{e}")
+
+    record_security_event("user_data_deleted", {
+        "parent_id": parent_id,
+        "student_count": len(student_ids),
+        "sessions_purged": deleted_sessions,
+        "mastery_purged": deleted_mastery,
+        "partial_errors": deletion_errors,
+    })
+
+    status_code = 207 if deletion_errors else 200
+    response_body = {
+        "status": "partial" if deletion_errors else "ok",
+        "message": "All session activity, skill mastery profiles, and child links have been securely purged."
+                   + (f" {len(deletion_errors)} step(s) had errors." if deletion_errors else ""),
+        "purged_records": {
+            "children_unlinked": len(student_ids),
+            "sessions_deleted": deleted_sessions,
+            "events_deleted": deleted_events,
+            "mastery_records_deleted": deleted_mastery,
+        },
+        "errors": deletion_errors if deletion_errors else None,
+    }
+    from fastapi.responses import JSONResponse
+    return JSONResponse(content=response_body, status_code=status_code)
 
 
 @app.delete("/student/{student_id}/data")
@@ -2786,7 +2859,7 @@ async def delete_student_data(
     student_id: str,
     auth_payload: dict = Depends(verify_student_access),
 ):
-    """Purge a student's practice history, skill mastery profile, and session logs (authenticated)."""
+    """Purge a student's practice history, skill mastery profile, session logs, and local game cache (authenticated)."""
     supabase = get_supabase()
     try:
         evict_student_sessions(student_id)
@@ -2794,9 +2867,11 @@ async def delete_student_data(
         await db_exec(supabase.table("sessions").delete().eq("student_id", student_id))
         await db_exec(supabase.table("student_skill_mastery").delete().eq("student_id", student_id))
         await db_exec(supabase.table("student_game_progress").delete().eq("student_id", student_id))
+        # Also remove local games_store.json entry so deleted scores don't reappear from file cache
+        _remove_student_game_records(student_id)
         clear_student_misconceptions(student_id)
         await asyncio.to_thread(cloudinary_service.delete_student_assets, student_id)
-        return {"status": "ok", "message": "Student practice sessions, events, and skill mastery profile purged."}
+        return {"status": "ok", "message": "Student practice sessions, events, skill mastery profile, and game records purged."}
     except Exception as e:
         raise HTTPException(500, detail=f"Failed to purge student data: {e}")
 

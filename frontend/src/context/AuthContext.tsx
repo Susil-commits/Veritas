@@ -337,6 +337,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       if (data?.user) {
+        // Purge any stale demo session before establishing real authenticated state
+        // to prevent hybrid-identity where old demo ID/role leaks into authenticated API calls
+        localStorage.removeItem('veritas_demo_user')
+        localStorage.removeItem('ainerd_demo_user')
+
         setUser(data.user)
         setSession(data.session)
 

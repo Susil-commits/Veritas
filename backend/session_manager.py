@@ -109,15 +109,26 @@ MAX_SESSION_LOCKS = int(os.getenv("MAX_SESSION_LOCKS", "10000"))
 
 def get_session_lock(session_id: str) -> asyncio.Lock:
     """Return an asyncio.Lock tied to session_id to serialize read-modify-write state operations."""
+    _LOCK_IDLE_TTL = 7200  # 2 hours — locks not accessed for this long are eligible for eviction
     with _locks_guard:
+        now = time.time()
         if session_id not in _session_locks:
             _session_locks[session_id] = asyncio.Lock()
-        _session_lock_times[session_id] = time.time()
+        _session_lock_times[session_id] = now
         if len(_session_locks) > MAX_SESSION_LOCKS:
+            # Prefer evicting locks that are (a) unlocked AND (b) oldest by last-access time
+            # Fallback: also evict locks idle for >2h even if they appear locked (stale context)
             stale_ids = sorted(_session_lock_times, key=_session_lock_times.get)
             for stale_id in stale_ids:
+                if stale_id == session_id:
+                    continue
                 stale_lock = _session_locks.get(stale_id)
-                if stale_id != session_id and stale_lock is not None and not stale_lock.locked():
+                if stale_lock is None:
+                    _session_lock_times.pop(stale_id, None)
+                    continue
+                last_access = _session_lock_times.get(stale_id, 0)
+                is_idle_too_long = (now - last_access) > _LOCK_IDLE_TTL
+                if not stale_lock.locked() or is_idle_too_long:
                     _session_locks.pop(stale_id, None)
                     _session_lock_times.pop(stale_id, None)
                 if len(_session_locks) <= MAX_SESSION_LOCKS:
@@ -191,11 +202,15 @@ except Exception as e:
 
 
 def _clean_state_for_persistence(state: Any) -> dict[str, Any]:
-    """Strip non-serializable elements like raw image bytes before JSON persistence and cap history."""
+    """Strip non-serializable elements, private problem metadata, and cap history before JSON persistence."""
     if not isinstance(state, dict):
         return {}
     cleaned = dict(state)
+    # Never persist raw image bytes
     cleaned["latest_image_bytes"] = None
+    # Strip the full private problem object (contains expected_steps, answer, solution, embedding)
+    # The public-facing current_problem is stored separately and is already sanitised by _public_problem()
+    cleaned.pop("current_problem_evaluation", None)
     if "conversation_history" in cleaned and isinstance(cleaned["conversation_history"], list):
         cleaned["conversation_history"] = cleaned["conversation_history"][-50:]
     return cleaned
@@ -409,7 +424,8 @@ def evict_session(session_id: str) -> None:
 
 
 def evict_student_sessions(student_id: str) -> None:
-    """Evict all cached and disk-persisted sessions belonging to a specific student."""
+    """Evict all cached, disk-persisted, and Redis sessions belonging to a specific student."""
+    # 1. Evict from in-memory cache (and Redis via evict_session)
     try:
         keys_to_evict = []
         for sid in _sessions_cache.keys_list():
@@ -421,6 +437,7 @@ def evict_student_sessions(student_id: str) -> None:
     except Exception as e:
         print(f"[WARN] SessionManager: Failed to evict student sessions from cache: {e}")
 
+    # 2. Evict from disk store
     global _disk_sessions_memory
     with _disk_lock:
         try:
@@ -438,6 +455,26 @@ def evict_student_sessions(student_id: str) -> None:
                     temp_path.replace(SESSIONS_STORE_PATH)
         except Exception as e:
             print(f"[WARN] SessionManager: Failed to remove student sessions from disk: {e}")
+
+    # 3. Also delete any Redis session keys for this student that were NOT in the memory cache
+    #    (handles sessions that were only present in Redis — e.g. after a worker restart).
+    try:
+        supabase = get_supabase()
+        db_sessions = (
+            supabase.table("sessions")
+            .select("id")
+            .eq("student_id", student_id)
+            .execute()
+        )
+        for row in (db_sessions.data or []):
+            sid = row.get("id")
+            if sid:
+                try:
+                    redis_service.delete(f"veritas:session:{sid}")
+                except Exception:
+                    pass
+    except Exception as e:
+        print(f"[WARN] SessionManager: Could not enumerate Supabase sessions for Redis cleanup: {e}")
 
 
 

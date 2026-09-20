@@ -10,16 +10,43 @@ import json
 import base64
 import time
 import secrets
+import logging
 from typing import Optional, Any
 from fastapi import Header, HTTPException, status, Query
 from pathlib import Path
 from dotenv import load_dotenv
+
+logger = logging.getLogger("veritas-backend")
 
 load_dotenv()
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 _EPHEMERAL_KEY: Optional[str] = None
 _JWKS_CLIENT: Any = None
+
+
+def _is_session_revoked(session_id: str) -> bool:
+    """Check the Redis revocation blocklist. Returns True if the session was explicitly revoked (e.g. after reset)."""
+    if not session_id:
+        return False
+    try:
+        from services.redis_service import redis_service
+        val = redis_service.get_json(f"veritas:revoked:{session_id}")
+        return val is not None
+    except Exception:
+        # If Redis is unavailable, fail open (don't block valid users due to infra issue)
+        return False
+
+
+def revoke_session_token(session_id: str, ttl_seconds: int = 86400) -> None:
+    """Write session_id to the Redis revocation blocklist with a 24-hour TTL."""
+    if not session_id:
+        return
+    try:
+        from services.redis_service import redis_service
+        redis_service.set_json(f"veritas:revoked:{session_id}", {"revoked": True}, ex=ttl_seconds)
+    except Exception as e:
+        logger.warning("Failed to write session revocation to Redis for %s: %s", session_id, e)
 
 
 def _validate_jwt_claims(payload: dict) -> None:
@@ -517,10 +544,11 @@ async def verify_session_access(
     x_session_token: Optional[str] = Header(None),
 ) -> dict:
     """
-    FastAPI dependency to secure active tutoring session routes (/session/message, /session/next-problem, /session/upload-work, /session/reset).
+    FastAPI dependency to secure active tutoring session routes.
     Guarantees:
     1. Caller provides a cryptographically valid, unexpired session token or Supabase JWT.
     2. If session_id is supplied in query string, the token's 'sid' claim must match.
+    3. The session has not been revoked (e.g. via a password reset or session reset operation).
     """
     token = _extract_token(authorization, x_session_token)
 
@@ -533,6 +561,16 @@ async def verify_session_access(
 
     payload = verify_session_token(token)
     token_sid = payload.get("sid")
+
+    # Check the revocation blocklist for the session ID claimed by the token
+    check_sid = session_id or token_sid
+    if check_sid and _is_session_revoked(check_sid):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Session has been revoked. Please start a new session.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
     if session_id and token_sid and token_sid != session_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

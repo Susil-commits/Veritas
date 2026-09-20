@@ -25,6 +25,18 @@ function cleanProblemTitle(title?: string): string {
   return title.replace(/^GSM8K:\s*/i, '').trim()
 }
 
+/**
+ * Strip session_token before persisting to sessionStorage.
+ * The bearer token is retrieved at API-call time via getAuthHeaders() — there
+ * is no need to store it in sessionStorage, and doing so widens the exposure
+ * window if the page storage is ever read by a third-party script or devtools.
+ */
+function sanitizeSessionForStorage(session: Record<string, unknown> | SessionData): Record<string, unknown> {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { session_token: _removed, ...rest } = session as Record<string, unknown>
+  return rest
+}
+
 function formatSkillName(id: string): string {
   if (!id) return 'Math Practice'
   const meta = getSkillMeta(id)
@@ -154,7 +166,7 @@ export default function TutorSession() {
       if (session?.session_id) {
         sessionStorage.removeItem(`veritas_chat_${session.session_id}`)
       }
-      sessionStorage.setItem('session', JSON.stringify(fresh))
+      sessionStorage.setItem('session', JSON.stringify(sanitizeSessionForStorage(fresh)))
       setSession(fresh)
       setCurrentProblem(fresh.current_problem)
       setMasteryState(fresh.mastery_state || {})
@@ -246,7 +258,7 @@ export default function TutorSession() {
         return startSession(studentName, user.id, user.email)
           .then((s) => {
             if (!mounted) return
-            sessionStorage.setItem('session', JSON.stringify(s))
+            sessionStorage.setItem('session', JSON.stringify(sanitizeSessionForStorage(s)))
             setSession(s)
             document.title = `Veritas — Math Practice (${s.student_name})`
             setMasteryState(s.mastery_state || {})
@@ -322,7 +334,7 @@ export default function TutorSession() {
           setSession(prev => {
             if (!prev) return prev
             const updated = { ...prev, mastery_state: newMastery }
-            sessionStorage.setItem('session', JSON.stringify(updated))
+            sessionStorage.setItem('session', JSON.stringify(sanitizeSessionForStorage(updated)))
             return updated
           })
         }
@@ -372,7 +384,7 @@ export default function TutorSession() {
           setSession(prev => {
             if (!prev) return prev
             const updated = { ...prev, mastery_state: newMastery }
-            sessionStorage.setItem('session', JSON.stringify(updated))
+            sessionStorage.setItem('session', JSON.stringify(sanitizeSessionForStorage(updated)))
             return updated
           })
         }
@@ -408,7 +420,7 @@ export default function TutorSession() {
           mastery_state: res.mastery_state || session.mastery_state,
         }
         setSession(updatedSession)
-        sessionStorage.setItem('session', JSON.stringify(updatedSession))
+        sessionStorage.setItem('session', JSON.stringify(sanitizeSessionForStorage(updatedSession)))
         const tutorMsg: Message = {
           role: 'tutor',
           content: res.tutor_message,
@@ -437,7 +449,7 @@ export default function TutorSession() {
         mastery_state: mastery,
       }
       setSession(updatedSession)
-      sessionStorage.setItem('session', JSON.stringify(updatedSession))
+      sessionStorage.setItem('session', JSON.stringify(sanitizeSessionForStorage(updatedSession)))
     }
     const tutorMsg: Message = { role: 'tutor', content: d.corrective_question, timestamp: new Date() }
     setMessages(prev => [...prev, tutorMsg])

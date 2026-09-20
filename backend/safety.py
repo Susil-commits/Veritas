@@ -31,9 +31,16 @@ PROMPT_INJECTION_PATTERNS = [
 ]
 
 # Inappropriate, toxic, or self-harm keywords to immediately flag and safely redirect
+# Covers direct statements, common misspellings/obfuscations, and indirect distress signals
 HARMFUL_PATTERNS = [
-    r"\b(suicide|self-harm|kill myself|hurt myself)\b",
-    r"\b(hate|slur|vulgar)\b",
+    # Self-harm / crisis language
+    r"\b(suicide|suicid[ae]l|self[- ]?harm|self[- ]?injur|kill myself|hurt myself|end my life|take my life|want to die|kms|kys)\b",
+    # Abuse or threatening language directed at others
+    r"\b(kill you|murder|stab|shoot you|blow up|i hate (you|everyone|myself))\b",
+    # Profanity and slurs (common variants)
+    r"\b(f[u\*]+ck|sh[i1\*]+t|b[i1\*]+tch|n[i1\*]+gg[ae]r|f[a@]+gg[o0]+t|c[u\*]+nt|asshole|dickhead|bastard)\b",
+    # Distress signals
+    r"\b(nobody cares about me|no one cares|i feel hopeless|i give up on life|life is not worth|no reason to live|i want it all to end)\b",
 ]
 
 # Allowed upload MIME types for math handwritten work
@@ -194,26 +201,48 @@ def check_neo_domain_scope(text: str) -> Tuple[bool, Optional[str]]:
     return True, None
 
 
+def _normalize_for_leak_check(text: str) -> str:
+    """Normalize answer text for leak detection: strip LaTeX, punctuation, and whitespace."""
+    # Remove LaTeX delimiters and common math formatting
+    text = re.sub(r"[\$\\{}()\.\,\;\:\!\?\[\]]", " ", text)
+    # Collapse whitespace
+    text = re.sub(r"\s+", " ", text).strip().lower()
+    return text
+
+
 def is_answer_leaked(tutor_reply: str, expected_answer: Optional[str]) -> bool:
     """
     Secondary safety check: ensure the tutor response does not inadvertently
     blurt out the final expected answer without asking a question.
+    Normalizes punctuation, whitespace, and LaTeX delimiters before comparison
+    so equivalent answers expressed differently are still caught.
     """
     if not expected_answer or len(expected_answer.strip()) < 1:
         return False
 
     clean_ans = expected_answer.strip().lower()
+    norm_ans = _normalize_for_leak_check(expected_answer)
     reply_lower = tutor_reply.lower()
+    norm_reply = _normalize_for_leak_check(tutor_reply)
 
-    # If the response simply announces "the answer is X" or "X is the answer"
+    # Pattern 1: "the answer is X" or "the solution is X" (exact and normalized)
     leak_patterns = [
         rf"\b(the answer is|the correct answer is|the solution is)\s*[:=]?\s*{re.escape(clean_ans)}\b",
         rf"\b{re.escape(clean_ans)}\s+is the (answer|correct answer|final result)\b",
     ]
-
     for p in leak_patterns:
         if re.search(p, reply_lower):
             return True
+
+    # Pattern 2: Normalized comparison (catches LaTeX/punctuation variants)
+    if norm_ans and len(norm_ans) >= 1:
+        norm_leak_patterns = [
+            rf"(the answer is|the correct answer is|the solution is)\s*{re.escape(norm_ans)}",
+            rf"{re.escape(norm_ans)}\s+is the (answer|correct answer|final result)",
+        ]
+        for p in norm_leak_patterns:
+            if re.search(p, norm_reply):
+                return True
 
     return False
 
@@ -309,12 +338,12 @@ def validate_image_upload(
             detail=f"Uploaded image is too large ({mb_size}MB). Maximum allowed is 10MB.",
         )
 
-    # Check MIME type
+    # Check MIME type — octet-stream is no longer accepted as a bypass; require an explicit image MIME
     clean_mime = (content_type or "").lower().split(";")[0].strip()
-    if clean_mime and clean_mime not in ALLOWED_IMAGE_MIMES and clean_mime != "application/octet-stream":
+    if clean_mime and clean_mime not in ALLOWED_IMAGE_MIMES:
         raise HTTPException(
             status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
-            detail=f"Unsupported file type '{clean_mime}'. Please upload a PNG, JPEG, or WebP photo of your work.",
+            detail=f"Unsupported file type '{clean_mime}'. Please upload a PNG, JPEG, WebP, HEIC, or HEIF photo of your work.",
         )
 
     is_valid_magic = False

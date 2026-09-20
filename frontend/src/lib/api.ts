@@ -359,7 +359,14 @@ export function streamMessage(
     }
 
     if (!res.body) {
-      onError?.(new Error('Tutor response did not include a readable stream'))
+      // Always call onError (not optional) so callers can reliably reset streaming state
+      if (onError) {
+        onError(new Error('Tutor response did not include a readable stream'))
+      } else {
+        console.error('[Veritas API] Stream body missing and no onError handler registered')
+      }
+      // Emit a synthetic done event so callers that use onDone for cleanup are also notified
+      onDone({}, false)
       return
     }
     const reader = res.body.getReader()
