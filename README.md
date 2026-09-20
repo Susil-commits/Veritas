@@ -532,8 +532,8 @@ Create `backend/.env`:
 ```env
 # AI Models
 GEMINI_API_KEY=your_gemini_api_key_here
-GEMINI_MODEL=gemini-3.6-flash
-GEMINI_VISION_MODEL=gemini-3.6-flash
+GEMINI_MODEL=gemini-3.5-flash-lite
+GEMINI_VISION_MODEL=gemini-3.5-flash-lite
 GEMINI_EMBEDDING_MODEL=models/gemini-embedding-001
 
 # Supabase Storage & Vector
@@ -550,17 +550,16 @@ CLOUDINARY_API_SECRET=your_cloudinary_secret
 
 # Voice Synthesis (Optional)
 ELEVENLABS_API_KEY=your_elevenlabs_key
-ELEVENLABS_VOICE_ID=21m00Tcm4TlvDq8ikWAM
+ELEVENLABS_VOICE_ID=21m00Tcm4TlvDq8ikWAM  #Jessica
 
 # Security & CORS
-FRONTEND_URL=http://localhost:5173
 ENVIRONMENT=development
 SESSION_SECRET_KEY=your_random_32_byte_hex_secret
 ```
 
 Create `frontend/.env`:
 ```env
-VITE_API_URL=http://localhost:8000
+VITE_API_URL=**********
 VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
 ```
