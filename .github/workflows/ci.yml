@@ -21,19 +21,12 @@ jobs:
     env:
       PYTHONUNBUFFERED: "1"
       ENVIRONMENT: "test"
-      # Zero-credit mock mode — all LLM/embedding calls return deterministic stubs
       VERITAS_TEST_MODE: "true"
       VERITAS_MOCK_LLM: "true"
-      # Dummy credentials — tests mock all DB/API calls
-      GEMINI_API_KEY: "ci-dummy-key"
-      GEMINI_MODEL: "gemini-3.5-flash-lite"
-      GEMINI_VISION_MODEL: "gemini-3.5-flash-lite"
-      SUPABASE_URL: "https://dummy-test-project.supabase.co"
-      SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.ci_anon_dummy"
-      SUPABASE_SERVICE_ROLE_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.ci_service_dummy"
       SESSION_SECRET_KEY: "veritas_ci_test_secret_key_fixed_length_minimum_32_bytes!!"
-      ELEVENLABS_API_KEY: "ci-dummy-elevenlabs"
-      FRONTEND_URL: "http://localhost:5173"
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
 
     steps:
       - name: Checkout repository
