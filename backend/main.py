@@ -2598,27 +2598,30 @@ async def get_child_details(
             detail="Access denied: student is not linked to this parent account",
         )
 
-    # Fetch mastery, sessions, events, and games concurrently to minimize latency
-    mastery_rows, sessions_res, events_res, games_data = await asyncio.gather(
-        db_exec(
-            supabase.table("student_skill_mastery")
-            .select("*, skills(name, cc_standard, sequence_order)")
-            .eq("student_id", child_id)
-        ),
-        db_exec(
-            supabase.table("sessions")
-            .select("*")
-            .eq("student_id", child_id)
-            .order("started_at", desc=True)
-        ),
-        db_exec(
-            supabase.table("session_events")
-            .select("id, session_id, student_id, problem_id, attempt_text, is_correct, agent_response, created_at, problems(title, text)")
-            .eq("student_id", child_id)
-            .order("created_at", desc=True)
-        ),
-        _get_student_game_progress(child_id),
+    # Run DB queries sequentially — the shared Supabase httpx HTTP/2 connection
+    # uses an hpack encoder whose deque is NOT safe for concurrent access from
+    # multiple asyncio.to_thread calls. asyncio.gather() caused:
+    #   RuntimeError: deque mutated during iteration  (hpack/table.py)
+    # Sequential awaits eliminate the race with negligible latency impact on
+    # this low-frequency parent dashboard endpoint.
+    mastery_rows = await db_exec(
+        supabase.table("student_skill_mastery")
+        .select("*, skills(name, cc_standard, sequence_order)")
+        .eq("student_id", child_id)
     )
+    sessions_res = await db_exec(
+        supabase.table("sessions")
+        .select("*")
+        .eq("student_id", child_id)
+        .order("started_at", desc=True)
+    )
+    events_res = await db_exec(
+        supabase.table("session_events")
+        .select("id, session_id, student_id, problem_id, attempt_text, is_correct, agent_response, created_at, problems(title, text)")
+        .eq("student_id", child_id)
+        .order("created_at", desc=True)
+    )
+    games_data = await _get_student_game_progress(child_id)
     skills = get_all_skills()
 
     # Calculate session login/logout/durations
