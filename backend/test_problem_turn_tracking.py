@@ -12,6 +12,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from graph.orchestrator import tutor_node, TutorState
 
+# Use a valid UUID-format test ID so Postgres UUID columns don't reject it.
+# _save_mastery is mocked below, so no real DB write fires.
+TEST_STUDENT_ID = "00000000-0000-0000-0000-000000000123"
+
 
 def run_async(coro):
     return asyncio.run(coro)
@@ -19,6 +23,10 @@ def run_async(coro):
 
 def test_problem_turn_tracking_isolation():
     print("\n[TEST] Verifying problem turn tracking across problem transitions...")
+    # Patch _save_mastery for the entire test — this is a pure logic test;
+    # no student row exists in the DB so we must suppress all real DB writes.
+    _save_mastery_patcher = patch("graph.orchestrator._save_mastery")
+    _save_mastery_patcher.start()
 
     prob_1 = {
         "id": "prob_arith_01",
@@ -35,7 +43,7 @@ def test_problem_turn_tracking_isolation():
 
     # Turn 1 on Problem 1 (Incorrect first attempt)
     state_turn1: TutorState = {
-        "student_id": "student_test_123",
+        "student_id": TEST_STUDENT_ID,
         "current_problem": prob_1,
         "conversation_history": [],
         "latest_input": "I think the answer is 7",
@@ -60,7 +68,7 @@ def test_problem_turn_tracking_isolation():
 
     # Turn 2 on Problem 1 (Corrected second attempt)
     state_turn2: TutorState = {
-        "student_id": "student_test_123",
+        "student_id": TEST_STUDENT_ID,
         "current_problem": prob_1,
         "conversation_history": res1["conversation_history"],
         "latest_input": "Oh, 10!",
@@ -91,7 +99,7 @@ def test_problem_turn_tracking_isolation():
 
     # Turn 1 on Problem 2: Student gives correct answer on their FIRST attempt on Problem 2
     state_p2_turn1: TutorState = {
-        "student_id": "student_test_123",
+        "student_id": TEST_STUDENT_ID,
         "current_problem": prob_2,
         "conversation_history": history_with_p2,
         "latest_input": "1/2",
@@ -123,6 +131,7 @@ def test_problem_turn_tracking_isolation():
 
     print(f"   [OK] First attempt on Problem 2 correctly classified as: '{called_attempt_type}'")
     print("   [OK] Problem turn tracking successfully isolated across problem transitions!")
+    _save_mastery_patcher.stop()
 
 
 if __name__ == "__main__":
