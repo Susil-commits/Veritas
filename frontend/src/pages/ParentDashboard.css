@@ -333,6 +333,123 @@
   width: 100%;
 }
 
+/* ── Skeleton Loading Shimmer & Placeholders ── */
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.children-loading-skeletons {
+  display: flex;
+  gap: 1rem;
+  width: 100%;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.child-card--skeleton {
+  cursor: default;
+  pointer-events: none;
+  min-width: 240px;
+}
+
+.skeleton-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.04) 25%, rgba(255, 255, 255, 0.10) 50%, rgba(255, 255, 255, 0.04) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.8s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+.skeleton-line {
+  border-radius: 6px;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.04) 25%, rgba(255, 255, 255, 0.10) 50%, rgba(255, 255, 255, 0.04) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.8s ease-in-out infinite;
+}
+
+.parent-loading-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  animation: fadein 0.3s ease-out;
+}
+
+.skeleton-card {
+  pointer-events: none;
+}
+
+.skeleton-icon-placeholder {
+  opacity: 0.5;
+  filter: grayscale(0.5);
+}
+
+.skeleton-radar-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 320px;
+  position: relative;
+  gap: 1rem;
+}
+
+.radar-skeleton-pulse-ring {
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+  border: 2px dashed rgba(124, 93, 250, 0.35);
+  animation: spin 10s linear infinite;
+  position: relative;
+}
+
+.radar-skeleton-pulse-dot {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--violet);
+  box-shadow: 0 0 16px rgba(124, 93, 250, 0.8);
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+.radar-skeleton-text {
+  color: var(--text-muted);
+  font-size: 0.88rem;
+  font-weight: 500;
+}
+
+.skeleton-skill-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 10px;
+}
+
+.skeleton-skill-col {
+  display: flex;
+  flex-direction: column;
+}
+
+.sessions-loading-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 0.5rem 0;
+}
+
 .radar-error-box {
   display: flex;
   flex-direction: column;
@@ -1803,4 +1920,17 @@
   background: rgba(0, 0, 0, 0.02);
   border-color: rgba(0, 0, 0, 0.05);
 }
+
+[data-theme="light"] .skeleton-avatar,
+[data-theme="light"] .skeleton-line {
+  background: linear-gradient(90deg, rgba(0, 0, 0, 0.05) 25%, rgba(0, 0, 0, 0.10) 50%, rgba(0, 0, 0, 0.05) 75%);
+  background-size: 200% 100%;
+}
+
+[data-theme="light"] .skeleton-skill-row,
+[data-theme="light"] .child-card--skeleton {
+  background: rgba(0, 0, 0, 0.02);
+  border-color: rgba(0, 0, 0, 0.06);
+}
+
 

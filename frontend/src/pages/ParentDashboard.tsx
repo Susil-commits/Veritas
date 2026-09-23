@@ -67,22 +67,106 @@ export default function ParentDashboard() {
   }, [parentId, parentEmail])
 
   const [showAvatarModal, setShowAvatarModal] = useState(false)
+
+  // 1. Instant cache hydration for returning users (stale-while-revalidate)
   const [childrenList, setChildrenList] = useState<ChildItem[]>(() => {
+    try {
+      const cached = localStorage.getItem(`veritas_parent_children_${parentId}`)
+      if (cached) {
+        const parsed = JSON.parse(cached)
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed
+        }
+      }
+    } catch {}
+
     const isDemo = Boolean(localStorage.getItem('veritas_demo_user')) ||
       (user?.email || '').endsWith('@veritas.dev') ||
       !user?.email
     return isDemo ? [DEFAULT_DEMO_CHILD] : []
   })
+
   const [selectedChildId, setSelectedChildId] = useState<string | null>(() => {
+    try {
+      const savedChildId = localStorage.getItem(`veritas_parent_selected_child_${parentId}`)
+      const cached = localStorage.getItem(`veritas_parent_children_${parentId}`)
+      if (cached) {
+        const parsed = JSON.parse(cached)
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          if (savedChildId && parsed.some((c: any) => c.student_id === savedChildId)) {
+            return savedChildId
+          }
+          return parsed[0].student_id
+        }
+      }
+    } catch {}
+
     const isDemo = Boolean(localStorage.getItem('veritas_demo_user')) ||
       (user?.email || '').endsWith('@veritas.dev') ||
       !user?.email
     return isDemo ? DEMO_STUDENT_ID : null
   })
-  const [childDetails, setChildDetails] = useState<any>(null)
-  const [skills, setSkills] = useState<SkillItem[]>([])
+
+  const [childDetails, setChildDetails] = useState<any>(() => {
+    try {
+      const savedId = localStorage.getItem(`veritas_parent_selected_child_${parentId}`)
+      const targetId = savedId || DEMO_STUDENT_ID
+      const cached = localStorage.getItem(`veritas_parent_child_details_${targetId}`)
+      if (cached) return JSON.parse(cached)
+    } catch {}
+    return null
+  })
+
+  const [skills, setSkills] = useState<SkillItem[]>(() => {
+    try {
+      const savedId = localStorage.getItem(`veritas_parent_selected_child_${parentId}`)
+      const targetId = savedId || DEMO_STUDENT_ID
+      const cached = localStorage.getItem(`veritas_parent_child_details_${targetId}`)
+      if (cached) {
+        const data = JSON.parse(cached)
+        const skillMap: Record<string, string> = {}
+        for (const s of data?.all_skills ?? []) skillMap[s.id] = s.name
+        return (data?.mastery || []).map((row: any) => ({
+          skill_id: row.skill_id,
+          name: skillMap[row.skill_id] ?? row.skill_id,
+          mastery_prob: row.mastery_prob,
+        }))
+      }
+    } catch {}
+    return []
+  })
+
   const [loadError, setLoadError] = useState<string | null>(null)
-  const [childrenLoading, setChildrenLoading] = useState(false)
+
+  // Track whether the first server fetch has completed so we NEVER flash empty state
+  const [initialFetchDone, setInitialFetchDone] = useState<boolean>(() => {
+    try {
+      const cached = localStorage.getItem(`veritas_parent_children_${parentId}`)
+      if (cached) {
+        const parsed = JSON.parse(cached)
+        if (Array.isArray(parsed) && parsed.length > 0) return true
+      }
+    } catch {}
+    const isDemo = Boolean(localStorage.getItem('veritas_demo_user')) ||
+      (user?.email || '').endsWith('@veritas.dev') ||
+      !user?.email
+    return isDemo
+  })
+
+  const [childrenLoading, setChildrenLoading] = useState<boolean>(() => {
+    try {
+      const cached = localStorage.getItem(`veritas_parent_children_${parentId}`)
+      if (cached) {
+        const parsed = JSON.parse(cached)
+        if (Array.isArray(parsed) && parsed.length > 0) return false
+      }
+    } catch {}
+    const isDemo = Boolean(localStorage.getItem('veritas_demo_user')) ||
+      (user?.email || '').endsWith('@veritas.dev') ||
+      !user?.email
+    return !isDemo
+  })
+
   const [detailsError, setDetailsError] = useState<string | null>(null)
   const [detailsLoading, setDetailsLoading] = useState(false)
   const [showAddModal, setShowAddModal] = useState(false)
@@ -126,15 +210,64 @@ export default function ParentDashboard() {
     return () => clearTimeout(t)
   }, [warmupBadge])
 
+  // Hydrate from cache when parentId updates
+  useEffect(() => {
+    try {
+      const cached = localStorage.getItem(`veritas_parent_children_${parentId}`)
+      if (cached) {
+        const parsed = JSON.parse(cached)
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setChildrenList(parsed)
+          const savedChildId = localStorage.getItem(`veritas_parent_selected_child_${parentId}`)
+          const activeId = savedChildId && parsed.some((c: any) => c.student_id === savedChildId)
+            ? savedChildId
+            : parsed[0].student_id
+          setSelectedChildId(activeId)
+          setInitialFetchDone(true)
+          setChildrenLoading(false)
+
+          const cachedDetails = localStorage.getItem(`veritas_parent_child_details_${activeId}`)
+          if (cachedDetails) {
+            const data = JSON.parse(cachedDetails)
+            setChildDetails(data)
+            const skillMap: Record<string, string> = {}
+            for (const s of data?.all_skills ?? []) skillMap[s.id] = s.name
+            const skillsArr: SkillItem[] = (data?.mastery || []).map((row: any) => ({
+              skill_id: row.skill_id,
+              name: skillMap[row.skill_id] ?? row.skill_id,
+              mastery_prob: row.mastery_prob,
+            }))
+            setSkills(skillsArr)
+          }
+        }
+      }
+    } catch {}
+  }, [parentId])
+
+  const handleSelectChild = (childId: string) => {
+    setSelectedChildId(childId)
+    try {
+      localStorage.setItem(`veritas_parent_selected_child_${parentId}`, childId)
+    } catch {}
+  }
+
   const handleDeleteData = () => {
     setDeletingData(true)
     deleteParentData(parentId)
       .then((res) => {
         setDeleteSuccessMsg(res.message || 'All activity data successfully purged.')
+        try {
+          localStorage.removeItem(`veritas_parent_children_${parentId}`)
+          localStorage.removeItem(`veritas_parent_selected_child_${parentId}`)
+        } catch {}
         if (deleteTimerRef.current) clearTimeout(deleteTimerRef.current)
         deleteTimerRef.current = setTimeout(() => {
           setShowDeleteModal(false)
           setDeleteSuccessMsg('')
+          setChildrenList([])
+          setSelectedChildId(null)
+          setChildDetails(null)
+          setSkills([])
           refreshChildren().catch(() => {})
         }, 1200)
       })
@@ -149,7 +282,9 @@ export default function ParentDashboard() {
   // Fetch children list
   const refreshChildren = useCallback(() => {
     setLoadError(null)
-    if (!isDemoParent) setChildrenLoading(true)
+    if (!childrenList.length && !isDemoParent) {
+      setChildrenLoading(true)
+    }
     return getParentChildren(parentId)
       .then((res) => {
         let list = res.children || []
@@ -157,10 +292,27 @@ export default function ParentDashboard() {
           list = [DEFAULT_DEMO_CHILD]
         }
         setChildrenList(list)
+        try {
+          if (list.length > 0) {
+            localStorage.setItem(`veritas_parent_children_${parentId}`, JSON.stringify(list))
+          } else if (!isDemoParent) {
+            localStorage.removeItem(`veritas_parent_children_${parentId}`)
+            localStorage.removeItem(`veritas_parent_selected_child_${parentId}`)
+          }
+        } catch {}
+
         if (list.length > 0) {
-          setSelectedChildId(prev => (!prev || !list.some(c => c.student_id === prev) ? list[0].student_id : prev))
+          setSelectedChildId((prev) => {
+            const nextId = !prev || !list.some((c) => c.student_id === prev) ? list[0].student_id : prev
+            try {
+              localStorage.setItem(`veritas_parent_selected_child_${parentId}`, nextId)
+            } catch {}
+            return nextId
+          })
         } else if (isDemoParent) {
           setSelectedChildId(DEMO_STUDENT_ID)
+        } else {
+          setSelectedChildId(null)
         }
       })
       .catch((err) => {
@@ -169,13 +321,16 @@ export default function ParentDashboard() {
           setChildrenList([DEFAULT_DEMO_CHILD])
           setSelectedChildId(DEMO_STUDENT_ID)
         } else {
-          setLoadError('Could not load student profiles right now. Please try refreshing.')
+          if (childrenList.length === 0) {
+            setLoadError('Could not load student profiles right now. Please try refreshing.')
+          }
         }
       })
       .finally(() => {
         setChildrenLoading(false)
+        setInitialFetchDone(true)
       })
-  }, [parentId, isDemoParent])
+  }, [parentId, isDemoParent, childrenList.length])
 
   // Initial load
   useEffect(() => {
@@ -186,10 +341,34 @@ export default function ParentDashboard() {
   // Fetch selected child details & mastery
   const refreshChildDetails = useCallback((childId: string) => {
     setDetailsError(null)
-    setDetailsLoading(true)
+    try {
+      const cached = localStorage.getItem(`veritas_parent_child_details_${childId}`)
+      if (cached) {
+        const cachedData = JSON.parse(cached)
+        setChildDetails((prev: any) => prev || cachedData)
+        if (cachedData?.mastery) {
+          const skillMap: Record<string, string> = {}
+          for (const s of cachedData?.all_skills ?? []) skillMap[s.id] = s.name
+          const skillsArr: SkillItem[] = (cachedData?.mastery || []).map((row: any) => ({
+            skill_id: row.skill_id,
+            name: skillMap[row.skill_id] ?? row.skill_id,
+            mastery_prob: row.mastery_prob,
+          }))
+          setSkills((prev) => (prev.length > 0 ? prev : skillsArr))
+        }
+      } else {
+        setDetailsLoading(true)
+      }
+    } catch {
+      setDetailsLoading(true)
+    }
+
     return getChildDetails(parentId, childId)
       .then((data) => {
         setChildDetails(data)
+        try {
+          localStorage.setItem(`veritas_parent_child_details_${childId}`, JSON.stringify(data))
+        } catch {}
 
         const skillMap: Record<string, string> = {}
         for (const s of data?.all_skills ?? []) skillMap[s.id] = s.name
@@ -293,10 +472,10 @@ export default function ParentDashboard() {
         setShowAddModal(false)
         setNewChildEmail('')
         setNewChildName('')
-        refreshChildren().catch(() => {})
         if (res.child?.student_id) {
-          setSelectedChildId(res.child.student_id)
+          handleSelectChild(res.child.student_id)
         }
+        refreshChildren().catch(() => {})
       })
       .catch((err: any) => {
         if (err?.response?.status === 404) {
@@ -311,11 +490,11 @@ export default function ParentDashboard() {
   }
 
   const selectedChild = useMemo(() => {
-    const found = childrenList.find((c) => c.student_id === selectedChildId)
-    if (!found && isDemoParent) {
-      return DEFAULT_DEMO_CHILD
+    if (!childrenList || childrenList.length === 0) {
+      return isDemoParent ? DEFAULT_DEMO_CHILD : null
     }
-    return found
+    const found = childrenList.find((c) => c.student_id === selectedChildId)
+    return found || childrenList[0] || (isDemoParent ? DEFAULT_DEMO_CHILD : null)
   }, [childrenList, selectedChildId, isDemoParent])
 
   const avgMastery = useMemo(() => (
@@ -451,11 +630,25 @@ export default function ParentDashboard() {
           </div>
 
           <div className="children-cards-list">
-            {childrenLoading && childrenList.length === 0 ? (
-              <div className="children-loading-state">
-                <span>Loading student profiles…</span>
+            {((childrenLoading && childrenList.length === 0) || (!initialFetchDone && childrenList.length === 0)) ? (
+              <div className="children-loading-skeletons" aria-label="Loading student profiles">
+                {[1, 2].map((i) => (
+                  <div key={i} className="child-card child-card--skeleton">
+                    <div className="child-card-header">
+                      <div className="skeleton-avatar" />
+                      <div className="child-meta" style={{ flex: 1 }}>
+                        <div className="skeleton-line skeleton-line--title" style={{ width: '65%', height: '15px', marginBottom: '6px' }} />
+                        <div className="skeleton-line skeleton-line--subtitle" style={{ width: '85%', height: '11px' }} />
+                      </div>
+                    </div>
+                    <div className="child-card-footer" style={{ marginTop: 'auto', paddingTop: '10px' }}>
+                      <div className="skeleton-line" style={{ width: '35%', height: '12px' }} />
+                      <div className="skeleton-line" style={{ width: '30%', height: '12px' }} />
+                    </div>
+                  </div>
+                ))}
               </div>
-            ) : loadError ? (
+            ) : loadError && childrenList.length === 0 ? (
               <div className="parent-error-banner" role="alert">
                 <div className="parent-error-content">
                   <span className="parent-error-icon">⚠️</span>
@@ -483,7 +676,7 @@ export default function ParentDashboard() {
                   <div
                     key={child.student_id}
                     className={`child-card ${isSelected ? 'child-card--active' : ''}`}
-                    onClick={() => setSelectedChildId(child.student_id)}
+                    onClick={() => handleSelectChild(child.student_id)}
                   >
                     <div className="child-card-header">
                       <UserAvatar
@@ -670,65 +863,81 @@ export default function ParentDashboard() {
                 </div>
 
                 <div className="skills-list">
-                  {skills.map((s) => {
-                    const meta = getSkillMeta(s.skill_id)
-                    const tierInfo = getMasteryTierInfo(s.mastery_prob)
-                    const pct = Math.round(s.mastery_prob * 100)
-                    return (
-                      <div
-                        key={s.skill_id}
-                        className="skill-item"
-                        style={{ borderColor: tierInfo.borderColor }}
-                      >
-                        {/* Top row: domain badge + std code + tier badge */}
-                        <div className="skill-item-top">
-                          <div className="skill-item-badges">
+                  {skills.length > 0 ? (
+                    skills.map((s) => {
+                      const meta = getSkillMeta(s.skill_id)
+                      const tierInfo = getMasteryTierInfo(s.mastery_prob)
+                      const pct = Math.round(s.mastery_prob * 100)
+                      return (
+                        <div
+                          key={s.skill_id}
+                          className="skill-item"
+                          style={{ borderColor: tierInfo.borderColor }}
+                        >
+                          {/* Top row: domain badge + std code + tier badge */}
+                          <div className="skill-item-top">
+                            <div className="skill-item-badges">
+                              <span
+                                className="skill-domain-badge"
+                                style={{
+                                  color: meta.domainColor,
+                                  background: `${meta.domainColor}18`,
+                                  border: `1px solid ${meta.domainColor}35`,
+                                }}
+                              >
+                                {meta.grade} · {meta.domainAbbr}
+                              </span>
+                              <span className="skill-std-code">{meta.shortTitle || meta.title}</span>
+                            </div>
                             <span
-                              className="skill-domain-badge"
+                              className="skill-tier-badge"
                               style={{
-                                color: meta.domainColor,
-                                background: `${meta.domainColor}18`,
-                                border: `1px solid ${meta.domainColor}35`,
+                                color: tierInfo.color,
+                                background: tierInfo.bgColor,
+                                border: `1px solid ${tierInfo.borderColor}`,
                               }}
                             >
-                              {meta.grade} · {meta.domainAbbr}
+                              {tierInfo.icon} {tierInfo.label}
                             </span>
-                            <span className="skill-std-code">{meta.shortTitle || meta.title}</span>
                           </div>
-                          <span
-                            className="skill-tier-badge"
-                            style={{
-                              color: tierInfo.color,
-                              background: tierInfo.bgColor,
-                              border: `1px solid ${tierInfo.borderColor}`,
-                            }}
-                          >
-                            {tierInfo.icon} {tierInfo.label}
-                          </span>
-                        </div>
 
-                        {/* Title + Percent */}
-                        <div className="skill-item-main">
-                          <span className="skill-name-text">{meta.title}</span>
-                          <span className="skill-percent" style={{ color: tierInfo.color }}>{pct}%</span>
-                        </div>
+                          {/* Title + Percent */}
+                          <div className="skill-item-main">
+                            <span className="skill-name-text">{meta.title}</span>
+                            <span className="skill-percent" style={{ color: tierInfo.color }}>{pct}%</span>
+                          </div>
 
-                        {/* Gradient progress bar */}
-                        <div className="progress-track">
-                          <div
-                            className="progress-fill"
-                            style={{
-                              width: `${pct}%`,
-                              background: getBarGradient(tierInfo.tier),
-                            }}
-                          />
-                        </div>
+                          {/* Gradient progress bar */}
+                          <div className="progress-track">
+                            <div
+                              className="progress-fill"
+                              style={{
+                                width: `${pct}%`,
+                                background: getBarGradient(tierInfo.tier),
+                              }}
+                            />
+                          </div>
 
-                        {/* Concept description */}
-                        <p className="skill-desc">{meta.description}</p>
-                      </div>
-                    )
-                  })}
+                          {/* Concept description */}
+                          <p className="skill-desc">{meta.description}</p>
+                        </div>
+                      )
+                    })
+                  ) : detailsLoading ? (
+                    <div className="skills-loading-skeleton" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                      {[1, 2, 3, 4, 5].map((i) => (
+                        <div key={i} className="skeleton-skill-row">
+                          <div className="skeleton-skill-col">
+                            <div className="skeleton-line" style={{ width: '140px', height: '14px', marginBottom: '6px' }} />
+                            <div className="skeleton-line" style={{ width: '80px', height: '11px' }} />
+                          </div>
+                          <div className="skeleton-line" style={{ width: '48px', height: '20px', borderRadius: '10px' }} />
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="empty-history">No skill records available for this student yet.</div>
+                  )}
                 </div>
               </div>
             </div>
@@ -841,6 +1050,25 @@ export default function ParentDashboard() {
                         )
                       })}
                     </div>
+                  ) : detailsLoading ? (
+                    <div className="sessions-loading-skeleton" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      {[1, 2].map((i) => (
+                        <div key={i} className="session-detail-card skeleton-card">
+                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
+                            <div className="skeleton-line" style={{ width: '40%', height: '18px' }} />
+                            <div className="skeleton-line" style={{ width: '20%', height: '18px' }} />
+                          </div>
+                          <div className="session-times-grid">
+                            {[1, 2, 3].map((j) => (
+                              <div key={j} className="session-time-block">
+                                <div className="skeleton-line" style={{ width: '50px', height: '10px', marginBottom: '4px' }} />
+                                <div className="skeleton-line" style={{ width: '80px', height: '14px' }} />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   ) : (
                     <div className="empty-history">
                       No sessions recorded yet. Start a session to see practice history and login timestamps.
@@ -852,64 +1080,85 @@ export default function ParentDashboard() {
               {/* TAB 2: ARCADE GAMES */}
               {historyTab === 'games' && (
                 <div className="history-tab-pane">
-                  <div className="arcade-games-grid">
-                    {arcadeGames.map((game: any) => {
-                      const isUnlocked = game.is_unlocked !== false
-                      const stars = game.stars || 0
-                      const timesPlayed = game.times_played || 0
-                      const highScore = game.high_score || 0
-                      const getGameIcon = (id: string) => {
-                        if (id.includes('multiplier')) return '🧮'
-                        if (id.includes('division')) return '⚔️'
-                        if (id.includes('two_step') || id.includes('runner')) return '🏰'
-                        if (id.includes('fraction')) return '🍕'
-                        if (id.includes('equation') || id.includes('alchemy')) return '⚖️'
-                        if (id.includes('decimal')) return '⚡'
-                        if (id.includes('geometry') || id.includes('odyssey')) return '🌌'
-                        return '🎮'
-                      }
+                  {arcadeGames.length > 0 ? (
+                    <div className="arcade-games-grid">
+                      {arcadeGames.map((game: any) => {
+                        const isUnlocked = game.is_unlocked !== false
+                        const stars = game.stars || 0
+                        const timesPlayed = game.times_played || 0
+                        const highScore = game.high_score || 0
+                        const getGameIcon = (id: string) => {
+                          if (id.includes('multiplier')) return '🧮'
+                          if (id.includes('division')) return '⚔️'
+                          if (id.includes('two_step') || id.includes('runner')) return '🏰'
+                          if (id.includes('fraction')) return '🍕'
+                          if (id.includes('equation') || id.includes('alchemy')) return '⚖️'
+                          if (id.includes('decimal')) return '⚡'
+                          if (id.includes('geometry') || id.includes('odyssey')) return '🌌'
+                          return '🎮'
+                        }
 
-                      return (
-                        <div
-                          key={game.id}
-                          className={`arcade-game-card ${isUnlocked ? 'arcade-game-card--unlocked' : 'arcade-game-card--locked'}`}
-                        >
-                          <div className="game-card-header">
-                            <div className="game-icon-box">{getGameIcon(game.id)}</div>
-                            <div className="game-title-meta">
-                              <h4 className="game-title">{game.name}</h4>
-                              <span className="game-subtitle">{game.subtitle || game.theme}</span>
-                            </div>
-                            <span className={`game-lock-badge ${isUnlocked ? 'badge-unlocked' : 'badge-locked'}`}>
-                              {isUnlocked ? 'Unlocked' : 'Locked'}
-                            </span>
-                          </div>
-
-                          <div className="game-skill-target">
-                            <span className="skill-target-label">Target Math Skill:</span>
-                            <span className="skill-target-name">{game.skill_name || 'Arithmetic Fluency'}</span>
-                          </div>
-
-                          <div className="game-stats-row">
-                            <div className="game-stat-item">
-                              <span className="stat-label">Times Played</span>
-                              <span className="stat-value">{timesPlayed} {timesPlayed === 1 ? 'time' : 'times'}</span>
-                            </div>
-                            <div className="game-stat-item">
-                              <span className="stat-label">High Score</span>
-                              <span className="stat-value">{highScore} pts</span>
-                            </div>
-                            <div className="game-stat-item">
-                              <span className="stat-label">Stars Achieved</span>
-                              <span className="stat-value game-stars-display">
-                                {'⭐'.repeat(stars)}{'☆'.repeat(Math.max(0, 3 - stars))}
+                        return (
+                          <div
+                            key={game.id}
+                            className={`arcade-game-card ${isUnlocked ? 'arcade-game-card--unlocked' : 'arcade-game-card--locked'}`}
+                          >
+                            <div className="game-card-header">
+                              <div className="game-icon-box">{getGameIcon(game.id)}</div>
+                              <div className="game-title-meta">
+                                <h4 className="game-title">{game.name}</h4>
+                                <span className="game-subtitle">{game.subtitle || game.theme}</span>
+                              </div>
+                              <span className={`game-lock-badge ${isUnlocked ? 'badge-unlocked' : 'badge-locked'}`}>
+                                {isUnlocked ? 'Unlocked' : 'Locked'}
                               </span>
                             </div>
+
+                            <div className="game-skill-target">
+                              <span className="skill-target-label">Target Math Skill:</span>
+                              <span className="skill-target-name">{game.skill_name || 'Arithmetic Fluency'}</span>
+                            </div>
+
+                            <div className="game-stats-row">
+                              <div className="game-stat-item">
+                                <span className="stat-label">Times Played</span>
+                                <span className="stat-value">{timesPlayed} {timesPlayed === 1 ? 'time' : 'times'}</span>
+                              </div>
+                              <div className="game-stat-item">
+                                <span className="stat-label">High Score</span>
+                                <span className="stat-value">{highScore} pts</span>
+                              </div>
+                              <div className="game-stat-item">
+                                <span className="stat-label">Stars Achieved</span>
+                                <span className="stat-value game-stars-display">
+                                  {'⭐'.repeat(stars)}{'☆'.repeat(Math.max(0, 3 - stars))}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  ) : detailsLoading ? (
+                    <div className="arcade-games-grid">
+                      {[1, 2, 3].map((i) => (
+                        <div key={i} className="arcade-game-card skeleton-card">
+                          <div className="game-card-header">
+                            <div className="skeleton-avatar" style={{ width: '36px', height: '36px' }} />
+                            <div className="game-title-meta" style={{ flex: 1 }}>
+                              <div className="skeleton-line" style={{ width: '60%', height: '16px', marginBottom: '4px' }} />
+                              <div className="skeleton-line" style={{ width: '40%', height: '12px' }} />
+                            </div>
+                          </div>
+                          <div className="game-stats-row" style={{ marginTop: '12px' }}>
+                            <div className="skeleton-line" style={{ width: '100%', height: '24px' }} />
                           </div>
                         </div>
-                      )
-                    })}
-                  </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="empty-history">No arcade game sessions recorded yet.</div>
+                  )}
                 </div>
               )}
 
@@ -955,6 +1204,18 @@ export default function ParentDashboard() {
                         </div>
                       ))}
                     </div>
+                  ) : detailsLoading ? (
+                    <div className="events-list">
+                      {[1, 2, 3].map((i) => (
+                        <div key={i} className="event-history-item skeleton-card">
+                          <div className="skeleton-avatar" style={{ width: '28px', height: '28px' }} />
+                          <div className="event-info" style={{ flex: 1 }}>
+                            <div className="skeleton-line" style={{ width: '40%', height: '14px', marginBottom: '6px' }} />
+                            <div className="skeleton-line" style={{ width: '80%', height: '12px' }} />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   ) : (
                     <div className="empty-history">Problem attempts will appear here in real-time as your child practices.</div>
                   )}
@@ -982,6 +1243,62 @@ export default function ParentDashboard() {
                 >
                   Delete Activity Data
                 </button>
+              </div>
+            </div>
+          </div>
+        ) : (!initialFetchDone || childrenLoading) ? (
+          <div className="parent-loading-skeleton" aria-label="Loading student learning report">
+            {/* Skeleton KPI Strip */}
+            <div className="parent-activity-kpis">
+              {[
+                { icon: '⏱️', label: 'Practice Time' },
+                { icon: '🎯', label: 'Questions Solved' },
+                { icon: '🎮', label: 'Arcade Plays' },
+                { icon: '🧠', label: 'Mastery Score' },
+              ].map((item, i) => (
+                <div key={i} className="activity-kpi-card skeleton-card">
+                  <div className="kpi-icon-box skeleton-icon-placeholder">{item.icon}</div>
+                  <div className="kpi-info" style={{ width: '100%' }}>
+                    <span className="kpi-label">{item.label}</span>
+                    <div className="skeleton-line skeleton-line--val" style={{ width: '50%', height: '26px', margin: '6px 0' }} />
+                    <div className="skeleton-line skeleton-line--sub" style={{ width: '70%', height: '12px' }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Skeleton Grid: Radar + Skills */}
+            <div className="radar-grid">
+              <div className="radar-panel skeleton-card">
+                <div className="panel-header">
+                  <div>
+                    <h3 style={{ margin: 0 }}>Live Skill Map</h3>
+                    <div className="skeleton-line" style={{ width: '220px', height: '12px', marginTop: '6px' }} />
+                  </div>
+                </div>
+                <div className="radar-container skeleton-radar-placeholder">
+                  <div className="radar-skeleton-pulse-ring" />
+                  <div className="radar-skeleton-pulse-dot" />
+                  <span className="radar-skeleton-text">Loading student learning trajectory…</span>
+                </div>
+              </div>
+
+              <div className="skills-panel skeleton-card">
+                <div className="panel-header">
+                  <h3 style={{ margin: 0 }}>Math Skills</h3>
+                  <div className="skeleton-line skeleton-pill-placeholder" style={{ width: '60px', height: '22px', borderRadius: '12px' }} />
+                </div>
+                <div className="skills-list" style={{ gap: '10px' }}>
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <div key={i} className="skeleton-skill-row">
+                      <div className="skeleton-skill-col">
+                        <div className="skeleton-line" style={{ width: '140px', height: '14px', marginBottom: '6px' }} />
+                        <div className="skeleton-line" style={{ width: '80px', height: '11px' }} />
+                      </div>
+                      <div className="skeleton-line skeleton-pill-placeholder" style={{ width: '48px', height: '20px', borderRadius: '10px' }} />
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
