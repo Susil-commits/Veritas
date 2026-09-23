@@ -1,5 +1,5 @@
 """
-Curriculum Consistency & Learner Model Verification Script — Veritas / AINerd.
+Curriculum Consistency & Learner Model Verification Script — Veritas.
 Validates end-to-end consistency across:
 1. Game Levels (Arcade curriculum) -> BKT skill parameters & registry
 2. Curated & Seed Problem Bank -> Common Core State Standards (CCSS) skills

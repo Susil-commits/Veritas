@@ -3,7 +3,7 @@ import axios from 'axios'
 import { supabase } from './supabase'
 
 const rawUrl = import.meta.env.VITE_API_URL || (
-  import.meta.env.PROD ? 'https://ainerd.onrender.com' : 'http://localhost:8000'
+  import.meta.env.PROD ? 'https://veritas-backend.onrender.com' : 'http://localhost:8000'
 )
 export const BASE_URL = rawUrl.replace(/\/+$/, '')
 

@@ -1,5 +1,5 @@
 """
-Offline RAG Retrieval Quality Benchmark — Veritas / AINerd.
+Offline RAG Retrieval Quality Benchmark — Veritas.
 Evaluates misconception-targeted retrieval quality over pgvector / problem bank:
 Metrics:
 - Recall@1: Top-1 candidate matches target skill and difficulty

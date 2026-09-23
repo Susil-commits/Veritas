@@ -1,5 +1,5 @@
 """
-Centralized AI Model & Infrastructure Configuration — Veritas / AINerd.
+Centralized AI Model & Infrastructure Configuration — Veritas.
 Single source of truth for Gemini model names, embedding specifications, and cascades.
 """
 import ast

@@ -1,7 +1,7 @@
 """
 Neo AI Assistant — The Intelligent Guide & Navigator for Veritas.
 Powered by Gemini via ChatGoogleGenerativeAI with strict platform guardrails.
-Only answers queries directly related to the Veritas Socratic Math platform (formerly known as AINerd in repository history).
+Only answers queries directly related to the Veritas Socratic Math platform.
 """
 # pyright: reportMissingImports=false, reportMissingModuleSource=false
 import os

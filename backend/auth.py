@@ -458,6 +458,17 @@ async def verify_student_access(
         except Exception:
             pass
 
+        # Fallback check from persistent children_store.json if local fallback or offline
+        try:
+            store_file = Path(__file__).resolve().parent.parent / "data" / "children_store.json"
+            if store_file.exists():
+                with open(store_file, "r", encoding="utf-8") as f:
+                    store_data = json.load(f)
+                    if any(c.get("parent_id") == caller_sub and c.get("student_id") == student_id for c in store_data):
+                        return payload
+        except Exception:
+            pass
+
     raise HTTPException(
         status_code=status.HTTP_403_FORBIDDEN,
         detail=f"Access denied: this session token belongs to {caller_sub}, not authorized for student {student_id}",

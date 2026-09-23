@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS public.children (
     created_at TIMESTAMPTZ DEFAULT now(),
     UNIQUE(parent_id, student_id)
 );
+CREATE INDEX IF NOT EXISTS children_student_id_idx ON public.children(student_id);
 
 -- 2. Enable Row Level Security (RLS) on children table
 ALTER TABLE public.children ENABLE ROW LEVEL SECURITY;

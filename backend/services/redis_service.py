@@ -30,7 +30,7 @@ class ResilientRedisService:
         self._init_connection()
 
     def _init_connection(self):
-        redis_uri = os.getenv("REDIS_URI") or os.getenv("REDIS_URL")
+        redis_uri = os.getenv("REDIS_URI") or os.getenv("REDIS_URL") or os.getenv("UPSTASH_REDIS_URL")
         if not redis_uri or not REDIS_AVAILABLE or redis is None:
             self._client = None
             self._is_connected = False

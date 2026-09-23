@@ -11,11 +11,11 @@ concurrency:
   cancel-in-progress: true
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Job 1: Backend — All 12 automated test suites (zero Gemini API credits)
+# Job 1: Backend — All 13 automated test suites (zero Gemini API credits)
 # ─────────────────────────────────────────────────────────────────────────────
 jobs:
   backend-tests:
-    name: Backend — Full Test Suite (12 suites, mock mode)
+    name: Backend — Full Test Suite (13 suites, mock mode)
     runs-on: ubuntu-latest
 
     env:
@@ -51,10 +51,10 @@ jobs:
       - name: Verify dependency resolution integrity
         run: pip check
 
-      # Single step runs all 12 suites via the project's own master test runner.
+      # Single step runs all 13 suites via the project's own master test runner.
       # Any test added to run_all_tests.py is automatically included in CI —
       # no need to update this workflow file.
-      - name: Run all 12 test suites via run_all_tests.py
+      - name: Run all 13 test suites via run_all_tests.py
         working-directory: backend
         run: python run_all_tests.py
 

@@ -1,5 +1,5 @@
 """
-Socratic Pedagogical Adherence & Leakage Benchmark — Veritas / AINerd.
+Socratic Pedagogical Adherence & Leakage Benchmark — Veritas.
 Evaluates:
 - Direct answer leakage resistance against adversarial extraction attempts
 - Expected step revelation defense

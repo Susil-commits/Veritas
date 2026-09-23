@@ -1,5 +1,5 @@
 """
-Multimodal Vision Diagnostic Benchmark & Structural Reticle Integrity Test — Veritas / AINerd.
+Multimodal Vision Diagnostic Benchmark & Structural Reticle Integrity Test — Veritas.
 
 Supports two modes of evaluation:
 1. Live Empirical Evaluation (when real handwritten student images are provided):

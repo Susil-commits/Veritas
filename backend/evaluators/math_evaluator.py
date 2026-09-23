@@ -10,7 +10,7 @@ from typing import Any, Tuple
 
 def parse_fraction_or_num(raw: str) -> Fraction | None:
     """Parse integer, decimal, mixed fraction, or simple fraction into a Fraction object."""
-    s = raw.strip()
+    s = raw.strip().replace(",", "")
     # Mixed fraction e.g. "1 1/2" or "2 3/4"
     m_mixed = re.match(r"^(\d+)\s+(\d+)/(\d+)$", s)
     if m_mixed:
@@ -89,10 +89,10 @@ def extract_expected_answer(problem: dict) -> Tuple[str | None, str]:
     if re.match(r"^[a-zA-Z]$", ans_str.strip()):
         return ans_str.strip(), "expression"
 
-    # Check for clean number e.g. "40", "16", "41.5"
-    num_match = re.search(r"\b(-?\d+(?:\.\d+)?)\b", ans_str)
+    # Check for clean number e.g. "40", "16", "41.5", "1,000"
+    num_match = re.search(r"\b(-?\d{1,3}(?:,\d{3})*(?:\.\d+)?|-?\d+(?:\.\d+)?)\b", ans_str)
     if num_match:
-        return num_match.group(1), "number"
+        return num_match.group(1).replace(",", ""), "number"
 
     return ans_str, "expression"
 
@@ -150,11 +150,11 @@ def extract_student_candidate(message: str) -> list[Tuple[str, str]]:
     # 2. Extract candidates anchored to explicit answer-intent phrases (if not an equation)
     if not has_equation:
         intent_patterns = [
-            r"(?:the\s+)?answer\s*(?:is|should\s+be|=|:)\s*(-?\d+\s+\d+/\d+|-?\d+/\d+|-?\d+(?:\.\d+)?|(?:[0-9]*[a-zA-Z]|[0-9]+)(?:\s*[+\-*/]\s*(?:[0-9]*[a-zA-Z]|[0-9]+))+)",
-            r"(?:i\s+got|i\s+get|i\s+found|my\s+answer\s+is)\s*(-?\d+\s+\d+/\d+|-?\d+/\d+|-?\d+(?:\.\d+)?|(?:[0-9]*[a-zA-Z]|[0-9]+)(?:\s*[+\-*/]\s*(?:[0-9]*[a-zA-Z]|[0-9]+))+)",
-            r"(?:i\s+think\s+(?:the\s+answer\s+is|it(?:'s|s|\s+is))\s*|maybe\s+it(?:'s|s|\s+is)\s*|maybe\s+)\s*(-?\d+\s+\d+/\d+|-?\d+/\d+|-?\d+(?:\.\d+)?|(?:[0-9]*[a-zA-Z]|[0-9]+)(?:\s*[+\-*/]\s*(?:[0-9]*[a-zA-Z]|[0-9]+))+)",
-            r"(?:so|therefore|equals?)\s+(-?\d+\s+\d+/\d+|-?\d+/\d+|-?\d+(?:\.\d+)?)",
-            r"(?:is\s+it|is\s+the\s+simplified\s+fraction|decimal\s+form\s+is)\s*(-?\d+\s+\d+/\d+|-?\d+/\d+|-?\d+(?:\.\d+)?)",
+            r"(?:the\s+)?answer\s*(?:is|should\s+be|=|:)\s*(-?\d+\s+\d+/\d+|-?\d+/\d+|-?\d{1,3}(?:,\d{3})*(?:\.\d+)?|-?\d+(?:\.\d+)?|(?:[0-9]*[a-zA-Z]|[0-9]+)(?:\s*[+\-*/]\s*(?:[0-9]*[a-zA-Z]|[0-9]+))+)",
+            r"(?:i\s+got|i\s+get|i\s+found|my\s+answer\s+is)\s*(-?\d+\s+\d+/\d+|-?\d+/\d+|-?\d{1,3}(?:,\d{3})*(?:\.\d+)?|-?\d+(?:\.\d+)?|(?:[0-9]*[a-zA-Z]|[0-9]+)(?:\s*[+\-*/]\s*(?:[0-9]*[a-zA-Z]|[0-9]+))+)",
+            r"(?:i\s+think\s+(?:the\s+answer\s+is|it(?:'s|s|\s+is))\s*|maybe\s+it(?:'s|s|\s+is)\s*|maybe\s+)\s*(-?\d+\s+\d+/\d+|-?\d+/\d+|-?\d{1,3}(?:,\d{3})*(?:\.\d+)?|-?\d+(?:\.\d+)?|(?:[0-9]*[a-zA-Z]|[0-9]+)(?:\s*[+\-*/]\s*(?:[0-9]*[a-zA-Z]|[0-9]+))+)",
+            r"(?:so|therefore|equals?)\s+(-?\d+\s+\d+/\d+|-?\d+/\d+|-?\d{1,3}(?:,\d{3})*(?:\.\d+)?|-?\d+(?:\.\d+)?)",
+            r"(?:is\s+it|is\s+the\s+simplified\s+fraction|decimal\s+form\s+is)\s*(-?\d+\s+\d+/\d+|-?\d+/\d+|-?\d{1,3}(?:,\d{3})*(?:\.\d+)?|-?\d+(?:\.\d+)?)",
         ]
 
         for pat in intent_patterns:
@@ -165,8 +165,8 @@ def extract_student_candidate(message: str) -> list[Tuple[str, str]]:
                         add_cand(c_val, "fraction")
                     elif "/" in c_val:
                         add_cand(c_val, "fraction")
-                    elif re.match(r"^-?\d+(?:\.\d+)?$", c_val):
-                        add_cand(c_val, "number")
+                    elif re.match(r"^-?\d{1,3}(?:,\d{3})*(?:\.\d+)?$|^-?\d+(?:\.\d+)?$", c_val):
+                        add_cand(c_val.replace(",", ""), "number")
                     else:
                         add_cand(c_val, "expression")
 
@@ -189,11 +189,11 @@ def extract_student_candidate(message: str) -> list[Tuple[str, str]]:
         for st in re.finditer(r"\b([0-9]+[a-zA-Z])\b", text):
             add_cand(st.group(1), "expression")
 
-        # Standalone numbers e.g. "40", "40.0" (only if no equation, expression, or fraction candidate already identified)
+        # Standalone numbers e.g. "40", "40.0", "1,000" (only if no equation, expression, or fraction candidate already identified)
         if not has_equation and not any(c[1] in ("expression", "fraction") for c in candidates):
-            for nm in re.finditer(r"\b(-?\d+(?:\.\d+)?)\b", text):
+            for nm in re.finditer(r"\b(-?\d{1,3}(?:,\d{3})*(?:\.\d+)?|-?\d+(?:\.\d+)?)\b", text):
                 if not is_in_negation(nm.start(1), nm.end(1), nm.group(1).strip()):
-                    add_cand(nm.group(1), "number")
+                    add_cand(nm.group(1).replace(",", ""), "number")
 
     return candidates
 

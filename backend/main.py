@@ -216,6 +216,7 @@ app.add_middleware(GZipMiddleware, minimum_size=1000)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
+    allow_origin_regex=r"^https://.*\.vercel\.app$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -2696,14 +2697,14 @@ async def get_child_details(
     }
 
     # Multi-skill learner-aware alert generation
-    days_since = 3
+    days_since = 0
     if sessions_res.data and sessions_res.data[0].get("started_at"):
         try:
             ts = datetime.datetime.fromisoformat(sessions_res.data[0]["started_at"].replace("Z", "+00:00"))
             diff_seconds = time.time() - ts.timestamp()
             days_since = max(0, int(diff_seconds // 86400))
         except Exception:
-            days_since = 3
+            days_since = 0
 
     child_mastery_map = {
         r["skill_id"]: float(r["mastery_prob"])

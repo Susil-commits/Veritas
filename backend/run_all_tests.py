@@ -28,6 +28,7 @@ TEST_SCRIPTS = [
     ("test_auth_and_rag.py", "Student Scoping, Rate Limiting & RAG Retrieval"),
     ("test_parent_child_flow.py", "Parent-Child Architecture & Inactivity Alerts"),
     ("test_neo.py", "Neo AI Platform Assistant & Guardrails"),
+    ("test_misconception_and_alerts.py", "Misconception State & Parent Alert Integration"),
     ("test_session_and_score_fixes.py", "Session Resumption & Score Protection"),
     ("test_game_progress_persistence.py", "Math Arcade Games & Relogin Persistence"),
 ]

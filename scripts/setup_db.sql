@@ -84,6 +84,12 @@ CREATE TABLE IF NOT EXISTS session_events (
     created_at      TIMESTAMPTZ DEFAULT now()
 );
 
+-- Performance indices for student history queries, alerts, and state rehydration
+CREATE INDEX IF NOT EXISTS session_events_student_created_idx
+    ON session_events(student_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS session_events_session_id_idx
+    ON session_events(session_id);
+
 -- ── Arcade Progress ─────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS student_game_progress (
     student_id   UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,

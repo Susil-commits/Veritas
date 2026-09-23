@@ -4,16 +4,49 @@
 
 [![FastAPI](https://img.shields.io/badge/FastAPI-005571?style=flat&logo=fastapi)](https://fastapi.tiangolo.com/)
 [![LangGraph](https://img.shields.io/badge/LangGraph-State_Machine_Orchestrator-FF6F00?style=flat)](https://www.langchain.com/langgraph)
-[![Google Gemini](https://img.shields.io/badge/Gemini_3.6_Flash-Vision_%26_LLM-4285F4?style=flat&logo=google)](https://ai.google.dev/)
+[![Google Gemini](https://img.shields.io/badge/Gemini_3.5_Flash--Lite-Vision_%26_LLM-4285F4?style=flat&logo=google)](https://ai.google.dev/)
 [![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL_%2B_pgvector-3ECF8E?style=flat&logo=supabase)](https://supabase.com/)
 [![BKT](https://img.shields.io/badge/ML-Bayesian_Knowledge_Tracing-8A2BE2?style=flat)](#5-ai--ml-models-used--quantitative-metrics)
-[![Tests](https://img.shields.io/badge/Tests-12%2F12_Passing-brightgreen?style=flat)](#7-test-case-pass-proof)
+[![Tests](https://img.shields.io/badge/Tests-13%2F13_Passing-brightgreen?style=flat)](#7-test-case-pass-proof)
 [![Vercel](https://img.shields.io/badge/Frontend-Vercel_Edge-black?style=flat&logo=vercel)](https://vercel.com/)
 [![Render](https://img.shields.io/badge/Backend-Render_PaaS-46E3B7?style=flat&logo=render)](https://render.com/)
 
 ---
 
+## 🚀 90-Second Demo & Core Differentiator
+
+> **What makes Veritas different?** Traditional LLMs are "cheat engines" that dump complete calculations. Veritas enforces **zero answer leakage**, diagnoses scratchpad reasoning via Gemini Vision, tracks latent math competencies with mathematically calibrated **Bayesian Knowledge Tracing (BKT)**, and dynamically routes targeted remediation via pgvector RAG.
+
+```
+Student Errs on Scratchpad
+           │
+           ▼
+Deterministic Verification ──► (Canonical fraction & algebra engine: zero probabilistic hallucinations)
+           │
+           ▼
+Multimodal Vision Diagnosis ──► (Pinpoints exact step break, renders reticle box, tags misconception)
+           │
+           ▼
+Socratic Intervention ──► (Pedagogical verifier shields against answers, guides inquiry)
+           │
+           ▼
+BKT Learner Update ──► (P(L) updated via MLE-calibrated HMM across 10 CCSS standards)
+           │
+           ▼
+Adaptive Problem Retrieval ──► (pgvector RAG selects ZPD-targeted remediation problem)
+```
+
+### ⚡ Quick Links for Hackathon Judges
+- **Live Demo**: [veritas-ai-tutor.vercel.app](https://veritas-ai-tutor.vercel.app)
+- **Problem & Solution**: [EdTech Trilemma & Architecture](#2-the-problem)
+- **Empirical AI/ML Benchmarks**: [BKT, RAG, Vision Invariants & Safety](#5-ai--ml-models-used--quantitative-metrics)
+- **Automated Test Proof**: [13/13 Test Suites Passing](#7-test-case-pass-proof)
+- **Local Run Instructions**: [Quickstart Guide](#9-quickstart--local-setup)
+
+---
+
 ## 📑 Table of Contents
+0. [90-Second Demo & Core Differentiator](#-90-second-demo--core-differentiator)
 1. [Introduction](#1-introduction)
 2. [The Problem](#2-the-problem)
 3. [The Solutions](#3-the-solutions)
@@ -37,6 +70,9 @@ Instead of solving problems for the learner, Veritas employs:
 - **Calibrated Cognitive Modeling**: Tracking latent knowledge mastery across 10 Common Core State Standards (CCSS) using **Bayesian Knowledge Tracing (BKT)**, fitted on empirical student interaction sequences via bounded Maximum Likelihood Estimation (MLE).
 - **Misconception-Targeted Adaptive RAG**: Dynamic problem retrieval from a **pgvector** embedding bank using a composite utility function that balances semantic relevance, error remediation, and Zone of Proximal Development (ZPD) difficulty.
 - **Live Parent Transparency**: A 10-skill CCSS mastery radar chart backed by Supabase data with inactivity and learner-progress alerts.
+
+> [!NOTE]
+> **Synthetic Demo Data Notice**: Demo account profiles (such as *Alex Jenkins* and *Sarah Jenkins*), pre-seeded mastery probabilities, session histories, and game scores are synthetic test fixtures engineered to provide a reproducible, instant walkthrough for hackathon judges. They do not represent real-world student outcome data.
 
 ---
 
@@ -248,7 +284,7 @@ Veritas integrates both state-of-the-art foundation models and specialized mathe
 All performance metrics below are generated through automated, reproducible evaluation benchmarks in the `scripts/` directory.
 
 #### 1. Bayesian Knowledge Tracing (BKT) Calibration Benchmark
-- **Evaluation Script**: [`scripts/calibrate_bkt.py`](file:///c:/Users/nayak/OneDrive/Desktop/LLM/AINerd/scripts/calibrate_bkt.py)
+- **Evaluation Script**: [`scripts/calibrate_bkt.py`](scripts/calibrate_bkt.py)
 - **Data Split**: Grouped by Student ID (`Random(42)`) — **70% Train**, **15% Validation** (loss minimization), and **15% Held-out Test**.
 - **Scope**: **8,437** independent held-out student test observations from the ASSISTments 2009–2010 benchmark dataset.
 
@@ -284,7 +320,7 @@ All performance metrics below are generated through automated, reproducible eval
 ---
 
 #### 2. Adaptive RAG Retrieval Quality Benchmark
-- **Evaluation Script**: [`scripts/evaluate_retrieval.py`](file:///c:/Users/nayak/OneDrive/Desktop/LLM/AINerd/scripts/evaluate_retrieval.py)
+- **Evaluation Script**: [`scripts/evaluate_retrieval.py`](scripts/evaluate_retrieval.py)
 - **Problem Bank**: Unrestricted candidate pool of **208 problems** across all **10 CCSS skills**.
 - **Target Cases**: 10 distinct student diagnostic states containing active misconceptions.
 
@@ -303,20 +339,23 @@ $$\text{Composite Utility Formula: } U(p) = 0.35 \cdot S_{\text{sim}} + 0.25 \cd
 ---
 
 #### 3. Multimodal Vision Diagnostics & Reticle Integrity Benchmark
-- **Evaluation Script**: [`scripts/evaluate_vision.py`](file:///c:/Users/nayak/OneDrive/Desktop/LLM/AINerd/scripts/evaluate_vision.py)
-- **Scope**: Structural boundary conditions, coordinate clamping, and zero-leakage tests.
+- **Evaluation Script**: [`scripts/evaluate_vision.py`](scripts/evaluate_vision.py)
+- **Scope**: Structural boundary conditions, coordinate clamping invariants, and zero-leakage tests.
 
-| Vision Test Metric | Measured Value | Standard Required | Result |
+> [!NOTE]
+> This benchmark validates the vision pipeline's coordinate safety, schema integrity, and degraded-input behavior. As documented in `scripts/evaluate_vision.py`, this structural benchmark verifies coordinate invariants and boundary clamping; it does not assert empirical Gemini Vision OCR accuracy over raw student handwriting corpora without a live image input stream.
+
+| Vision Pipeline Invariant Metric | Measured Value | Standard Required | Result |
 |---|---|---|---|
-| **Coordinate Clamping ($[0.05, 0.95]$ Reticle Boundary)** | **100.0%** (10/10) | Strict Clamp | ✅ PASSED |
-| **Zero Synthetic Reticle Hallucination** | **100.0% Clean** | 0 Fake Boxes | ✅ PASSED |
+| **Coordinate Boundary Invariants** | **100.0%** (8/8 applicable cases) | Strict $[0.05, 0.85]$ Clamp | ✅ PASSED |
+| **Synthetic Reticle Prevention** | **100.0%** (10/10 cases) | Zero Fake Boxes on Correct Work | ✅ PASSED |
 | **Degraded Image Fallback Gracefulness** | **100.0% Safe** | No Unhandled Crashes | ✅ PASSED |
 | **Misconception Taxonomy Schema Compliance** | **100.0% Valid** | JSON Schema Match | ✅ PASSED |
 
 ---
 
 #### 4. Socratic Pedagogical Adherence & Leak Defense Benchmark
-- **Evaluation Script**: [`scripts/evaluate_socratic.py`](file:///c:/Users/nayak/OneDrive/Desktop/LLM/AINerd/scripts/evaluate_socratic.py)
+- **Evaluation Script**: [`scripts/evaluate_socratic.py`](scripts/evaluate_socratic.py)
 - **Scope**: Adversarial direct answer extraction, multi-step revelation attempts, and guiding inquiries.
 
 | Socratic Safety Metric | Result | Operational Meaning |
@@ -352,10 +391,10 @@ Veritas is built upon rigorous, peer-reviewed educational benchmarks and open-so
 
 1. **ASSISTments 2009–2010 Skill Builder Dataset**:
    - *Scale*: ~2.7 million student response sequences across 100+ middle school mathematics skills.
-   - *Usage*: Used by [`scripts/calibrate_bkt.py`](file:///c:/Users/nayak/OneDrive/Desktop/LLM/AINerd/scripts/calibrate_bkt.py) to compute empirical Maximum Likelihood Estimates for prior $P(L_0)$, learning rate $P(T)$, guess probability $P(G)$, and slip probability $P(S)$ across 6 core fractions and equations skills.
+   - *Usage*: Used by [`scripts/calibrate_bkt.py`](scripts/calibrate_bkt.py) to compute empirical Maximum Likelihood Estimates for prior $P(L_0)$, learning rate $P(T)$, guess probability $P(G)$, and slip probability $P(S)$ across 6 core fractions and equations skills.
 2. **GSM8K (Grade School Math 8K)**:
    - *Scale*: 8,500 grade-school math word problems.
-   - *Usage*: 60 multi-step word problems adapted via [`scripts/expand_problem_bank.py`](file:///c:/Users/nayak/OneDrive/Desktop/LLM/AINerd/scripts/expand_problem_bank.py), re-mapped to CCSS standards, and enriched with pedagogical scaffolding steps in `data/seed_problems.json`.
+   - *Usage*: 60 multi-step word problems adapted via [`scripts/expand_problem_bank.py`](scripts/expand_problem_bank.py), re-mapped to CCSS standards, and enriched with pedagogical scaffolding steps in `data/seed_problems.json`.
 3. **Eedi / NeurIPS 2020 Diagnostic Questions**:
    - *Scale*: Large-scale multiple-choice questions with human-labeled student distractor misconceptions.
    - *Usage*: Provides the conceptual error taxonomy used by the Gemini Vision diagnostic agent to identify root causes behind handwritten mistakes.
@@ -385,18 +424,19 @@ Veritas maintains an automated test validation runner (`backend/run_all_tests.py
 
 | # | Test Suite Script | Test Suite Focus Area | Execution Time | Status |
 |---|---|---|---|---|
-| **1** | `test_startup_smoke.py` | FastAPI Lifespan & LangGraph State Machine Smoke Test | 1.85s | **✓ PASS** |
-| **2** | `test_auth_p0_parent_isolation.py` | Parent Role Authorization & IDOR Tenant Isolation (P0) | 10.77s | **✓ PASS** |
-| **3** | `test_math_evaluator.py` | Deterministic Math Evaluator & Intent Parsing | 0.08s | **✓ PASS** |
-| **4** | `test_problem_turn_tracking.py` | Problem Turn Tracking & Attempt Isolation | 4.67s | **✓ PASS** |
-| **5** | `test_session_persistence.py` | Day-3 Resiliency & Session State Persistence | 14.70s | **✓ PASS** |
-| **6** | `test_production_rls.py` | Production RLS & Public Key Credential Isolation | 6.60s | **✓ PASS** |
-| **7** | `test_safety.py` | Platform Safety & Socratic Anti-Leak Guardrails | 0.42s | **✓ PASS** |
-| **8** | `test_auth_and_rag.py` | Student Scoping, Rate Limiting & RAG Retrieval | 4.98s | **✓ PASS** |
-| **9** | `test_parent_child_flow.py` | Parent-Child Architecture & Inactivity Alerts | 45.00s | **✓ PASS** |
-| **10** | `test_neo.py` | Neo AI Platform Assistant & Grounded Guardrails | 100.14s | **✓ PASS** |
-| **11** | `test_session_and_score_fixes.py` | Session Resumption & Score Protection | 32.16s | **✓ PASS** |
-| **12** | `test_game_progress_persistence.py`| Math Arcade Games & Relogin Persistence | 21.59s | **✓ PASS** |
+| **1** | `test_startup_smoke.py` | FastAPI Lifespan & LangGraph State Machine Smoke Test | 3.93s | **✓ PASS** |
+| **2** | `test_auth_p0_parent_isolation.py` | Parent Role Authorization & IDOR Tenant Isolation (P0) | 5.58s | **✓ PASS** |
+| **3** | `test_math_evaluator.py` | Deterministic Math Evaluator & Intent Parsing | 0.06s | **✓ PASS** |
+| **4** | `test_problem_turn_tracking.py` | Problem Turn Tracking & Attempt Isolation | 2.42s | **✓ PASS** |
+| **5** | `test_session_persistence.py` | Day-3 Resiliency & Session State Persistence | 16.60s | **✓ PASS** |
+| **6** | `test_production_rls.py` | Production RLS & Public Key Credential Isolation | 7.88s | **✓ PASS** |
+| **7** | `test_safety.py` | Platform Safety & Socratic Anti-Leak Guardrails | 1.55s | **✓ PASS** |
+| **8** | `test_auth_and_rag.py` | Student Scoping, Rate Limiting & RAG Retrieval | 4.59s | **✓ PASS** |
+| **9** | `test_parent_child_flow.py` | Parent-Child Architecture & Inactivity Alerts | 89.07s | **✓ PASS** |
+| **10** | `test_neo.py` | Neo AI Platform Assistant & Grounded Guardrails | 3.52s | **✓ PASS** |
+| **11** | `test_misconception_and_alerts.py` | Misconception State & Parent Alert Integration | 10.13s | **✓ PASS** |
+| **12** | `test_session_and_score_fixes.py` | Session Resumption & Score Protection | 20.18s | **✓ PASS** |
+| **13** | `test_game_progress_persistence.py`| Math Arcade Games & Relogin Persistence | 21.36s | **✓ PASS** |
 
 ---
 
@@ -405,6 +445,7 @@ Veritas maintains an automated test validation runner (`backend/run_all_tests.py
 ```text
 ============================================================================
    VERITAS AI SOCRATIC TUTOR — AUTOMATED VALIDATION SUITE
+   ⚡ Mode: ZERO-CREDIT MOCK (0 Gemini API credits consumed)
 ============================================================================
 
 ▶ Running FastAPI Lifespan & LangGraph State Machine Smoke Test (test_startup_smoke.py)...
@@ -412,61 +453,65 @@ Veritas maintains an automated test validation runner (`backend/run_all_tests.py
   [OK] Root route (/) returned 200 OK
   [OK] Render liveness probe (/health) returned 200 OK
   [OK] Full readiness probe (/health/full) returned 200 OK (orchestrator: True)
-  ✓ FastAPI Lifespan & LangGraph State Machine Smoke Test passed in 1.85s
+  ✓ FastAPI Lifespan & LangGraph State Machine Smoke Test passed in 3.93s
 
 ▶ Running Parent Role Authorization & Isolation (P0) (test_auth_p0_parent_isolation.py)...
-  ✓ Parent Role Authorization & Isolation (P0) passed in 10.77s
+  ✓ Parent Role Authorization & Isolation (P0) passed in 5.58s
 
 ▶ Running Deterministic Math Evaluator & Intent Parsing (test_math_evaluator.py)...
-  ✓ Deterministic Math Evaluator & Intent Parsing passed in 0.08s
+  ✓ Deterministic Math Evaluator & Intent Parsing passed in 0.06s
 
 ▶ Running Problem Turn Tracking & Attempt Isolation (test_problem_turn_tracking.py)...
-  ✓ Problem Turn Tracking & Attempt Isolation passed in 4.67s
+  ✓ Problem Turn Tracking & Attempt Isolation passed in 2.42s
 
 ▶ Running Day-3 Resiliency & Session Persistence (test_session_persistence.py)...
-  ✓ Day-3 Resiliency & Session Persistence passed in 14.70s
+  ✓ Day-3 Resiliency & Session Persistence passed in 16.60s
 
 ▶ Running Production RLS & Credential Isolation (test_production_rls.py)...
-  ✓ Production RLS & Credential Isolation passed in 6.60s
+  ✓ Production RLS & Credential Isolation passed in 7.88s
 
 ▶ Running Platform Safety & Socratic Guardrails (test_safety.py)...
-  ✓ Platform Safety & Socratic Guardrails passed in 0.42s
+  ✓ Platform Safety & Socratic Guardrails passed in 1.55s
 
 ▶ Running Student Scoping, Rate Limiting & RAG Retrieval (test_auth_and_rag.py)...
-  ✓ Student Scoping, Rate Limiting & RAG Retrieval passed in 4.98s
+  ✓ Student Scoping, Rate Limiting & RAG Retrieval passed in 4.59s
 
 ▶ Running Parent-Child Architecture & Inactivity Alerts (test_parent_child_flow.py)...
-  ✓ Parent-Child Architecture & Inactivity Alerts passed in 45.00s
+  ✓ Parent-Child Architecture & Inactivity Alerts passed in 89.07s
 
 ▶ Running Neo AI Platform Assistant & Guardrails (test_neo.py)...
-  ✓ Neo AI Platform Assistant & Guardrails passed in 100.14s
+  ✓ Neo AI Platform Assistant & Guardrails passed in 3.52s
+
+▶ Running Misconception State & Parent Alert Integration (test_misconception_and_alerts.py)...
+  ✓ Misconception State & Parent Alert Integration passed in 10.13s
 
 ▶ Running Session Resumption & Score Protection (test_session_and_score_fixes.py)...
-  ✓ Session Resumption & Score Protection passed in 32.16s
+  ✓ Session Resumption & Score Protection passed in 20.18s
 
 ▶ Running Math Arcade Games & Relogin Persistence (test_game_progress_persistence.py)...
-  ✓ Math Arcade Games & Relogin Persistence passed in 21.59s
+  ✓ Math Arcade Games & Relogin Persistence passed in 21.36s
 
 ============================================================================
                      APPLICATION TEST EXECUTION SUMMARY                     
 ============================================================================
  #  | TEST SUITE                                      | STATUS     |    TIME
 ----------------------------------------------------------------------------
- 1  | FastAPI Lifespan & LangGraph State Machine      | ✓ PASS     |   1.85s
- 2  | Parent Role Authorization & Isolation (P0)      | ✓ PASS     |  10.77s
- 3  | Deterministic Math Evaluator & Intent Parsing   | ✓ PASS     |   0.08s
- 4  | Problem Turn Tracking & Attempt Isolation       | ✓ PASS     |   4.67s
- 5  | Day-3 Resiliency & Session Persistence          | ✓ PASS     |  14.70s
- 6  | Production RLS & Credential Isolation           | ✓ PASS     |   6.60s
- 7  | Platform Safety & Socratic Guardrails           | ✓ PASS     |   0.42s
- 8  | Student Scoping, Rate Limiting & RAG Retrieval  | ✓ PASS     |   4.98s
- 9  | Parent-Child Architecture & Inactivity Alerts   | ✓ PASS     |  45.00s
- 10 | Neo AI Platform Assistant & Guardrails          | ✓ PASS     | 100.14s
- 11 | Session Resumption & Score Protection           | ✓ PASS     |  32.16s
- 12 | Math Arcade Games & Relogin Persistence         | ✓ PASS     |  21.59s
+ 1  | FastAPI Lifespan & LangGraph State Machine Smoke Test | ✓ PASS     |   3.93s
+ 2  | Parent Role Authorization & Isolation (P0)      | ✓ PASS     |   5.58s
+ 3  | Deterministic Math Evaluator & Intent Parsing   | ✓ PASS     |   0.06s
+ 4  | Problem Turn Tracking & Attempt Isolation       | ✓ PASS     |   2.42s
+ 5  | Day-3 Resiliency & Session Persistence          | ✓ PASS     |  16.60s
+ 6  | Production RLS & Credential Isolation           | ✓ PASS     |   7.88s
+ 7  | Platform Safety & Socratic Guardrails           | ✓ PASS     |   1.55s
+ 8  | Student Scoping, Rate Limiting & RAG Retrieval  | ✓ PASS     |   4.59s
+ 9  | Parent-Child Architecture & Inactivity Alerts   | ✓ PASS     |  89.07s
+ 10 | Neo AI Platform Assistant & Guardrails          | ✓ PASS     |   3.52s
+ 11 | Misconception State & Parent Alert Integration  | ✓ PASS     |  10.13s
+ 12 | Session Resumption & Score Protection           | ✓ PASS     |  20.18s
+ 13 | Math Arcade Games & Relogin Persistence         | ✓ PASS     |  21.36s
 ----------------------------------------------------------------------------
-  ALL 12/12 TEST SUITES PASSED IN 242.96s!
-  STATUS: ALL 12 APPLICATION TEST SUITES PASSED
+  ALL 13/13 TEST SUITES PASSED IN 186.87s!
+  STATUS: ALL 13 APPLICATION TEST SUITES PASSED
 ============================================================================
 ```
 
@@ -606,7 +651,7 @@ Open your browser to `http://localhost:5173`.
   - `VITE_SUPABASE_ANON_KEY` = `<your-supabase-anon-key>`
 
 ### Backend on Render
-- Configured via [`render.yaml`](file:///c:/Users/nayak/OneDrive/Desktop/LLM/AINerd/render.yaml)
+- Configured via [`render.yaml`](render.yaml)
 - **Start Command**: `uvicorn main:app --host 0.0.0.0 --port $PORT`
 - **Health Check Endpoint**: `/health` (includes automated cold-start warmup handling)
 
