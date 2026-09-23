@@ -133,6 +133,10 @@ def normalize_bounding_box(data: dict) -> tuple[dict | None, str, float]:
     return None, "fallback", 0.0
 
 
+# Bounded in-memory diagnosis cache to avoid re-invoking Vision LLM on duplicate uploads
+_DIAGNOSTIC_CACHE: dict[str, dict] = {}
+
+
 def run_diagnostic_agent(
     image_bytes: bytes | None,
     expected_steps: list[str],
@@ -151,57 +155,74 @@ def run_diagnostic_agent(
     Returns:
         dict with ocr_text, is_correct, misconception_type, description, skill_gap, corrective_question, bounding_hint
     """
+    # Fast-path: Never invoke Vision LLM when no image is provided
+    if not image_bytes:
+        res = {
+            "ocr_text": "",
+            "is_correct": False,
+            "step_number": 1,
+            "misconception_type": "no_image_provided",
+            "description": "No handwritten work image was attached.",
+            "skill_gap": skill_id,
+            "skill_gap_name": "",
+            "corrective_question": "Please take a photo of your handwritten math work and upload it.",
+            "bounding_box": None,
+            "bounding_hint": None,
+            "localization_source": "fallback",
+            "localization_confidence": 0.0,
+        }
+        return res
+
+    # Check cache for duplicate upload within session
+    cache_key = hashlib.sha256(image_bytes + problem_text.encode("utf-8", errors="ignore")).hexdigest()
+    if cache_key in _DIAGNOSTIC_CACHE:
+        return _DIAGNOSTIC_CACHE[cache_key]
+
     context = f"""Problem: {problem_text}
 Expected Steps:
 {chr(10).join(f'{i+1}. {s}' for i, s in enumerate(expected_steps))}
 Target Skill: {skill_id}"""
 
-    if image_bytes:
-        try:
-            b64_image = base64.b64encode(image_bytes).decode("utf-8")
-        except Exception as e:
-            print(f"[ERROR] Failed to base64-encode image bytes: {e}")
-            fallback_err: dict[str, Any] = {
-                "ocr_text": "Failed to decode image",
-                "is_correct": False,
-                "step_number": 1,
-                "misconception_type": "image_decode_failure",
-                "description": "The image data was corrupted or in an unsupported format.",
-                "skill_gap": skill_id,
-                "skill_gap_name": "",
-                "corrective_question": "There was an issue processing that photo file. Could you try uploading as a standard JPEG or PNG?",
-            }
-            box, source, conf = normalize_bounding_box(fallback_err)
-            fallback_err["bounding_hint"] = box
-            fallback_err["bounding_box"] = box
-            fallback_err["localization_source"] = source
-            fallback_err["localization_confidence"] = conf
-            return fallback_err
+    try:
+        b64_image = base64.b64encode(image_bytes).decode("utf-8")
+    except Exception as e:
+        print(f"[ERROR] Failed to base64-encode image bytes: {e}")
+        fallback_err: dict[str, Any] = {
+            "ocr_text": "Failed to decode image",
+            "is_correct": False,
+            "step_number": 1,
+            "misconception_type": "image_decode_failure",
+            "description": "The image data was corrupted or in an unsupported format.",
+            "skill_gap": skill_id,
+            "skill_gap_name": "",
+            "corrective_question": "There was an issue processing that photo file. Could you try uploading as a standard JPEG or PNG?",
+        }
+        box, source, conf = normalize_bounding_box(fallback_err)
+        fallback_err["bounding_hint"] = box
+        fallback_err["bounding_box"] = box
+        fallback_err["localization_source"] = source
+        fallback_err["localization_confidence"] = conf
+        return fallback_err
 
-        # Detect image format from header magic bytes
-        mime_type = "image/jpeg"
-        if image_bytes.startswith(b"\x89PNG\r\n\x1a\n"):
-            mime_type = "image/png"
-        elif image_bytes.startswith(b"RIFF") and b"WEBP" in image_bytes[:16]:
-            mime_type = "image/webp"
+    # Detect image format from header magic bytes
+    mime_type = "image/jpeg"
+    if image_bytes.startswith(b"\x89PNG\r\n\x1a\n"):
+        mime_type = "image/png"
+    elif image_bytes.startswith(b"RIFF") and b"WEBP" in image_bytes[:16]:
+        mime_type = "image/webp"
 
-        messages = [
-            SystemMessage(content=DIAGNOSTIC_SYSTEM_PROMPT),
-            HumanMessage(
-                content=[
-                    {"type": "text", "text": context},
-                    {
-                        "type": "image_url",
-                        "image_url": {"url": f"data:{mime_type};base64,{b64_image}"},
-                    },
-                ]
-            ),
-        ]
-    else:
-        messages = [
-            SystemMessage(content=DIAGNOSTIC_SYSTEM_PROMPT),
-            HumanMessage(content=context + "\n\nNote: No image was provided. Respond with a placeholder diagnosis."),
-        ]
+    messages = [
+        SystemMessage(content=DIAGNOSTIC_SYSTEM_PROMPT),
+        HumanMessage(
+            content=[
+                {"type": "text", "text": context},
+                {
+                    "type": "image_url",
+                    "image_url": {"url": f"data:{mime_type};base64,{b64_image}"},
+                },
+            ]
+        ),
+    ]
 
     # Zero-credit test mode bypass (used by automated test suites to consume 0 Gemini API credits)
     is_mocked = hasattr(build_vision_llm, "mock_calls") or hasattr(build_vision_llm, "assert_called")
@@ -318,6 +339,9 @@ Target Skill: {skill_id}"""
         data["bounding_box"] = box
         data["localization_source"] = source
         data["localization_confidence"] = conf
+        if len(_DIAGNOSTIC_CACHE) > 50:
+            _DIAGNOSTIC_CACHE.pop(next(iter(_DIAGNOSTIC_CACHE)))
+        _DIAGNOSTIC_CACHE[cache_key] = data
         return data
     except Exception as parse_err:
         print(f"[WARN] Failed to parse diagnostic JSON: {parse_err}. Raw text: {raw[:150]}")

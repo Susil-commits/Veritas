@@ -157,6 +157,61 @@ def run_tutor_agent(
     conversation_history: list of {"role": "student"|"tutor", "content": str}
     active_misconceptions: optional tracked student misconceptions {m_type: {"count": int, "resolved": bool}}
     """
+    clean_msg = student_message.strip()
+    if not clean_msg:
+        return {"reply": "I'm listening! What are your thoughts on this problem?", "problem_solved": False, "is_final_attempt": None}
+
+    clean_norm = clean_msg.lower().rstrip("!.,?")
+
+    # Fast-path 1: Standard student greetings (0 LLM quota consumed)
+    GREETINGS_TUTOR = {"hi", "hello", "hey", "howdy", "good morning", "good afternoon", "greetings", "yo"}
+    if clean_norm in GREETINGS_TUTOR:
+        if current_problem:
+            prob_title = current_problem.get("title", "this problem")
+            reply = f"Hello! Great to work with you today. Take a look at {prob_title} — what is the first step you think we should take?"
+        else:
+            reply = "Hello! I'm your Veritas Socratic math tutor. Let's tackle some math together! How would you like to begin?"
+        return {"reply": reply, "problem_solved": False, "is_final_attempt": None}
+
+    # Fast-path 2: Objective correct solution match (0 LLM quota consumed, instant response)
+    if current_problem:
+        try:
+            from evaluators.math_evaluator import evaluate_student_solution
+            eval_res = evaluate_student_solution(clean_msg, current_problem)
+            if eval_res.get("objective_solved"):
+                clean_ans = eval_res.get("student_answer_extracted") or clean_msg
+                return {
+                    "reply": f"Spot on! {clean_ans} is the correct solution. Fantastic job working through this problem step-by-step! Click 'Next Challenge' when you're ready.",
+                    "problem_solved": True,
+                    "is_final_attempt": True,
+                    "extracted_student_answer": clean_ans,
+                }
+        except Exception:
+            pass
+
+    # Fast-path 3: Duplicate submit / rapid double-click defense
+    if conversation_history:
+        last_student_turn = next(
+            (m.get("content", "").strip().lower() for m in reversed(conversation_history) if m.get("role") == "student"),
+            None
+        )
+        if last_student_turn and last_student_turn == clean_norm:
+            last_tutor_turn = next(
+                (m.get("content", "") for m in reversed(conversation_history) if m.get("role") == "tutor"),
+                None
+            )
+            if last_tutor_turn:
+                return {"reply": last_tutor_turn, "problem_solved": False, "is_final_attempt": None}
+
+    # Fast-path 4: Affirmation after problem solved/credited
+    AFFIRMATIONS = {"thank you", "thanks", "ok", "okay", "got it", "cool", "understood", "awesome", "great", "nice", "alright"}
+    if clean_norm in AFFIRMATIONS and current_problem and current_problem.get("credited", False):
+        return {
+            "reply": "You're very welcome! You did an awesome job on this problem. Click 'Next Challenge' to keep your learning momentum going!",
+            "problem_solved": True,
+            "is_final_attempt": None,
+        }
+
     # Build system message with current problem context
     system_content = SOCRATIC_SYSTEM_PROMPT
     if current_problem:

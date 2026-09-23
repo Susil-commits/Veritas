@@ -65,6 +65,17 @@ def embed_text(text: str) -> list[float]:
     if cached is not None:
         return cached
 
+    # Check distributed Redis cache to persist embeddings across process restarts
+    redis_key = f"veritas:embed:{cache_key}"
+    try:
+        from services.redis_service import redis_service
+        cached_remote = redis_service.get_json(redis_key)
+        if cached_remote and isinstance(cached_remote, list) and len(cached_remote) == EMBEDDING_DIMENSION:
+            _EMBEDDING_CACHE[cache_key] = cached_remote
+            return cached_remote
+    except Exception:
+        pass
+
     # Zero-credit test mode bypass (used by automated test suites)
     if os.environ.get("VERITAS_TEST_MODE") == "true" or os.environ.get("VERITAS_MOCK_LLM") == "true":
         res = _deterministic_mock_embedding(bounded_text)
@@ -84,10 +95,15 @@ def embed_text(text: str) -> list[float]:
         print(f"[WARN] Gemini embedding API call failed ({e}); using zero-credit deterministic vector.")
         res = _deterministic_mock_embedding(bounded_text)
 
-    # Cache up to 200 distinct problem query vectors in memory
+    # Cache up to 200 distinct problem query vectors in memory and in Redis
     if len(_EMBEDDING_CACHE) > 200:
         _EMBEDDING_CACHE.pop(next(iter(_EMBEDDING_CACHE)))
     _EMBEDDING_CACHE[cache_key] = res
+    try:
+        from services.redis_service import redis_service
+        redis_service.set_json(redis_key, res, ex=86400 * 14)
+    except Exception:
+        pass
     return res
 
 
@@ -453,6 +469,13 @@ def generate_session_summary(
             f"engagement with core concepts. Analysis showed solid retention of foundation skills, with "
             f"targeted guidance addressing key step-by-step problem areas. Continued practice on related "
             f"topics is recommended to solidify fluency and boost long-term confidence."
+        )
+
+    # Fast-path: Never invoke LLM if student hasn't attempted any problems yet
+    if not problems_attempted:
+        return (
+            f"{student_name} is getting started on Veritas! Continued practice with targeted guidance "
+            f"is recommended to solidify fluency and boost long-term confidence."
         )
 
     # Build mastery summary string

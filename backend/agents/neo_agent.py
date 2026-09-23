@@ -136,6 +136,29 @@ def run_neo_agent(
             "suggested_actions": DEFAULT_SUGGESTIONS,
         }
 
+    # Fast-path for standard greetings & identity queries (0 Gemini API calls consumed)
+    clean_norm = clean_message.strip().lower().rstrip("!.,?")
+    GREETINGS_NEO = {
+        "hi", "hello", "hey", "howdy", "good morning", "good afternoon", "greetings",
+        "who are you", "what is veritas", "what can you do", "help",
+    }
+    if clean_norm in GREETINGS_NEO:
+        role = str(user_ctx.get("role", "visitor"))
+        name = str(user_ctx.get("name") or ("Parent" if role == "parent" else "Student"))
+        if clean_norm in {"who are you", "what is veritas", "what can you do", "help"}:
+            reply = (
+                "I am Neo, your Veritas AI guide! Veritas is a Socratic math learning platform designed for Grades 3-8. "
+                "I can help you explore our Socratic tutor, understand our BKT skill mastery radar, or navigate the parent dashboard."
+            )
+        else:
+            reply = f"Hello {name}! I am Neo, your Veritas guide. How can I help you navigate our Socratic math platform today?"
+        return {
+            "reply": reply,
+            "guardrailed": False,
+            "guardrail_reason": None,
+            "suggested_actions": DEFAULT_SUGGESTIONS,
+        }
+
     # Prepare system prompt enriched with sanitized user context (prevent prompt injection via profile fields)
     system_prompt = NEO_SYSTEM_PROMPT
     if user_ctx:

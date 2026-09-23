@@ -98,6 +98,17 @@ async def get_summary(
     if session_id in _SESSION_SUMMARY_CACHE:
         return {"summary": _SESSION_SUMMARY_CACHE[session_id], "events": events.data}
 
+    # Check distributed Redis cache to prevent redundant LLM generation across restarts/devices
+    cache_key = f"veritas:summary:{session_id}"
+    try:
+        from services.redis_service import redis_service
+        cached_remote = redis_service.get_json(cache_key)
+        if cached_remote and isinstance(cached_remote, dict) and "summary" in cached_remote:
+            _SESSION_SUMMARY_CACHE[session_id] = cached_remote["summary"]
+            return {"summary": cached_remote["summary"], "events": events.data}
+    except Exception:
+        pass
+
     student_row = await db_exec(supabase.table("students").select("*").eq("id", student_id).single())
     mastery_rows = await db_exec(
         supabase.table("student_skill_mastery")
@@ -118,6 +129,11 @@ async def get_summary(
         if len(_SESSION_SUMMARY_CACHE) > 100:
             _SESSION_SUMMARY_CACHE.pop(next(iter(_SESSION_SUMMARY_CACHE)))
         _SESSION_SUMMARY_CACHE[session_id] = summary
+        try:
+            from services.redis_service import redis_service
+            redis_service.set_json(cache_key, {"summary": summary}, ex=86400 * 3)  # 3 days TTL
+        except Exception:
+            pass
 
     return {"summary": summary, "events": events.data}
 
