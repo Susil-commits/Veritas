@@ -181,6 +181,18 @@ h3 { font-size: 1.2rem; }
 .badge-emerald{ background: rgba(52,211,153,0.1); color: var(--emerald);   border: 1px solid rgba(52,211,153,0.3); }
 .badge-rose   { background: rgba(248,113,113,0.1); color: var(--rose);     border: 1px solid rgba(248,113,113,0.3); }
 
+/* High contrast badge adjustments in light theme */
+[data-theme="light"] .badge-violet {
+  color: #5B21B6;
+  background: rgba(107, 78, 230, 0.12);
+  border-color: rgba(107, 78, 230, 0.28);
+}
+[data-theme="light"] .badge-amber {
+  color: #B45309;
+  background: rgba(245, 158, 11, 0.15);
+  border-color: rgba(245, 158, 11, 0.35);
+}
+
 /* ── Buttons ── */
 .btn {
   display: inline-flex;
@@ -198,16 +210,36 @@ h3 { font-size: 1.2rem; }
   outline: none;
 }
 
-.btn-primary {
+.btn-primary,
+.btn-violet {
   background: linear-gradient(135deg, var(--violet), var(--indigo));
-  color: white;
+  color: white !important;
   box-shadow: 0 4px 20px rgba(124,93,250,0.35);
 }
-.btn-primary:hover {
+.btn-primary:hover,
+.btn-violet:hover {
   transform: translateY(-1px);
   box-shadow: 0 6px 28px rgba(124,93,250,0.5);
+  color: white !important;
 }
-.btn-primary:active { transform: translateY(0); }
+.btn-primary:active,
+.btn-violet:active { transform: translateY(0); }
+
+.btn-sm {
+  padding: 6px 14px;
+  font-size: 0.8rem;
+  border-radius: var(--radius-sm);
+}
+
+.btn-lg {
+  padding: 12px 28px;
+  font-size: 1rem;
+  border-radius: var(--radius-md);
+}
+
+.btn-block {
+  width: 100%;
+}
 
 .btn-ghost {
   background: transparent;

@@ -52,12 +52,21 @@ api.interceptors.request.use(async (config) => {
 
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error) => {
     if (error.response?.status === 401) {
-      // Clear poisoned or stale session token so next request does not reuse it
+      // Clear poisoned or stale practice session token
       try {
         sessionStorage.removeItem('session')
       } catch {}
+
+      // If the 401 was due to an invalid/expired Supabase token signature,
+      // purge the local token so the client does not keep sending a rejected token
+      if (activeSupabaseToken) {
+        activeSupabaseToken = null
+        try {
+          await supabase.auth.signOut({ scope: 'local' })
+        } catch {}
+      }
     }
     return Promise.reject(error)
   }

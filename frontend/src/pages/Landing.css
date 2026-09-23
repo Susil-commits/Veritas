@@ -818,15 +818,70 @@
   border: 1px solid rgba(124, 93, 250, 0.3);
 }
 
+.logged-in-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+}
+
+.logged-in-name {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.25;
+  margin-bottom: 2px;
+}
+
 .logged-in-title {
-  font-size: 1.05rem;
-  color: #FFFFFF;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.logged-in-title strong {
+  color: var(--text-primary);
+  font-weight: 600;
 }
 
 .logged-in-role {
   font-size: 0.82rem;
   color: var(--text-secondary);
-  margin-top: 3px;
+  margin-top: 4px;
+}
+
+.logged-in-student-id {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+
+.student-id-label {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+}
+
+.logged-in-student-code-btn {
+  cursor: pointer;
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  background: rgba(245, 158, 11, 0.15);
+  color: var(--amber, #F59E0B);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  font-size: 0.78rem;
+  border-radius: 6px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.logged-in-student-code-btn:hover {
+  background: rgba(245, 158, 11, 0.22);
+  border-color: rgba(245, 158, 11, 0.5);
+  transform: translateY(-1px);
 }
 
 .logged-in-celebration {
@@ -2464,5 +2519,88 @@
 
 [data-theme="light"] .step-arrow {
   color: var(--text-secondary);
+}
+
+/* Light theme overrides for Logged-In Card & Account details */
+[data-theme="light"] .auth-logged-in-card {
+  background: rgba(255, 255, 255, 0.96);
+  border-color: rgba(107, 78, 230, 0.25);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.08), 0 0 20px rgba(107, 78, 230, 0.08);
+}
+
+[data-theme="light"] .logged-in-name {
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .logged-in-title {
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .logged-in-title strong {
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .logged-in-role {
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .logged-in-celebration {
+  color: #059669;
+  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(16, 185, 129, 0.32);
+}
+
+[data-theme="light"] .celebration-dot {
+  background: #059669;
+  box-shadow: 0 0 6px rgba(5, 150, 105, 0.5);
+}
+
+[data-theme="light"] .student-id-label {
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .logged-in-student-code-btn {
+  color: #B45309;
+  background: rgba(245, 158, 11, 0.12);
+  border-color: rgba(180, 83, 9, 0.3);
+}
+
+[data-theme="light"] .logged-in-student-code-btn:hover {
+  background: rgba(245, 158, 11, 0.2);
+  border-color: rgba(180, 83, 9, 0.45);
+}
+
+[data-theme="light"] .logged-in-sub-actions .btn-ghost {
+  border-color: rgba(0, 0, 0, 0.14);
+  background: rgba(0, 0, 0, 0.02);
+  color: var(--text-secondary);
+}
+
+[data-theme="light"] .logged-in-sub-actions .btn-ghost:hover {
+  border-color: rgba(0, 0, 0, 0.22);
+  background: rgba(0, 0, 0, 0.05);
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .logged-in-logout-btn {
+  color: #DC2626 !important;
+  border-color: rgba(220, 38, 38, 0.25) !important;
+}
+
+[data-theme="light"] .logged-in-logout-btn:hover {
+  background: rgba(220, 38, 38, 0.08) !important;
+  border-color: rgba(220, 38, 38, 0.4) !important;
+}
+
+[data-theme="light"] .trust-item {
+  background: rgba(255, 255, 255, 0.85);
+  border-color: rgba(0, 0, 0, 0.08);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="light"] .navbar-user-chip {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.08);
+  color: var(--text-primary);
 }
 

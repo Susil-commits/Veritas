@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { checkHealth } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
@@ -188,6 +188,11 @@ export default function Landing() {
   const [showAvatarModal, setShowAvatarModal] = useState(false)
   const [isRegistrationAvatarStep, setIsRegistrationAvatarStep] = useState(false)
   const [copiedStudentId, setCopiedStudentId] = useState(false)
+
+  const userDisplayName = useMemo(() => {
+    const raw = (user?.user_metadata?.name || user?.user_metadata?.full_name || rememberedProfile?.name || fullName || '').trim()
+    return raw || (user?.email ? user.email.split('@')[0] : '')
+  }, [user, rememberedProfile, fullName])
 
   const currentStudentId = user?.id || (() => {
     try {
@@ -885,54 +890,43 @@ export default function Landing() {
                 </div>
               )}
               <div className="auth-logged-in-card animate-fadein">
-                <div className="logged-in-badge">
-                <UserAvatar
-                  avatar={avatar}
-                  name={user.user_metadata?.name || rememberedProfile?.name || ''}
-                  role={role}
-                  size="lg"
-                  onClick={() => {
-                    setIsRegistrationAvatarStep(false)
-                    setShowAvatarModal(true)
-                  }}
-                  showEditBadge={true}
-                />
-                <div>
-                  <div className="logged-in-celebration">
-                    <span className="celebration-dot" />
-                    Account Verified & Ready!
-                  </div>
-                  <div className="logged-in-title">Signed In as <strong>{user.email}</strong></div>
-                  <div className="logged-in-role">Active Portal: <span className="badge badge-violet">{role === 'parent' ? 'Parent & Guardian Portal' : 'Student Socratic Workspace'}</span></div>
-                  {role === 'student' && currentStudentId && (
-                    <div className="logged-in-student-id" style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '6px', flexWrap: 'wrap' }}>
-                      <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>Student ID:</span>
-                      <button
-                        type="button"
-                        onClick={handleCopyStudentId}
-                        className="badge badge-amber"
-                        style={{
-                          cursor: 'pointer',
-                          border: '1px solid rgba(245, 158, 11, 0.35)',
-                          background: 'rgba(245, 158, 11, 0.15)',
-                          color: 'var(--amber, #F59E0B)',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '6px',
-                          padding: '3px 10px',
-                          fontSize: '0.78rem',
-                          borderRadius: '6px',
-                          fontWeight: 600,
-                          transition: 'all 0.2s ease',
+                    <div className="logged-in-badge">
+                      <UserAvatar
+                        avatar={avatar}
+                        name={userDisplayName}
+                        role={role}
+                        size="lg"
+                        onClick={() => {
+                          setIsRegistrationAvatarStep(false)
+                          setShowAvatarModal(true)
                         }}
-                        title="Click to copy your Student ID code for your parents to link your account in their portal"
-                      >
-                        <span>{copiedStudentId ? '✓ Copied to clipboard!' : `Code: ${currentStudentId.slice(0, 8)}… 📋 Copy`}</span>
-                      </button>
+                        showEditBadge={true}
+                      />
+                      <div className="logged-in-info">
+                        <div className="logged-in-celebration">
+                          <span className="celebration-dot" />
+                          Account Verified & Ready!
+                        </div>
+                        {userDisplayName && (
+                          <div className="logged-in-name">{userDisplayName}</div>
+                        )}
+                        <div className="logged-in-title">Signed In as <strong>{user.email}</strong></div>
+                        <div className="logged-in-role">Active Portal: <span className="badge badge-violet">{role === 'parent' ? 'Parent & Guardian Portal' : 'Student Socratic Workspace'}</span></div>
+                        {role === 'student' && currentStudentId && (
+                          <div className="logged-in-student-id">
+                            <span className="student-id-label">Student ID:</span>
+                            <button
+                              type="button"
+                              onClick={handleCopyStudentId}
+                              className="badge badge-amber logged-in-student-code-btn"
+                              title="Click to copy your Student ID code for your parents to link your account in their portal"
+                            >
+                              <span>{copiedStudentId ? '✓ Copied to clipboard!' : `Code: ${currentStudentId.slice(0, 8)}… 📋 Copy`}</span>
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  )}
-                </div>
-                </div>
                 <div className="logged-in-actions">
                 <button
                   type="button"
