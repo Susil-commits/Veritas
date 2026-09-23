@@ -248,11 +248,9 @@ export default function Landing() {
   // Animated intro portal control (bypassed if arriving directly with a section anchor like #demo)
   const [showIntro, setShowIntro] = useState(() => {
     try {
-      // Clear legacy storage keys that permanently suppressed the welcome screen across visits
+      // Clear legacy storage keys that suppressed the welcome screen across visits
       localStorage.removeItem('veritas_intro_seen')
-      localStorage.removeItem('ainerd_intro_seen')
       sessionStorage.removeItem('veritas_intro_seen')
-      sessionStorage.removeItem('ainerd_intro_seen')
 
       // If arriving with direct anchor link (e.g. #demo, #how-it-works, #pipeline), bypass intro to jump to section
       if (window.location.hash && !window.location.hash.includes('access_token')) {

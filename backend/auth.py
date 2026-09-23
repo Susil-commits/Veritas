@@ -1,7 +1,7 @@
 """
 Session Token Authentication — HMAC-SHA256 signed tokens
 Provides cryptographic verification for student endpoints without requiring
-heavy OAuth infrastructure for hackathon/demo scope.
+heavy OAuth infrastructure for demo and evaluation environments.
 """
 import os
 import hmac
@@ -155,7 +155,7 @@ def verify_session_token(token: str) -> dict:
     DEMO_PARENT_ID = "99999999-8888-7777-6666-555555555555"
     DEMO_STUDENT_ID = "24e836e3-3b42-41a0-8a27-222f883eaa10"
 
-    # Evaluator Convenience: Pre-seeded zero-setup demo accounts for hackathon judges.
+    # Evaluator Convenience: Pre-seeded zero-setup demo accounts for reviewers and evaluators.
     # Strict allowlist: Only known demo identities are accepted; arbitrary IDs under demo_ prefix are rejected.
     if token in (f"demo_{DEMO_PARENT_ID}", f"demo_parent_{DEMO_PARENT_ID}", "demo_parent"):
         return {
@@ -434,7 +434,7 @@ async def verify_student_access(
 
     if caller_role == "parent":
         # Evaluator Convenience: Fixed link between pre-seeded demo parent and demo student accounts
-        # Allows hackathon judges to immediately inspect parent monitoring on demo student Alex
+        # Allows reviewers and evaluators to immediately inspect parent monitoring on demo student Alex
         DEMO_PARENT = "99999999-8888-7777-6666-555555555555"
         DEMO_STUDENT = "24e836e3-3b42-41a0-8a27-222f883eaa10"
         if caller_sub == DEMO_PARENT and student_id == DEMO_STUDENT:

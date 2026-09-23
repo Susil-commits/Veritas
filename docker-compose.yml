@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  # In-memory distributed cache & session store
+  redis:
+    image: redis:7-alpine
+    container_name: veritas-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # FastAPI Backend Service (LangGraph, BKT, Symbolic CAS, Gemini API)
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: veritas-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - ENVIRONMENT=production
+      - REDIS_URL=redis://redis:6379
+      - UPSTASH_REDIS_URL=redis://redis:6379
+    env_file:
+      - ./backend/.env
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # React + Vite Frontend (Nginx SPA proxy)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: veritas-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  redis_data:

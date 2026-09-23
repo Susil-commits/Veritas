@@ -31,6 +31,7 @@ TEST_SCRIPTS = [
     ("test_misconception_and_alerts.py", "Misconception State & Parent Alert Integration"),
     ("test_session_and_score_fixes.py", "Session Resumption & Score Protection"),
     ("test_game_progress_persistence.py", "Math Arcade Games & Relogin Persistence"),
+    ("test_evals_and_cognitive_dag.py", "Offline Evaluation & Cognitive DAG Benchmark Suite"),
 ]
 
 def main():

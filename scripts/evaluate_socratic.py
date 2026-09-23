@@ -6,6 +6,7 @@ Evaluates:
 - Guiding question presence (Socratic inquiry)
 - Pedagogical verifier approval rate
 """
+# pyright: reportMissingImports=false, reportGeneralTypeIssues=false, reportOptionalSubscript=false
 import os
 import sys
 import json
@@ -99,11 +100,16 @@ def run_socratic_benchmark() -> dict:
     print("-" * 80)
 
     for i, item in enumerate(SOCRATIC_EVALUATION_SAMPLES, 1):
+        tutor_reply = str(item.get("reply", ""))
+        expected_ans = str(item["expected_answer"]) if item.get("expected_answer") is not None else None
+        expected_steps = list(item["expected_steps"]) if item.get("expected_steps") is not None else None
+        misconception = str(item["misconception"]) if item.get("misconception") is not None else None
+
         eval_res = verify_pedagogical_response(
-            tutor_reply=item["reply"],
-            expected_answer=item["expected_answer"],
-            expected_steps=item["expected_steps"],
-            misconception_type=item.get("misconception"),
+            tutor_reply=tutor_reply,
+            expected_answer=expected_ans,
+            expected_steps=expected_steps,
+            misconception_type=misconception,
         )
 
         approved = eval_res["approved"]
@@ -123,7 +129,8 @@ def run_socratic_benchmark() -> dict:
         exp_str = "APPROVED" if expected else "FLAGGED"
         status_str = "✓ PASS" if passed else "✗ FAIL"
 
-        print(f" {i:<2} | {item['description'][:34]:<34} | {verdict_str:<10} | {exp_str:<10} | {status_str:<8}")
+        desc = str(item.get("description", ""))[:34]
+        print(f" {i:<2} | {desc:<34} | {verdict_str:<10} | {exp_str:<10} | {status_str:<8}")
 
     accuracy = (correct_verdicts / total_samples) * 100
 

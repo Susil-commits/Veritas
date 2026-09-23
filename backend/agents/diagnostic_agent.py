@@ -7,6 +7,7 @@ import os
 import base64
 import json
 import re
+import hashlib
 from typing import Any
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import SystemMessage, HumanMessage

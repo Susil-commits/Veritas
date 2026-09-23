@@ -309,7 +309,7 @@ def generate_calibration_report():
     skills = data.get("skills", [])
 
     print("\n" + "=" * 80)
-    print("📊 AI NERD — BAYESIAN KNOWLEDGE TRACING (BKT) CALIBRATION REPORT")
+    print("📊 VERITAS — BAYESIAN KNOWLEDGE TRACING (BKT) CALIBRATION REPORT")
     print("=" * 80)
     print(f"Primary Benchmark : {meta.get('primary_calibration_source', 'N/A')}")
     print(f"Baseline Standard : {meta.get('baseline_source', 'N/A')}")

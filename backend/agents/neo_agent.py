@@ -82,7 +82,7 @@ DEFAULT_SUGGESTIONS = [
 NEO_MODEL_CASCADE = CHAT_MODEL_CASCADE
 
 
-def build_neo_llm(model_name: str) -> ChatGoogleGenerativeAI:
+def build_neo_llm(model_name: str) -> Any:
     """Instantiate Gemini Flash LLM using the existing GEMINI_API_KEY."""
     api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY", "")
     return ChatGoogleGenerativeAI(

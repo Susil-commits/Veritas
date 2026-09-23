@@ -96,7 +96,7 @@ function getSupabaseAuthToken(): string | null {
 }
 
 export function getAuthHeaders(options?: { skipSessionToken?: boolean }): Record<string, string> {
-  const currentRole = localStorage.getItem('veritas_user_role') || localStorage.getItem('ainerd_user_role')
+  const currentRole = localStorage.getItem('veritas_user_role')
 
   // 1. Prioritize active student practice session token ONLY when role is not explicitly parent and not starting session
   if (currentRole !== 'parent' && !options?.skipSessionToken) {
@@ -138,8 +138,8 @@ export function getAuthHeaders(options?: { skipSessionToken?: boolean }): Record
 
   // 3. Check demo user profile
   try {
-    const role = localStorage.getItem('veritas_user_role') || localStorage.getItem('ainerd_user_role')
-    const storedDemo = localStorage.getItem('veritas_demo_user') || localStorage.getItem('ainerd_demo_user')
+    const role = localStorage.getItem('veritas_user_role')
+    const storedDemo = localStorage.getItem('veritas_demo_user')
     if (storedDemo) {
       const parsed = JSON.parse(storedDemo)
       if (parsed?.id) {

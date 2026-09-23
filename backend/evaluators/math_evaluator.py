@@ -198,13 +198,149 @@ def extract_student_candidate(message: str) -> list[Tuple[str, str]]:
     return candidates
 
 
+try:
+    import sympy
+    from sympy.parsing.sympy_parser import (
+        parse_expr,
+        standard_transformations,
+        implicit_multiplication_application,
+    )
+    _SYMPY_TRANSFORMS = standard_transformations + (implicit_multiplication_application,)
+    SYMPY_AVAILABLE = True
+except Exception:
+    sympy = None
+    _SYMPY_TRANSFORMS = None
+    SYMPY_AVAILABLE = False
+
+
+def _expand_parentheses(expr: str) -> str:
+    """Expand simple distributive expressions like 3(x + 2) -> 3x + 6 or -2(p - 4) -> -2p + 8."""
+    pattern = r"([+-]?\s*\d*(?:\.\d+)?)\s*\(\s*([^()]+)\s*\)"
+    
+    def replacer(m):
+        raw_coeff = m.group(1).replace(" ", "")
+        inner = m.group(2).strip()
+        if not raw_coeff or raw_coeff == "+":
+            multiplier = Fraction(1)
+        elif raw_coeff == "-":
+            multiplier = Fraction(-1)
+        else:
+            multiplier = parse_fraction_or_num(raw_coeff) or Fraction(1)
+
+        # Tokenize inner addition/subtraction
+        terms = re.findall(r"([+-]?\s*[^+-]+)", inner)
+        expanded = []
+        for t in terms:
+            t = t.strip()
+            if not t:
+                continue
+            sub_m = re.match(r"^([+-]?)\s*(\d*(?:\.\d+)?(?:/\d+)?)\s*([a-zA-Z]*)$", t)
+            if sub_m:
+                sign = -1 if sub_m.group(1) == "-" else 1
+                c_str = sub_m.group(2).strip()
+                var = sub_m.group(3).strip()
+                parsed = parse_fraction_or_num(c_str) if c_str else Fraction(1)
+                parsed_val = parsed if parsed is not None else Fraction(1)
+                val = parsed_val * sign * multiplier
+                
+                sign_str = "+ " if val >= 0 else "- "
+                abs_val = abs(val)
+                val_str = "" if (var and abs_val == 1) else (f"{abs_val.numerator}/{abs_val.denominator}" if abs_val.denominator != 1 else str(abs_val.numerator))
+                expanded.append(f"{sign_str}{val_str}{var}".strip())
+            else:
+                expanded.append(t)
+        return " " + " ".join(expanded) + " "
+
+    prev = ""
+    curr = expr
+    while prev != curr and "(" in curr:
+        prev = curr
+        curr = re.sub(pattern, replacer, curr)
+    return curr
+
+
+def parse_algebraic_terms(expr: str) -> dict[str, Fraction]:
+    """
+    Parse an algebraic linear/multinomial expression into canonical terms with Fraction coefficients.
+    Supports commutative grouping, sign preservation, and distributive expansion.
+    e.g. '2p + h' -> {'p': 2, 'h': 1}
+    e.g. '-y + 2x' -> {'x': 2, 'y': -1}
+    e.g. '3(x + 2)' -> {'x': 3, '': 6}
+    """
+    clean = _expand_parentheses(expr).strip()
+    # Normalize operators
+    clean = clean.replace(" - ", " + -").replace("-", "+-")
+    raw_tokens = [t.strip() for t in clean.split("+") if t.strip()]
+
+    terms: dict[str, Fraction] = {}
+    for tok in raw_tokens:
+        tok = tok.replace(" ", "")
+        m = re.match(r"^([+-]?\d*(?:\.\d+)?(?:/\d+)?)\s*([a-zA-Z]*)$", tok)
+        if not m:
+            continue
+        c_str = m.group(1).strip()
+        var = m.group(2).strip()
+        if not c_str or c_str == "+":
+            coeff = Fraction(1)
+        elif c_str == "-":
+            coeff = Fraction(-1)
+        elif c_str == "+-":
+            coeff = Fraction(-1)
+        else:
+            coeff = parse_fraction_or_num(c_str.replace("+-", "-")) or Fraction(0)
+
+        terms[var] = terms.get(var, Fraction(0)) + coeff
+
+    # Remove zero coefficients
+    return {k: v for k, v in terms.items() if v != Fraction(0)}
+
+
 def normalize_expression(expr: str) -> str:
-    """Normalize simple commutative addition expressions e.g. '2p + h' == 'h + 2p'."""
-    clean = expr.lower().replace(" ", "")
-    if "+" in clean:
-        parts = sorted(clean.split("+"))
-        return "+".join(parts)
-    return clean
+    """Normalize algebraic expressions into canonical sorted string form."""
+    terms = parse_algebraic_terms(expr)
+    if not terms:
+        # Fallback to basic whitespace and addition sorting
+        clean = expr.lower().replace(" ", "")
+        if "+" in clean:
+            return "+".join(sorted(clean.split("+")))
+        return clean
+
+    # Sort variables alphabetically, with constant term '' at the end
+    sorted_vars = sorted(terms.keys(), key=lambda v: (v == '', v.lower()))
+    parts = []
+    for i, var in enumerate(sorted_vars):
+        coeff = terms[var]
+        sign = "+ " if coeff > 0 and i > 0 else ("- " if coeff < 0 and i > 0 else ("-" if coeff < 0 else ""))
+        abs_c = abs(coeff)
+        c_str = "" if (var and abs_c == 1) else (f"{abs_c.numerator}/{abs_c.denominator}" if abs_c.denominator != 1 else str(abs_c.numerator))
+        parts.append(f"{sign}{c_str}{var}".strip())
+
+    return " ".join(parts)
+
+
+def verify_symbolic_algebraic_equivalence(cand: str, exp: str) -> bool:
+    """Verify algebraic equivalence using SymPy CAS when available, with AST parser fallback."""
+    # 1. SymPy CAS verification
+    if SYMPY_AVAILABLE and sympy is not None and _SYMPY_TRANSFORMS is not None:
+        try:
+            cand_sym_str = cand.replace("^", "**")
+            exp_sym_str = exp.replace("^", "**")
+            c_sym = parse_expr(cand_sym_str, transformations=_SYMPY_TRANSFORMS)
+            e_sym = parse_expr(exp_sym_str, transformations=_SYMPY_TRANSFORMS)
+            if sympy.simplify(c_sym - e_sym) == 0:
+                return True
+        except Exception:
+            pass
+
+    # 2. Canonical AST term-dictionary comparison
+    cand_terms = parse_algebraic_terms(cand)
+    exp_terms = parse_algebraic_terms(exp)
+    if cand_terms and exp_terms:
+        if cand_terms == exp_terms:
+            return True
+
+    # 3. String normalizer comparison
+    return normalize_expression(cand) == normalize_expression(exp)
 
 
 def verify_math_equivalence(candidate: str, expected: str, expected_type: str) -> bool:
@@ -216,16 +352,21 @@ def verify_math_equivalence(candidate: str, expected: str, expected_type: str) -
     if cand.lower() == exp.lower():
         return True
 
-    # Equation comparison: e.g. "x = 4" vs "4" or "x = 4"
+    # Equation comparison: handles "x = 4", "4 = x", "y = 3/4", etc.
     if expected_type == "equation":
-        cand_eq = re.search(r"\b([a-zA-Z])\s*=\s*(.+)$", cand)
-        exp_eq = re.search(r"\b([a-zA-Z])\s*=\s*(.+)$", exp)
-        cand_val = cand_eq.group(2).strip() if cand_eq else cand
-        exp_val = exp_eq.group(2).strip() if exp_eq else exp
-        # Check if variable names match if both provided
-        if cand_eq and exp_eq and cand_eq.group(1).lower() != exp_eq.group(1).lower():
+        cand_eq = re.search(r"\b([a-zA-Z])\s*=\s*(.+)$", cand) or re.search(r"^(.+?)\s*=\s*([a-zA-Z])\b", cand)
+        exp_eq = re.search(r"\b([a-zA-Z])\s*=\s*(.+)$", exp) or re.search(r"^(.+?)\s*=\s*([a-zA-Z])\b", exp)
+        
+        cand_var = cand_eq.group(1) if (cand_eq and re.match(r"^[a-zA-Z]$", cand_eq.group(1))) else (cand_eq.group(2) if (cand_eq and re.match(r"^[a-zA-Z]$", cand_eq.group(2))) else None)
+        cand_val = cand_eq.group(2).strip() if (cand_eq and cand_var == cand_eq.group(1)) else (cand_eq.group(1).strip() if cand_eq else cand)
+
+        exp_var = exp_eq.group(1) if (exp_eq and re.match(r"^[a-zA-Z]$", exp_eq.group(1))) else (exp_eq.group(2) if (exp_eq and re.match(r"^[a-zA-Z]$", exp_eq.group(2))) else None)
+        exp_val = exp_eq.group(2).strip() if (exp_eq and exp_var == exp_eq.group(1)) else (exp_eq.group(1).strip() if exp_eq else exp)
+
+        if cand_var and exp_var and cand_var.lower() != exp_var.lower():
             return False
-        # Compare RHS values mathematically
+
+        # Compare RHS values mathematically (fractions, floats, or integers)
         f_cand = parse_fraction_or_num(cand_val)
         f_exp = parse_fraction_or_num(exp_val)
         if f_cand is not None and f_exp is not None:
@@ -239,9 +380,9 @@ def verify_math_equivalence(candidate: str, expected: str, expected_type: str) -
         if f_cand is not None and f_exp is not None:
             return f_cand == f_exp
 
-    # Algebraic expression comparison: e.g. "2p + h" vs "h + 2p"
+    # Algebraic expression comparison: handles commutative algebra, distribution, reordering
     if expected_type == "expression":
-        return normalize_expression(cand) == normalize_expression(exp)
+        return verify_symbolic_algebraic_equivalence(cand, exp)
 
     return False
 

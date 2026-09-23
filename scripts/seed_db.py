@@ -36,7 +36,41 @@ from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from config import EMBEDDING_MODEL, EMBEDDING_DIMENSION
 
 SEED_FILE = Path(__file__).parent.parent / "data" / "seed_problems.json"
+BKT_PARAMS_FILE = Path(__file__).parent.parent / "backend" / "bkt" / "parameters.json"
 BATCH_SIZE = 15
+
+
+def seed_skills(supabase):
+    """Seed authoritative skills, BKT hyperparameters, and Cognitive DAG edges into PostgreSQL."""
+    if not BKT_PARAMS_FILE.exists():
+        print(f"⚠️ Skills seed file {BKT_PARAMS_FILE} not found; skipping skills seed.")
+        return
+    with open(BKT_PARAMS_FILE, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    skills = data.get("skills", [])
+    print(f"\n🧠 Seeding {len(skills)} Common Core skills with BKT hyperparameters & DAG edges into PostgreSQL...")
+    skill_rows = []
+    for s in skills:
+        skill_rows.append({
+            "id": s["id"],
+            "name": s["name"],
+            "cc_standard": s["id"],
+            "sequence_order": s.get("sequence_order", 0),
+            "prior": s.get("prior", 0.3),
+            "learn": s.get("learn", 0.15),
+            "guess": s.get("guess", 0.2),
+            "slip": s.get("slip", 0.1),
+            "prerequisites": s.get("prerequisites", []),
+            "retention_half_life_days": s.get("retention_half_life_days", 21.0),
+            "decay_rate": s.get("decay_rate", 0.0385),
+            "calibrated": s.get("calibrated", False),
+            "calibration_source": s.get("source", "Corbett & Anderson Baseline"),
+        })
+    try:
+        supabase.table("skills").upsert(skill_rows).execute()
+        print(f"   ✅ Successfully upserted {len(skill_rows)} skills into 'skills' table.")
+    except Exception as e:
+        print(f"   ⚠️ Could not upsert skills to Supabase: {e}")
 
 
 def embed_batch_with_retry(texts: list[str], embeddings_model, max_retries: int = 4) -> list[list[float]]:
@@ -60,8 +94,11 @@ def main():
     parser.add_argument("--clean", action="store_true", help="Delete existing problems before seeding")
     args = parser.parse_args()
 
-    print("🌱 Initializing Problem Bank Database Seeder...")
+    print("🌱 Initializing Problem Bank & Skills Database Seeder...")
     supabase = get_supabase()
+
+    # 1. Seed Skills with BKT parameters and DAG topology
+    seed_skills(supabase)
 
     api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
     if not api_key:

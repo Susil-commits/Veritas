@@ -1,6 +1,6 @@
 {
   "_metadata": {
-    "description": "Bayesian Knowledge Tracing (BKT) skill parameter registry",
+    "description": "Bayesian Knowledge Tracing (BKT) skill parameter registry with Cognitive DAG & Ebbinghaus Forgetting Model",
     "primary_calibration_source": "ASSISTments 2009-2010 Skill Builder Dataset (WPI / CAHLR)",
     "baseline_source": "Corbett & Anderson (1995) Standard Cognitive Tutor Priors",
     "calibration_method": "Maximum Likelihood Estimation on 70% Train with Hyperparameter Model Selection on 15% Validation",
@@ -16,6 +16,11 @@
       "Accuracy",
       "Calibration Curve"
     ],
+    "cognitive_extensions": [
+      "Prerequisite Directed Acyclic Graph (DAG) for Root-Deficit Diagnosis",
+      "Ebbinghaus Exponential Retention Decay: P(L_t) = P_prior + (P_current - P_prior) * e^(-lambda * dt)",
+      "Pedagogical Attempt Scaffolding Weighting (Independent vs Hinted vs Corrected)"
+    ],
     "last_calibrated": "2026-09-17"
   },
   "skills": [
@@ -27,6 +32,9 @@
       "learn": 0.15,
       "guess": 0.2,
       "slip": 0.1,
+      "prerequisites": [],
+      "retention_half_life_days": 21.0,
+      "decay_rate": 0.033,
       "calibrated": false,
       "source": "Corbett & Anderson Baseline",
       "notes": "Cognitive Tutor default baseline parameters; real-data calibration scheduled for next phase"
@@ -39,6 +47,9 @@
       "learn": 0.15,
       "guess": 0.2,
       "slip": 0.1,
+      "prerequisites": ["3.OA.A.1"],
+      "retention_half_life_days": 18.0,
+      "decay_rate": 0.0385,
       "calibrated": false,
       "source": "Corbett & Anderson Baseline",
       "notes": "Cognitive Tutor default baseline parameters; real-data calibration scheduled for next phase"
@@ -51,6 +62,9 @@
       "learn": 0.12,
       "guess": 0.18,
       "slip": 0.12,
+      "prerequisites": ["3.OA.A.1", "3.OA.A.2"],
+      "retention_half_life_days": 14.0,
+      "decay_rate": 0.0495,
       "calibrated": false,
       "source": "Corbett & Anderson Baseline",
       "notes": "Cognitive Tutor default baseline parameters; real-data calibration scheduled for next phase"
@@ -63,6 +77,9 @@
       "learn": 0.08,
       "guess": 0.22,
       "slip": 0.14,
+      "prerequisites": ["3.OA.A.1", "3.OA.A.2"],
+      "retention_half_life_days": 16.0,
+      "decay_rate": 0.0433,
       "calibrated": true,
       "source": "ASSISTments 2009-2010 (Equivalent Fractions)",
       "notes": "pilot MLE fit on 200 sequences (70% train / 15% validation model selection from 396 students, 2918 total ASSISTments responses)"
@@ -75,6 +92,9 @@
       "learn": 0.2,
       "guess": 0.18,
       "slip": 0.14,
+      "prerequisites": ["4.NF.A.1"],
+      "retention_half_life_days": 16.0,
+      "decay_rate": 0.0433,
       "calibrated": true,
       "source": "ASSISTments 2009-2010 (Addition and Subtraction Fractions)",
       "notes": "pilot MLE fit on 200 sequences (70% train / 15% validation model selection from 1066 students, 11047 total ASSISTments responses)"
@@ -87,6 +107,9 @@
       "learn": 0.12,
       "guess": 0.26,
       "slip": 0.14,
+      "prerequisites": ["3.OA.A.1", "4.NF.A.1"],
+      "retention_half_life_days": 18.0,
+      "decay_rate": 0.0385,
       "calibrated": true,
       "source": "ASSISTments 2009-2010 (Multiplication Fractions)",
       "notes": "pilot MLE fit on 200 sequences (70% train / 15% validation model selection from 596 students, 5360 total ASSISTments responses)"
@@ -99,6 +122,9 @@
       "learn": 0.24,
       "guess": 0.26,
       "slip": 0.14,
+      "prerequisites": ["4.NF.B.4", "3.OA.A.2"],
+      "retention_half_life_days": 15.0,
+      "decay_rate": 0.0462,
       "calibrated": true,
       "source": "ASSISTments 2009-2010 (Division Fractions)",
       "notes": "pilot MLE fit on 200 sequences (70% train / 15% validation model selection from 545 students, 3850 total ASSISTments responses)"
@@ -111,6 +137,9 @@
       "learn": 0.13,
       "guess": 0.2,
       "slip": 0.1,
+      "prerequisites": ["3.OA.D.8"],
+      "retention_half_life_days": 20.0,
+      "decay_rate": 0.0347,
       "calibrated": false,
       "source": "Corbett & Anderson Baseline",
       "notes": "Cognitive Tutor default baseline parameters; real-data calibration scheduled for next phase"
@@ -123,6 +152,9 @@
       "learn": 0.08,
       "guess": 0.26,
       "slip": 0.14,
+      "prerequisites": ["6.EE.A.2"],
+      "retention_half_life_days": 18.0,
+      "decay_rate": 0.0385,
       "calibrated": true,
       "source": "ASSISTments 2009-2010 (Equation Solving Two or Fewer Steps)",
       "notes": "pilot MLE fit on 200 sequences (70% train / 15% validation model selection from 877 students, 24169 total ASSISTments responses)"
@@ -135,6 +167,9 @@
       "learn": 0.24,
       "guess": 0.26,
       "slip": 0.14,
+      "prerequisites": ["6.EE.B.7", "4.NF.B.3"],
+      "retention_half_life_days": 14.0,
+      "decay_rate": 0.0495,
       "calibrated": true,
       "source": "ASSISTments 2009-2010 (Equation Solving More Than Two Steps)",
       "notes": "pilot MLE fit on 200 sequences (70% train / 15% validation model selection from 408 students, 8111 total ASSISTments responses)"

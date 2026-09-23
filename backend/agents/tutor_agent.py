@@ -6,6 +6,7 @@ Uses Google Gemini via centralized config.
 import os
 import json
 import re
+from typing import Any
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import BaseMessage, SystemMessage, HumanMessage, AIMessage
 from config import CHAT_MODEL, CHAT_MODEL_CASCADE, extract_clean_text
@@ -103,7 +104,7 @@ FEW_SHOT_EXAMPLES = [
 MODEL_CASCADE = CHAT_MODEL_CASCADE
 
 
-def build_tutor_llm(model_name: str) -> ChatGoogleGenerativeAI:
+def build_tutor_llm(model_name: str) -> Any:
     api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY", "")
     return ChatGoogleGenerativeAI(
         model=model_name,

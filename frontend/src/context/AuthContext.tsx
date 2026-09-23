@@ -44,7 +44,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null)
   const [session, setSession] = useState<Session | null>(null)
   const [role, setRoleState] = useState<UserRole>(() => {
-    return (localStorage.getItem('veritas_user_role') as UserRole) || (localStorage.getItem('ainerd_user_role') as UserRole) || 'student'
+    return (localStorage.getItem('veritas_user_role') as UserRole) || 'student'
   })
   const roleRef = useRef<UserRole>(role)
   useEffect(() => {
@@ -187,7 +187,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         })
       } else {
         // Check if demo user is stored
-        const storedDemo = localStorage.getItem('veritas_demo_user') || localStorage.getItem('ainerd_demo_user')
+        const storedDemo = localStorage.getItem('veritas_demo_user')
         if (storedDemo) {
           try {
             const parsed = JSON.parse(storedDemo)
@@ -246,7 +246,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(null)
         setAvatar(null)
         localStorage.removeItem('veritas_demo_user')
-        localStorage.removeItem('ainerd_demo_user')
         sessionStorage.removeItem('session')
       }
       setLoading(false)
@@ -340,7 +339,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Purge any stale demo session before establishing real authenticated state
         // to prevent hybrid-identity where old demo ID/role leaks into authenticated API calls
         localStorage.removeItem('veritas_demo_user')
-        localStorage.removeItem('ainerd_demo_user')
 
         setUser(data.user)
         setSession(data.session)
@@ -436,9 +434,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setSession(null)
     setAvatar(null)
     localStorage.removeItem('veritas_demo_user')
-    localStorage.removeItem('ainerd_demo_user')
     localStorage.removeItem('veritas_user_role')
-    localStorage.removeItem('ainerd_user_role')
     sessionStorage.removeItem('session')
     sessionStorage.removeItem('veritas_cloud_tts_disabled')
     // Clear remembered profile on explicit sign-out so landing page shows fresh sign-in
