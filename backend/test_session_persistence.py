@@ -159,21 +159,23 @@ def test_parent_data_deletion_endpoint():
     parent_token = create_session_token(test_parent_id, "parent-del-sess", "Parent Del", role="parent")
     parent_headers = {"Authorization": f"Bearer {parent_token}"}
 
-    # Seed temporary child record and mastery record
+    # Seed temporary student, child record and mastery record
+    supabase.table("students").upsert({
+        "id": test_child_id,
+        "name": "Delete Test Child",
+        "email": "del_test@veritas.dev",
+    }).execute()
     supabase.table("children").insert({
         "parent_id": test_parent_id,
         "student_id": test_child_id,
         "student_email": "del_test@veritas.dev",
         "student_name": "Delete Test Child",
     }).execute()
-    try:
-        supabase.table("student_skill_mastery").insert({
-            "student_id": test_child_id,
-            "skill_id": "4.NF.B.3",
-            "mastery_prob": 0.85,
-        }).execute()
-    except Exception:
-        pass
+    supabase.table("student_skill_mastery").upsert({
+        "student_id": test_child_id,
+        "skill_id": "4.NF.B.3",
+        "mastery_prob": 0.85,
+    }).execute()
 
     # Unauthenticated deletion must be rejected (401)
     unauth_del = client.delete(f"/parent/{test_parent_id}/data")
@@ -194,6 +196,10 @@ def test_parent_data_deletion_endpoint():
     assert len(check_children.data or []) == 0
     check_mastery = supabase.table("student_skill_mastery").select("*").eq("student_id", test_child_id).execute()
     assert len(check_mastery.data or []) == 0
+    try:
+        supabase.table("students").delete().eq("id", test_child_id).execute()
+    except Exception:
+        pass
     print("   ✓ Confirmed zero child records and zero mastery profiles remain in Supabase for parent")
     print("✅ [PRIVACY TEST 3 PASSED]\n")
 

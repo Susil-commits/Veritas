@@ -9,7 +9,7 @@ Regression and Isolation Tests for P0 Parent Authorization Boundaries:
 """
 import uuid
 from starlette.testclient import TestClient
-from main import app
+from main import app, DEMO_STUDENT_ID
 from auth import create_session_token
 
 client = TestClient(app)
@@ -113,8 +113,8 @@ def test_parent_cannot_create_tutoring_session():
 
 
 def test_student_can_record_own_game_score():
-    student_id = str(uuid.uuid4())
-    student_token = create_session_token(student_id, "s-sess-own", "Student Own", role="student")
+    student_id = DEMO_STUDENT_ID
+    student_token = create_session_token(student_id, "s-sess-own", "Alex", role="student")
     student_headers = {"Authorization": f"Bearer {student_token}"}
 
     resp = client.post(
