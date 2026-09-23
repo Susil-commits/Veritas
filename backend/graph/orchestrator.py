@@ -37,6 +37,7 @@ class TutorState(TypedDict, total=False):
 
     # Current problem
     current_problem: dict | None
+    current_problem_evaluation: dict | None  # full private problem (expected_steps, answer, solution) for evaluation
     current_problem_credited: bool       # True once problem solved and mastery credited
     problems_attempted: list[str]        # problem IDs seen this session
 
@@ -105,7 +106,7 @@ async def tutor_node(state: TutorState) -> dict:
 
     latest_input = state.get("latest_input", "")
     conversation_history = list(state.get("conversation_history") or [])
-    current_prob = state.get("current_problem") or {}
+    current_prob = state.get("current_problem_evaluation") or state.get("current_problem") or {}
 
     active_misc = dict(state.get("active_misconceptions") or {})
 

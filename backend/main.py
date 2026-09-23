@@ -1440,6 +1440,7 @@ async def send_message(
                     "latest_input": clean_message,
                     "latest_image_bytes": None,
                     "current_problem": current_prob,
+                    "current_problem_evaluation": current_state.get("current_problem_evaluation") or current_prob,
                     "current_problem_credited": current_state.get("current_problem_credited", False),
                     "problems_attempted": list(current_state.get("problems_attempted") or []),
                     "mastery_state": dict(current_state.get("mastery_state") or {}),
