@@ -1,0 +1,101 @@
+/* ── Audio Visualizer Styles ── */
+.audio-visualizer-container {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  transition: all 250ms ease;
+  user-select: none;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+
+.audio-visualizer-container.speaking {
+  background: rgba(124, 93, 250, 0.16);
+  border: 1px solid rgba(124, 93, 250, 0.35);
+  color: #c4b5fd;
+  box-shadow: 0 0 20px rgba(124, 93, 250, 0.25);
+}
+
+.audio-visualizer-container.listening {
+  background: rgba(239, 68, 68, 0.16);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  color: #fca5a5;
+  box-shadow: 0 0 20px rgba(239, 68, 68, 0.25);
+}
+
+.audio-visualizer-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pulse-icon {
+  animation: pulse-speaker 1.2s infinite ease-in-out;
+}
+
+.mic-pulse-icon {
+  animation: pulse-mic 1s infinite alternate;
+}
+
+@keyframes pulse-speaker {
+  0%, 100% { transform: scale(1); opacity: 0.8; }
+  50% { transform: scale(1.15); opacity: 1; }
+}
+
+@keyframes pulse-mic {
+  0% { transform: scale(1); color: #f87171; }
+  100% { transform: scale(1.2); color: #ef4444; }
+}
+
+.visualizer-bars {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  height: 16px;
+}
+
+.v-bar {
+  display: inline-block;
+  width: 3px;
+  background: currentColor;
+  border-radius: 2px;
+  animation: bar-dance 1s infinite ease-in-out;
+}
+
+.bar-1 { height: 6px; animation-delay: 0.05s; }
+.bar-2 { height: 12px; animation-delay: 0.2s; }
+.bar-3 { height: 16px; animation-delay: 0.35s; }
+.bar-4 { height: 8px; animation-delay: 0.1s; }
+.bar-5 { height: 14px; animation-delay: 0.45s; }
+.bar-6 { height: 10px; animation-delay: 0.15s; }
+.bar-7 { height: 5px; animation-delay: 0.3s; }
+
+@keyframes bar-dance {
+  0%, 100% { transform: scaleY(0.35); }
+  50% { transform: scaleY(1); }
+}
+
+.visualizer-label {
+  white-space: nowrap;
+}
+
+.audio-stop-btn {
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: inherit;
+  border-radius: 12px;
+  padding: 2px 8px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 150ms ease;
+  margin-left: 4px;
+}
+
+.audio-stop-btn:hover {
+  background: rgba(255, 255, 255, 0.25);
+  color: #ffffff;
+}

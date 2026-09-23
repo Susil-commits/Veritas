@@ -10,6 +10,8 @@ import ThemeToggle from '../components/ThemeToggle'
 import UserAvatar from '../components/UserAvatar'
 import AvatarModal from '../components/AvatarModal'
 import ConfirmLogoutModal from '../components/ConfirmLogoutModal'
+import MathText from '../components/MathText'
+import AudioVisualizer from '../components/AudioVisualizer'
 import { getSkillMeta } from '../lib/skillsData'
 import type { SessionData, Problem, Diagnosis } from '../lib/api'
 import './TutorSession.css'
@@ -63,31 +65,6 @@ function formatSkillName(id: string): string {
   return id.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
 }
 
-function renderMessageContent(content: string) {
-  if (!content?.trim()) return <span className="typing">…</span>
-  const lines = content.split('\n')
-  return lines.map((line, lineIdx) => {
-    const parts = line.split(/(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`)/g)
-    return (
-      <span key={lineIdx}>
-        {parts.map((part, partIdx) => {
-          if (part.startsWith('**') && part.endsWith('**')) {
-            return <strong key={partIdx}>{part.slice(2, -2)}</strong>
-          }
-          if (part.startsWith('*') && part.endsWith('*')) {
-            return <em key={partIdx}>{part.slice(1, -1)}</em>
-          }
-          if (part.startsWith('`') && part.endsWith('`')) {
-            return <code key={partIdx} style={{ background: 'rgba(255,255,255,0.1)', padding: '1px 4px', borderRadius: '4px' }}>{part.slice(1, -1)}</code>
-          }
-          return part
-        })}
-        {lineIdx < lines.length - 1 && <br />}
-      </span>
-    )
-  })
-}
-
 interface ChatBubbleProps {
   role: 'student' | 'tutor'
   content: string
@@ -112,7 +89,9 @@ const ChatBubble = memo(function ChatBubble({ role, content, timestamp, studentN
         </div>
       )}
       <div className="bubble-body">
-        <p className="bubble-text">{renderMessageContent(content)}</p>
+        <div className="bubble-text">
+          <MathText content={content} />
+        </div>
         <span className="bubble-time">{formattedTime}</span>
       </div>
     </div>
@@ -830,7 +809,9 @@ export default function TutorSession() {
               </span>
             </div>
             <h3>{cleanProblemTitle(currentProblem.title)}</h3>
-            <p className="problem-text">{currentProblem.text}</p>
+            <div className="problem-text">
+              <MathText content={currentProblem.text} />
+            </div>
             
             <div className="problem-card-actions">
               <button
@@ -962,7 +943,7 @@ export default function TutorSession() {
           </div>
         )}
 
-        {/* Action bar for stuck-student hint affordance & mute speaking */}
+        {/* Action bar for stuck-student hint affordance, audio visualizer & mute speaking */}
         <div className="chat-actions-bar">
           <div className="chat-actions-left">
             <button
@@ -984,16 +965,66 @@ export default function TutorSession() {
               {isLoadingNextProblem ? 'Loading…' : 'Next Problem →'}
             </button>
           </div>
-          {isSpeaking && (
+          <AudioVisualizer
+            active={isSpeaking || isListening}
+            mode={isSpeaking ? 'speaking' : isListening ? 'listening' : 'idle'}
+            onStop={stop}
+          />
+        </div>
+
+        {/* Quick Mathpad Symbol & Socratic Inquiry Toolbar */}
+        <div className="quick-mathpad-wrapper">
+          <div className="mathpad-symbol-row">
+            {['+', '−', '×', '÷', '=', 'x', 'y', '²', '√', '½', '¼', '(', ')'].map((sym) => (
+              <button
+                key={sym}
+                type="button"
+                className="mathpad-sym-btn"
+                onClick={() => setInput((prev) => prev + sym)}
+                title={`Insert ${sym}`}
+              >
+                {sym}
+              </button>
+            ))}
+          </div>
+          <div className="inquiry-chip-row">
             <button
-              className="btn-stop-speaking animate-fadein"
-              onClick={stop}
-              aria-label="Stop tutor voice"
-              title="Stop tutor from speaking"
+              type="button"
+              className="inquiry-chip"
+              onClick={handleRequestHint}
+              disabled={isStreaming || isListening}
+              title="Ask for a small conceptual clue"
             >
-              🔇 Stop Voice
+              💡 Give me a hint
             </button>
-          )}
+            <button
+              type="button"
+              className="inquiry-chip"
+              onClick={() => setInput('Can you explain this step to me?')}
+              disabled={isStreaming || isListening}
+              title="Ask to unpack current step"
+            >
+              🔍 Explain this step
+            </button>
+            <button
+              type="button"
+              className="inquiry-chip"
+              onClick={() => setInput('Is my mathematical thinking on track?')}
+              disabled={isStreaming || isListening}
+              title="Verify reasoning without asking for answers"
+            >
+              ✏️ Check my thinking
+            </button>
+            <button
+              type="button"
+              className="inquiry-chip"
+              onClick={() => setInput('Can you give a visual or real-world example?')}
+              disabled={isStreaming || isListening}
+              title="Request a conceptual visual metaphor"
+            >
+              🎨 Visual example
+            </button>
+          </div>
         </div>
 
         {/* Input area */}

@@ -1,6 +1,8 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import type { Diagnosis, Problem } from '../lib/api'
 import { streamDiagnosis } from '../lib/api'
+import DigitalCanvas, { type DigitalCanvasRef } from './DigitalCanvas'
+import { PenTool, Upload, Camera } from 'lucide-react'
 import './WorkUpload.css'
 
 interface Props {
@@ -12,7 +14,10 @@ interface Props {
 
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024 // 10MB cap matching backend safety boundary
 
+type UploadMode = 'scratchpad' | 'upload' | 'camera'
+
 export default function WorkUpload({ sessionId, onThinking, onDiagnosis, disabled = false }: Props) {
+  const [mode, setMode] = useState<UploadMode>('scratchpad')
   const [preview, setPreview] = useState<string | null>(null)
   const [file, setFile] = useState<File | null>(null)
   const [uploading, setUploading] = useState(false)
@@ -21,6 +26,7 @@ export default function WorkUpload({ sessionId, onThinking, onDiagnosis, disable
   const fileInputRef = useRef<HTMLInputElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const digitalCanvasRef = useRef<DigitalCanvasRef>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const [cameraOpen, setCameraOpen] = useState(false)
 
@@ -88,6 +94,7 @@ export default function WorkUpload({ sessionId, onThinking, onDiagnosis, disable
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
       streamRef.current = stream
       setCameraOpen(true)
+      setMode('camera')
       if (videoRef.current) {
         videoRef.current.srcObject = stream
       }
@@ -112,13 +119,13 @@ export default function WorkUpload({ sessionId, onThinking, onDiagnosis, disable
     }, 'image/jpeg', 0.9)
   }
 
-  const analyze = useCallback(() => {
-    if (!file || !sessionId) return
+  const analyzeFile = useCallback((targetFile: File) => {
+    if (!targetFile || !sessionId) return
     setUploading(true)
     setUploadError(null)
     streamDiagnosis(
       sessionId,
-      file,
+      targetFile,
       onThinking,
       (d, mastery, next) => {
         setDiagnosis(d)
@@ -138,11 +145,59 @@ export default function WorkUpload({ sessionId, onThinking, onDiagnosis, disable
         }
       },
     )
-  }, [file, sessionId, onThinking, onDiagnosis])
+  }, [sessionId, onThinking, onDiagnosis])
+
+  const handleCheckScratchpad = async () => {
+    if (!digitalCanvasRef.current || !sessionId) return
+    const blob = await digitalCanvasRef.current.getBlob()
+    if (!blob) {
+      setUploadError('Please write your math steps on the scratchpad before checking.')
+      return
+    }
+
+    const f = new File([blob], 'scratchpad_work.jpg', { type: 'image/jpeg' })
+    const previewUrl = URL.createObjectURL(blob)
+    setFile(f)
+    setPreview(previewUrl)
+    analyzeFile(f)
+  }
 
   return (
     <div className="work-upload">
-      <h3 className="upload-title">Show Your Work</h3>
+      <div className="upload-header">
+        <h3 className="upload-title">Show Your Work</h3>
+        {!preview && !cameraOpen && (
+          <div className="work-mode-tabs">
+            <button
+              type="button"
+              className={`mode-tab-btn ${mode === 'scratchpad' ? 'active' : ''}`}
+              onClick={() => setMode('scratchpad')}
+              disabled={disabled || uploading}
+            >
+              <PenTool size={13} />
+              <span>Scratchpad</span>
+            </button>
+            <button
+              type="button"
+              className={`mode-tab-btn ${mode === 'upload' ? 'active' : ''}`}
+              onClick={() => setMode('upload')}
+              disabled={disabled || uploading}
+            >
+              <Upload size={13} />
+              <span>Upload</span>
+            </button>
+            <button
+              type="button"
+              className={`mode-tab-btn ${mode === 'camera' ? 'active' : ''}`}
+              onClick={openCamera}
+              disabled={disabled || uploading}
+            >
+              <Camera size={13} />
+              <span>Camera</span>
+            </button>
+          </div>
+        )}
+      </div>
 
       {cameraOpen ? (
         <div className="camera-view">
@@ -159,8 +214,12 @@ export default function WorkUpload({ sessionId, onThinking, onDiagnosis, disable
           />
           <canvas ref={canvasRef} style={{ display: 'none' }} />
           <div className="camera-actions">
-            <button className="btn btn-primary" onClick={capturePhoto} aria-label="Take photo of handwritten work">Capture</button>
-            <button className="btn btn-ghost" onClick={closeCamera} aria-label="Cancel camera capture">Cancel</button>
+            <button className="btn btn-primary" onClick={capturePhoto} aria-label="Take photo of handwritten work">
+              Capture
+            </button>
+            <button className="btn btn-ghost" onClick={closeCamera} aria-label="Cancel camera capture">
+              Cancel
+            </button>
           </div>
         </div>
       ) : preview ? (
@@ -251,6 +310,20 @@ export default function WorkUpload({ sessionId, onThinking, onDiagnosis, disable
             </svg>
           </button>
         </div>
+      ) : mode === 'scratchpad' ? (
+        <div className="scratchpad-view">
+          <DigitalCanvas ref={digitalCanvasRef} disabled={disabled || uploading} />
+          <div className="upload-actions">
+            <button
+              className="btn btn-primary"
+              onClick={handleCheckScratchpad}
+              disabled={uploading || disabled}
+              aria-label="Check scratchpad handwriting"
+            >
+              {uploading ? 'Analyzing steps…' : '✨ Check My Scratchpad'}
+            </button>
+          </div>
+        </div>
       ) : (
         <div
           className={`upload-zone ${disabled ? 'upload-zone--disabled' : ''}`}
@@ -282,29 +355,18 @@ export default function WorkUpload({ sessionId, onThinking, onDiagnosis, disable
         </div>
       )}
 
-      <div className="upload-actions">
-        {!cameraOpen && (
-          <button
-            className="btn btn-ghost"
-            onClick={openCamera}
-            disabled={disabled || uploading}
-            style={{ gap: '6px' }}
-            aria-label="Open camera to capture work photo"
-          >
-            Camera
-          </button>
-        )}
-        {file && !diagnosis && (
+      {file && !diagnosis && !cameraOpen && mode !== 'scratchpad' && (
+        <div className="upload-actions">
           <button
             className="btn btn-primary"
-            onClick={analyze}
+            onClick={() => file && analyzeFile(file)}
             disabled={uploading || disabled}
             aria-label="Check handwritten work photo"
           >
             {uploading ? 'Checking steps…' : 'Check My Work'}
           </button>
-        )}
-      </div>
+        </div>
+      )}
 
       {diagnosis && !diagnosis.is_correct && (
         <div className="diagnosis-detail animate-fadein">

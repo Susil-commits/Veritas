@@ -11,9 +11,110 @@ import {
 import ThemeToggle from '../components/ThemeToggle'
 import UserAvatar from '../components/UserAvatar'
 import AvatarModal from '../components/AvatarModal'
+import MathText from '../components/MathText'
+import { Volume2, VolumeX } from 'lucide-react'
 import './MathArcade.css'
 
 export type GameMode = 'blitz' | 'zen'
+
+// ── Zero-Dependency Web Audio Sound Effects Synthesizer ───────────────
+class SoundFX {
+  private ctx: AudioContext | null = null
+  public enabled: boolean = true
+
+  private getContext(): AudioContext | null {
+    if (!this.enabled) return null
+    if (!this.ctx && typeof window !== 'undefined') {
+      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
+      if (AudioCtx) this.ctx = new AudioCtx()
+    }
+    if (this.ctx && this.ctx.state === 'suspended') {
+      this.ctx.resume()
+    }
+    return this.ctx
+  }
+
+  playCorrect(streak: number = 0) {
+    const ctx = this.getContext()
+    if (!ctx) return
+    const now = ctx.currentTime
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.connect(gain)
+    gain.connect(ctx.destination)
+
+    const baseFreq = Math.min(880, 523.25 + streak * 35)
+    osc.type = 'triangle'
+    osc.frequency.setValueAtTime(baseFreq, now)
+    osc.frequency.exponentialRampToValueAtTime(baseFreq * 1.5, now + 0.12)
+
+    gain.gain.setValueAtTime(0.2, now)
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.22)
+
+    osc.start(now)
+    osc.stop(now + 0.23)
+  }
+
+  playStreak() {
+    const ctx = this.getContext()
+    if (!ctx) return
+    const now = ctx.currentTime
+    const freqs = [587.33, 739.99, 880.0, 1174.66]
+    freqs.forEach((f, idx) => {
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.connect(gain)
+      gain.connect(ctx.destination)
+      osc.type = 'sine'
+      osc.frequency.setValueAtTime(f, now + idx * 0.05)
+      gain.gain.setValueAtTime(0.18, now + idx * 0.05)
+      gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.05 + 0.18)
+      osc.start(now + idx * 0.05)
+      osc.stop(now + idx * 0.05 + 0.2)
+    })
+  }
+
+  playIncorrect() {
+    const ctx = this.getContext()
+    if (!ctx) return
+    const now = ctx.currentTime
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.connect(gain)
+    gain.connect(ctx.destination)
+
+    osc.type = 'sawtooth'
+    osc.frequency.setValueAtTime(220, now)
+    osc.frequency.exponentialRampToValueAtTime(174.61, now + 0.18)
+
+    gain.gain.setValueAtTime(0.15, now)
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2)
+
+    osc.start(now)
+    osc.stop(now + 0.22)
+  }
+
+  playLevelComplete() {
+    const ctx = this.getContext()
+    if (!ctx) return
+    const now = ctx.currentTime
+    const chord = [523.25, 659.25, 783.99, 1046.5]
+    chord.forEach((f) => {
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.connect(gain)
+      gain.connect(ctx.destination)
+      osc.type = 'sine'
+      osc.frequency.setValueAtTime(f, now)
+      gain.gain.setValueAtTime(0.12, now)
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5)
+      osc.start(now)
+      osc.stop(now + 0.55)
+    })
+  }
+}
+
+export const soundFX = new SoundFX()
 
 interface GameQuestion {
   question: string
@@ -176,11 +277,11 @@ function generateEquationQuestion(): GameQuestion {
     answer = x
     question = `${a}x = ${prod}`
   } else {
-    const x = Math.floor(Math.random() * 8) + 2
+    const quotient = Math.floor(Math.random() * 8) + 2
     const d = Math.floor(Math.random() * 5) + 2
-    const dividend = x * d
+    const dividend = quotient * d
     answer = dividend
-    question = `x ÷ ${d} = ${x}`
+    question = `x ÷ ${d} = ${quotient}`
   }
 
   const optionsSet = new Set<number>([answer])
@@ -310,6 +411,9 @@ export default function MathArcade() {
   const [gameOver, setGameOver] = useState(false)
   const [starsEarned, setStarsEarned] = useState(0)
   const [isNewHighScore, setIsNewHighScore] = useState(false)
+  const [soundEnabled, setSoundEnabled] = useState(true)
+  const [floatingXP, setFloatingXP] = useState<{ id: number; text: string } | null>(null)
+  const floatingIdRef = useRef(0)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   // Reset Score Modal State
@@ -391,6 +495,8 @@ export default function MathArcade() {
     if (timerRef.current) clearInterval(timerRef.current)
     if (!activeGameId) return
 
+    soundFX.playLevelComplete()
+
     // Calculate stars: >= 800: 3 stars, >= 450: 2 stars, >= 150: 1 star
     let earned = 1
     if (gameScore >= 800) earned = 3
@@ -461,23 +567,33 @@ export default function MathArcade() {
     if (isCorrect) {
       // Correct answer!
       setQuestionFeedback('correct')
+      soundFX.playCorrect(gameStreak)
+      const nextStreak = gameStreak + 1
+      if (nextStreak === 3 || nextStreak === 5 || nextStreak === 8) {
+        soundFX.playStreak()
+      }
+
       const multiplier = Math.min(5, Math.floor(gameStreak / 3) + 1)
       const pointsAdded = 100 * multiplier
       setGameScore((s) => s + pointsAdded)
-      setGameStreak((st) => {
-        const nextStreak = st + 1
+      floatingIdRef.current += 1
+      setFloatingXP({ id: floatingIdRef.current, text: `+${pointsAdded} XP` })
+      setGameStreak(() => {
         setMaxStreak((m) => Math.max(m, nextStreak))
         return nextStreak
       })
 
       setTimeout(() => {
         setQuestionFeedback(null)
+        setFloatingXP(null)
         if (activeGameId) nextQuestionForGame(activeGameId)
       }, 350)
     } else {
       // Wrong answer
       setQuestionFeedback('wrong')
+      soundFX.playIncorrect()
       setGameStreak(0)
+      setFloatingXP(null)
       setGameScore((s) => Math.max(0, s - 25))
 
       setTimeout(() => {
@@ -569,6 +685,19 @@ export default function MathArcade() {
         </div>
 
         <div className="arcade-nav-right">
+          <button
+            type="button"
+            className="sound-toggle-btn"
+            onClick={() => {
+              const next = !soundEnabled
+              soundFX.enabled = next
+              setSoundEnabled(next)
+            }}
+            title={soundEnabled ? 'Mute arcade sound effects' : 'Enable arcade sound effects'}
+            aria-label={soundEnabled ? 'Mute arcade sound' : 'Enable arcade sound'}
+          >
+            {soundEnabled ? <Volume2 size={16} /> : <VolumeX size={16} />}
+          </button>
           <ThemeToggle />
           <div
             className="arcade-user-badge"
@@ -818,6 +947,19 @@ export default function MathArcade() {
                   {gameStreak}x {currentMultiplier > 1 && <span className="streak-multiplier">({currentMultiplier}x PTS 🔥)</span>}
                 </span>
               </div>
+              <button
+                type="button"
+                className="sound-toggle-btn"
+                style={{ width: '32px', height: '32px' }}
+                onClick={() => {
+                  const next = !soundEnabled
+                  soundFX.enabled = next
+                  setSoundEnabled(next)
+                }}
+                title={soundEnabled ? 'Mute sound' : 'Enable sound'}
+              >
+                {soundEnabled ? <Volume2 size={15} /> : <VolumeX size={15} />}
+              </button>
               {selectedMode === 'zen' && (
                 <button
                   type="button"
@@ -842,7 +984,21 @@ export default function MathArcade() {
               {/* Question Plasma Display */}
               <div className={`question-plasma-orb ${questionFeedback || ''}`}>
                 <div className="plasma-core">
-                  <span className="question-text">{currentQuestion?.question} = ?</span>
+                  <span className="question-text">
+                    <MathText
+                      content={
+                        currentQuestion?.question.includes('=') || currentQuestion?.question.startsWith('Solve')
+                          ? currentQuestion?.question
+                          : `${currentQuestion?.question} = ?`
+                      }
+                      inline
+                    />
+                  </span>
+                  {floatingXP && (
+                    <div key={floatingXP.id} className="floating-xp-indicator">
+                      {floatingXP.text}
+                    </div>
+                  )}
                 </div>
                 <div className="plasma-ring ring-1" />
                 <div className="plasma-ring ring-2" />
@@ -858,7 +1014,9 @@ export default function MathArcade() {
                     onClick={() => handleOptionSelect(opt)}
                     disabled={Boolean(questionFeedback)}
                   >
-                    <span className="bubble-val">{opt}</span>
+                    <span className="bubble-val">
+                      <MathText content={String(opt)} inline />
+                    </span>
                   </button>
                 ))}
               </div>

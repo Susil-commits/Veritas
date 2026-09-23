@@ -13,6 +13,7 @@
     "@supabase/supabase-js": "^2.116.0",
     "axios": "^1.20.0",
     "framer-motion": "^13.2.0",
+    "katex": "^0.18.7",
     "lucide-react": "^1.44.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
@@ -20,6 +21,7 @@
     "recharts": "^3.10.1"
   },
   "devDependencies": {
+    "@types/katex": "^0.16.8",
     "@types/node": "^24.13.3",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.7",

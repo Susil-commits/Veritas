@@ -9,10 +9,59 @@
   gap: 1rem;
 }
 
+.upload-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .upload-title {
   font-size: 0.9rem;
   font-weight: 700;
   color: var(--text-secondary);
+  margin: 0;
+}
+
+.work-mode-tabs {
+  display: flex;
+  background: var(--bg-elevated);
+  padding: 3px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  gap: 2px;
+}
+
+.mode-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  padding: 4px 9px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 150ms ease;
+}
+
+.mode-tab-btn:hover:not(:disabled) {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.mode-tab-btn.active {
+  background: var(--violet, #7c5dfa);
+  color: #ffffff;
+  box-shadow: 0 1px 6px rgba(124, 93, 250, 0.35);
+}
+
+.mode-tab-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .upload-zone {

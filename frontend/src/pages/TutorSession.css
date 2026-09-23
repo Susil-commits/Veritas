@@ -346,6 +346,73 @@
   transform: translateY(-1px);
 }
 
+/* ── Quick Mathpad & Socratic Inquiry Toolbar ── */
+.quick-mathpad-wrapper {
+  background: var(--bg-surface);
+  border-top: 1px solid var(--border);
+  padding: 6px 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.mathpad-symbol-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding-bottom: 2px;
+}
+.mathpad-symbol-row::-webkit-scrollbar { display: none; }
+
+.mathpad-sym-btn {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
+  border-radius: 6px;
+  padding: 4px 9px;
+  font-size: 0.85rem;
+  font-family: 'Space Grotesk', monospace, sans-serif;
+  cursor: pointer;
+  transition: all 120ms ease;
+  flex-shrink: 0;
+}
+.mathpad-sym-btn:hover {
+  background: var(--violet-dim);
+  border-color: var(--violet);
+  transform: translateY(-1px);
+}
+
+.inquiry-chip-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.inquiry-chip-row::-webkit-scrollbar { display: none; }
+
+.inquiry-chip {
+  background: rgba(124, 93, 250, 0.1);
+  border: 1px solid rgba(124, 93, 250, 0.25);
+  color: var(--violet-light);
+  border-radius: 14px;
+  padding: 3px 10px;
+  font-size: 0.74rem;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 150ms ease;
+  flex-shrink: 0;
+}
+.inquiry-chip:hover:not(:disabled) {
+  background: rgba(124, 93, 250, 0.22);
+  border-color: var(--violet);
+  color: #fff;
+  transform: translateY(-1px);
+}
+
 /* ── Input Area ── */
 .chat-input-area {
   padding: 0.75rem 1.25rem 1rem;

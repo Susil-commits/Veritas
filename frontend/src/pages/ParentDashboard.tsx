@@ -10,6 +10,7 @@ import AvatarModal from '../components/AvatarModal'
 import ConfirmLogoutModal from '../components/ConfirmLogoutModal'
 import { getSkillMeta, getMasteryTierInfo, getBarGradient } from '../lib/skillsData'
 import { validateEmailFormat, validateNameFormat, sanitizeNameInput } from '../lib/emailValidation'
+import BKTSimulator from '../components/BKTSimulator'
 import './ParentDashboard.css'
 
 interface SkillItem {
@@ -542,16 +543,26 @@ export default function ParentDashboard() {
                     without reinforcement. Start a practice session to guide them through fraction addition.
                   </p>
                 </div>
-                <button
-                  className="btn btn-amber alert-action-btn"
-                  onClick={() => {
-                    // Open a student session in a new tab. TutorSession will initialize
-                    // a fresh session once the student (or parent on behalf) authenticates.
-                    window.open('/student-session', '_blank')
-                  }}
-                >
-                  Start Kid Session
-                </button>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  <button
+                    className="btn btn-amber alert-action-btn"
+                    onClick={() => {
+                      // Open a student session in a new tab. TutorSession will initialize
+                      // a fresh session once the student (or parent on behalf) authenticates.
+                      window.open('/student-session', '_blank')
+                    }}
+                  >
+                    Start Kid Session
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-outline-violet"
+                    onClick={() => window.print()}
+                    title="Print or export student learning report"
+                  >
+                    📄 Print Report
+                  </button>
+                </div>
               </div>
             )}
 
@@ -720,6 +731,11 @@ export default function ParentDashboard() {
                   })}
                 </div>
               </div>
+            </div>
+
+            {/* Interactive Cognitive BKT Model Simulator */}
+            <div style={{ margin: '1.75rem 0' }}>
+              <BKTSimulator />
             </div>
 
             {/* Student Learning History & Activity Logs */}
