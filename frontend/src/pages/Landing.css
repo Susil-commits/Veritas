@@ -861,10 +861,38 @@
   gap: 1.5rem;
 }
 
-@media (max-width: 640px) {
+@media (max-width: 860px) {
   .auth-logged-in-card {
     flex-direction: column;
-    text-align: center;
+    align-items: stretch;
+    gap: 1.5rem;
+  }
+  .logged-in-badge {
+    justify-content: flex-start;
+  }
+  .logged-in-actions {
+    align-items: stretch;
+    width: 100%;
+  }
+  .logged-in-sub-actions {
+    justify-content: center;
+  }
+}
+
+@media (max-width: 580px) {
+  .auth-logged-in-card {
+    padding: 1.25rem 1rem;
+  }
+  .logged-in-badge {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .logged-in-action-group {
+    flex-direction: column;
+  }
+  .logged-in-portal-btn {
+    width: 100%;
   }
 }
 
