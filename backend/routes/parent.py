@@ -282,8 +282,12 @@ async def add_child(
             if found.data:
                 student_name = found.data[0].get("name") or student_name
                 email_clean = found.data[0].get("email") or email_clean or f"student_{student_id[:8]}@veritas.math"
+            elif is_uuid:
+                student_id = None
         except Exception as e:
             logger.debug(f"Search student by id: {e}")
+            if is_uuid:
+                student_id = None
     elif not student_id and email_clean:
         try:
             found = await db_exec(

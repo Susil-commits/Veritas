@@ -255,14 +255,14 @@ async def text_to_speech(
                 timeout=15,
             )
 
-        if resp.status_code == 402 or resp.status_code == 429:
-            # ElevenLabs monthly credits exhausted; remember for 1 hour and return 204 fallback cleanly
+        if resp.status_code in (401, 402, 429):
+            # ElevenLabs monthly credits exhausted or unauthorized; remember for 1 hour and return 204 fallback cleanly
             _elevenlabs_exhausted_until = now + 3600
-            logger.info("ElevenLabs quota exhausted (%d). Switching to browser speech synthesis.", resp.status_code)
+            logger.info("ElevenLabs quota exhausted or unauthorized (%d). Switching to browser speech synthesis.", resp.status_code)
             return Response(
                 content=b"",
                 status_code=204,
-                headers={"X-TTS-Fallback": "browser", "X-TTS-Reason": "quota_exceeded"}
+                headers={"X-TTS-Fallback": "browser", "X-TTS-Reason": "quota_exceeded" if resp.status_code != 401 else "unauthorized"}
             )
 
         if resp.status_code != 200:

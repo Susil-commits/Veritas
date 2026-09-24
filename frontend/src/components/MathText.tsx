@@ -76,8 +76,8 @@ export const MathText = memo(function MathText({ content, className = '', inline
   return (
     <span className={`math-text-container ${className}`}>
       {lines.map((line, lineIdx) => {
-        // Match $$...$$, $...$, \[...\], \(...\)
-        const regex = /(\$\$[\s\S]+?\$\$|\$[^$\n]+?\$|\\\[[\s\S]+?\\\]|\\\([^\n]+?\\\))/g
+        // Match $$...$$, $...$, \[...\], \(...\), and bare \frac{a}{b}
+        const regex = /(\$\$[\s\S]+?\$\$|\$[^$\n]+?\$|\\\[[\s\S]+?\\\]|\\\([^\n]+?\\\)|\\[f]rac\{[^{}]+\}\{[^{}]+\})/g
         const segments = line.split(regex)
 
         const renderedLine = segments.map((seg, segIdx) => {
@@ -124,6 +124,17 @@ export const MathText = memo(function MathText({ content, className = '', inline
           if (seg.startsWith('\\(') && seg.endsWith('\\)')) {
             const math = seg.slice(2, -2).trim()
             const html = renderTeX(math, false)
+            return (
+              <span
+                key={key}
+                className="math-inline"
+                dangerouslySetInnerHTML={{ __html: html }}
+              />
+            )
+          }
+
+          if (seg.startsWith('\\frac{') && seg.includes('}{')) {
+            const html = renderTeX(seg, false)
             return (
               <span
                 key={key}
