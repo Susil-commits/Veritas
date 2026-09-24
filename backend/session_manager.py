@@ -284,7 +284,10 @@ def get_session(session_id: str) -> dict[str, Any] | None:
         )
         mastery_state = initialize_mastery()
         for r in (mastery_rows.data or []):
-            mastery_state[r["skill_id"]] = r["mastery_prob"]
+            try:
+                mastery_state[r["skill_id"]] = float(r["mastery_prob"])
+            except (ValueError, TypeError):
+                pass
 
         # Load session events to rebuild conversation history and problem attempts
         events_res = (
@@ -343,6 +346,7 @@ def get_session(session_id: str) -> dict[str, Any] | None:
             if current_problem and current_problem.get("id"):
                 problems_attempted.append(current_problem["id"])
 
+        from routes.common import _public_problem
         rehydrated_state: dict[str, Any] = {
             "student_id": student_id,
             "student_name": student_name,
@@ -350,7 +354,8 @@ def get_session(session_id: str) -> dict[str, Any] | None:
             "conversation_history": conversation_history,
             "latest_input": "",
             "latest_image_bytes": None,
-            "current_problem": current_problem,
+            "current_problem": _public_problem(current_problem),
+            "current_problem_evaluation": current_problem,
             "current_problem_credited": False,
             "problems_attempted": problems_attempted,
             "mastery_state": mastery_state,

@@ -51,7 +51,7 @@ export const CognitiveDAGVisualizer: React.FC<CognitiveDAGVisualizerProps> = ({
     const map: Record<string, number> = {};
     COGNITIVE_DAG_LIST.forEach((n) => {
       const match = skills.find((s) => s.skill_id === n.id);
-      map[n.id] = match ? match.mastery_prob : n.prior;
+      map[n.id] = match ? (Number(match.mastery_prob) || n.prior) : n.prior;
     });
     return map;
   }, [skills]);

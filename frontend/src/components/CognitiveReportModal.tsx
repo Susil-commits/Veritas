@@ -34,7 +34,7 @@ export const CognitiveReportModal: React.FC<CognitiveReportModalProps> = ({
     const map: Record<string, number> = {};
     COGNITIVE_DAG_LIST.forEach((n) => {
       const match = (skills || []).find((s) => s.skill_id === n.id);
-      map[n.id] = match ? match.mastery_prob : n.prior;
+      map[n.id] = match ? (Number(match.mastery_prob) || n.prior) : n.prior;
     });
     return map;
   }, [skills]);
@@ -44,9 +44,9 @@ export const CognitiveReportModal: React.FC<CognitiveReportModalProps> = ({
     if (!skills || skills.length === 0) {
       return { avgMastery: 72, proficientCount: 5, totalSkills: 10 };
     }
-    const sum = skills.reduce((acc, s) => acc + s.mastery_prob, 0);
+    const sum = skills.reduce((acc, s) => acc + (Number(s.mastery_prob) || 0), 0);
     const avg = Math.round((sum / skills.length) * 100);
-    const prof = skills.filter((s) => s.mastery_prob >= 0.70).length;
+    const prof = skills.filter((s) => (Number(s.mastery_prob) || 0) >= 0.70).length;
     return { avgMastery: avg, proficientCount: prof, totalSkills: skills.length };
   }, [skills]);
 

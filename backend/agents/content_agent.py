@@ -314,10 +314,15 @@ def get_candidate_problems(
     supabase = get_supabase()
     exclude_ids = set(exclude_problem_ids or [])
 
+    try:
+        m_prob = float(mastery_prob) if mastery_prob is not None else 0.3
+    except (ValueError, TypeError):
+        m_prob = 0.3
+
     # Determine target difficulty range
-    if mastery_prob < 0.4:
+    if m_prob < 0.4:
         min_diff, max_diff = 1, 2
-    elif mastery_prob < 0.7:
+    elif m_prob < 0.7:
         min_diff, max_diff = 2, 3
     else:
         min_diff, max_diff = 3, 5
@@ -347,7 +352,7 @@ def get_candidate_problems(
 
         if fresh_candidates:
             scored_candidates = [
-                (score_candidate_adaptive(p, min_diff, max_diff, mastery_prob, misconception_text, i, query_text=query_text, keywords=keywords), p)
+                (score_candidate_adaptive(p, min_diff, max_diff, m_prob, misconception_text, i, query_text=query_text, keywords=keywords), p)
                 for i, p in enumerate(fresh_candidates)
             ]
             scored_candidates.sort(key=lambda x: x[0], reverse=True)
@@ -363,7 +368,7 @@ def get_candidate_problems(
         problems = _load_local_problems()
         local_candidates = [p for p in problems if str(p.get("id")) not in exclude_ids] or problems
         scored_local = [
-            (score_candidate_adaptive(p, min_diff, max_diff, mastery_prob, misconception_text, i, query_text=query_text, keywords=keywords), p)
+            (score_candidate_adaptive(p, min_diff, max_diff, m_prob, misconception_text, i, query_text=query_text, keywords=keywords), p)
             for i, p in enumerate(local_candidates)
         ]
         scored_local.sort(key=lambda x: x[0], reverse=True)

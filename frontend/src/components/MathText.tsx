@@ -22,6 +22,19 @@ function renderTeX(tex: string, displayMode: boolean): string {
   }
 }
 
+function cleanLatexSymbols(s: string): string {
+  return s
+    .replace(/\\times\b/g, '×')
+    .replace(/\\div\b/g, '÷')
+    .replace(/\\cdot\b/g, '·')
+    .replace(/\\pm\b/g, '±')
+    .replace(/\\neq\b/g, '≠')
+    .replace(/\\approx\b/g, '≈')
+    .replace(/\\le(?:q)?\b/g, '≤')
+    .replace(/\\ge(?:q)?\b/g, '≥')
+    .replace(/\\degree(?:s)?\b/g, '°')
+}
+
 /**
  * Parse and render markdown formatting (bold, italic, code) within a text segment.
  */
@@ -31,10 +44,10 @@ function renderMarkdownSegment(text: string, keyPrefix: string): React.ReactNode
     <React.Fragment key={keyPrefix}>
       {parts.map((part, idx) => {
         if (part.startsWith('**') && part.endsWith('**')) {
-          return <strong key={`${keyPrefix}-b-${idx}`}>{part.slice(2, -2)}</strong>
+          return <strong key={`${keyPrefix}-b-${idx}`}>{cleanLatexSymbols(part.slice(2, -2))}</strong>
         }
         if (part.startsWith('*') && part.endsWith('*')) {
-          return <em key={`${keyPrefix}-i-${idx}`}>{part.slice(1, -1)}</em>
+          return <em key={`${keyPrefix}-i-${idx}`}>{cleanLatexSymbols(part.slice(1, -1))}</em>
         }
         if (part.startsWith('`') && part.endsWith('`')) {
           return (
@@ -51,7 +64,7 @@ function renderMarkdownSegment(text: string, keyPrefix: string): React.ReactNode
             </code>
           )
         }
-        return part
+        return cleanLatexSymbols(part)
       })}
     </React.Fragment>
   )

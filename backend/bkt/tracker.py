@@ -196,9 +196,10 @@ def diagnose_root_skill_deficit(
         visited.add(curr)
 
         curr_val = mastery_state.get(curr)
-        if curr_val is None:
-            curr_val = get_skill_params(curr).get("prior", 0.3)
-        curr_mastery = float(curr_val) if curr_val is not None else 0.3
+        try:
+            curr_mastery = float(curr_val) if curr_val is not None else float(get_skill_params(curr).get("prior", 0.3))
+        except (ValueError, TypeError):
+            curr_mastery = float(get_skill_params(curr).get("prior", 0.3))
         if curr_mastery < mastery_threshold:
             unmastered_roots.append((curr, curr_mastery))
             # Continue checking if this root itself has deeper unmastered prerequisites
@@ -246,7 +247,11 @@ def update_mastery(
         P(L_{t+1}) — updated mastery probability
     """
     params = get_skill_params(skill_id)
-    p_l = current_mastery
+    try:
+        p_l = float(current_mastery)
+    except (ValueError, TypeError):
+        p_l = 0.3
+    p_l = min(max(p_l, 0.0), 1.0)
     p_t = params["learn"]
     p_g = params["guess"]
     p_s = params["slip"]
@@ -290,8 +295,10 @@ def get_next_skill(mastery_state: dict[str, float]) -> str:
 
     for skill in _ORDERED_SKILLS:
         skill_id = skill["id"]
-        mastery = mastery_state.get(skill_id)
-        if mastery is None:
+        raw_mastery = mastery_state.get(skill_id)
+        try:
+            mastery = float(raw_mastery) if raw_mastery is not None else float(skill.get("prior", 0.3))
+        except (ValueError, TypeError):
             mastery = float(skill.get("prior", 0.3))
         if mastery < 0.85:
             return skill_id

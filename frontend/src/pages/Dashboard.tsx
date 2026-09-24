@@ -98,7 +98,7 @@ export default function Dashboard() {
         const skillsArr: SkillMastery[] = (masteryData?.mastery || []).map((row: any) => ({
           skill_id: row.skill_id,
           name: skillMap[row.skill_id] ?? row.skill_id,
-          mastery_prob: row.mastery_prob,
+          mastery_prob: Number(row.mastery_prob) || 0,
         }))
         setSkills(skillsArr)
         if (summaryData?.summary) setSummary(summaryData.summary)
@@ -132,7 +132,7 @@ export default function Dashboard() {
 
   const avgMastery = useMemo(() => (
     skills.length
-      ? skills.reduce((a, s) => a + s.mastery_prob, 0) / skills.length
+      ? skills.reduce((a, s) => a + (Number(s.mastery_prob) || 0), 0) / skills.length
       : 0
   ), [skills])
 

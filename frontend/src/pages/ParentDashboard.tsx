@@ -356,7 +356,7 @@ export default function ParentDashboard() {
           const skillsArr: SkillItem[] = (cachedData?.mastery || []).map((row: any) => ({
             skill_id: row.skill_id,
             name: skillMap[row.skill_id] ?? row.skill_id,
-            mastery_prob: row.mastery_prob,
+            mastery_prob: Number(row.mastery_prob) || 0,
           }))
           setSkills((prev) => (prev.length > 0 ? prev : skillsArr))
         }
@@ -380,7 +380,7 @@ export default function ParentDashboard() {
         const skillsArr: SkillItem[] = (data?.mastery || []).map((row: any) => ({
           skill_id: row.skill_id,
           name: skillMap[row.skill_id] ?? row.skill_id,
-          mastery_prob: row.mastery_prob,
+          mastery_prob: Number(row.mastery_prob) || 0,
         }))
         setSkills(skillsArr)
       })
