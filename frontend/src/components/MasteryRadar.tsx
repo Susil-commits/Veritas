@@ -24,12 +24,16 @@ export default function MasteryRadar({ skills = [], showBars = true }: Props) {
   const safeSkills = skills || []
 
   // Enrich skills with metadata
-  const enriched = safeSkills.map(s => ({
-    ...s,
-    meta: getSkillMeta(s.skill_id),
-    tierInfo: getMasteryTierInfo(s.mastery_prob ?? 0),
-    pct: Math.round((s.mastery_prob ?? 0) * 100),
-  }))
+  const enriched = safeSkills.map(s => {
+    const rawVal = Number(s.mastery_prob)
+    const probVal = isNaN(rawVal) ? 0 : rawVal
+    return {
+      ...s,
+      meta: getSkillMeta(s.skill_id),
+      tierInfo: getMasteryTierInfo(probVal),
+      pct: Math.round(probVal * 100),
+    }
+  })
 
   // Radar data
   const radarData = enriched.map(s => ({

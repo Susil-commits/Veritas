@@ -481,16 +481,29 @@ def generate_session_summary(
     # Build mastery summary string
     skill_lookup = {s["id"]: s["name"] for s in skill_params}
     mastery_lines = []
-    for skill_id, prob in mastery_state.items():
+    for skill_id, raw_prob in mastery_state.items():
         name = skill_lookup.get(skill_id, skill_id)
+        try:
+            prob = float(raw_prob) if raw_prob is not None else 0.3
+        except (ValueError, TypeError):
+            prob = 0.3
         level = "Strong" if prob >= 0.7 else ("Developing" if prob >= 0.4 else "Needs work")
         mastery_lines.append(f"  • {name}: {level} ({prob*100:.0f}%)")
 
     # Summarize attempts
     attempts_lines = []
     for p in problems_attempted[-5:]:  # last 5 problems
+        nested_prob = p.get("problems")
+        nested_title = nested_prob.get("title") if isinstance(nested_prob, dict) else None
+        prob_title = (
+            p.get("problem_title")
+            or p.get("title")
+            or nested_title
+            or p.get("skill_id")
+            or "Problem"
+        )
         status = "Correct" if p.get("is_correct") else f"Incorrect ({p.get('misconception_type', 'incorrect')})"
-        attempts_lines.append(f"  • {p.get('problem_title', 'Problem')}: {status}")
+        attempts_lines.append(f"  • {prob_title}: {status}")
 
     prompt = f"""Write a warm, professional 3-paragraph session summary for a parent or teacher about {student_name}'s tutoring session.
 

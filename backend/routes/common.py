@@ -72,11 +72,13 @@ async def db_exec(query: Any, retries: int = 2) -> Any:
 
 
 def _public_problem(problem: dict | None) -> dict | None:
-    """Strip internal solution fields from a problem before returning to client."""
+    """Strip internal solution fields and embeddings from a problem before returning to client."""
     if not problem:
         return None
     p = dict(problem)
     p.pop("answer", None)
     p.pop("expected_steps", None)
     p.pop("full_solution", None)
+    p.pop("solution", None)
+    p.pop("embedding", None)
     return p

@@ -9,8 +9,8 @@ from typing import Any, Tuple
 
 
 def parse_fraction_or_num(raw: str) -> Fraction | None:
-    """Parse integer, decimal, mixed fraction, or simple fraction into a Fraction object."""
-    s = raw.strip().replace(",", "")
+    """Parse integer, decimal, mixed fraction, simple fraction, or currency amount into a Fraction object."""
+    s = raw.strip().replace(",", "").lstrip("$").rstrip("$").strip()
     # Mixed fraction e.g. "1 1/2" or "2 3/4"
     m_mixed = re.match(r"^(\d+)\s+(\d+)/(\d+)$", s)
     if m_mixed:
@@ -150,11 +150,11 @@ def extract_student_candidate(message: str) -> list[Tuple[str, str]]:
     # 2. Extract candidates anchored to explicit answer-intent phrases (if not an equation)
     if not has_equation:
         intent_patterns = [
-            r"(?:the\s+)?answer\s*(?:is|should\s+be|=|:)\s*(-?\d+\s+\d+/\d+|-?\d+/\d+|-?\d{1,3}(?:,\d{3})*(?:\.\d+)?|-?\d+(?:\.\d+)?|(?:[0-9]*[a-zA-Z]|[0-9]+)(?:\s*[+\-*/]\s*(?:[0-9]*[a-zA-Z]|[0-9]+))+)",
-            r"(?:i\s+got|i\s+get|i\s+found|my\s+answer\s+is)\s*(-?\d+\s+\d+/\d+|-?\d+/\d+|-?\d{1,3}(?:,\d{3})*(?:\.\d+)?|-?\d+(?:\.\d+)?|(?:[0-9]*[a-zA-Z]|[0-9]+)(?:\s*[+\-*/]\s*(?:[0-9]*[a-zA-Z]|[0-9]+))+)",
-            r"(?:i\s+think\s+(?:the\s+answer\s+is|it(?:'s|s|\s+is))\s*|maybe\s+it(?:'s|s|\s+is)\s*|maybe\s+)\s*(-?\d+\s+\d+/\d+|-?\d+/\d+|-?\d{1,3}(?:,\d{3})*(?:\.\d+)?|-?\d+(?:\.\d+)?|(?:[0-9]*[a-zA-Z]|[0-9]+)(?:\s*[+\-*/]\s*(?:[0-9]*[a-zA-Z]|[0-9]+))+)",
-            r"(?:so|therefore|equals?)\s+(-?\d+\s+\d+/\d+|-?\d+/\d+|-?\d{1,3}(?:,\d{3})*(?:\.\d+)?|-?\d+(?:\.\d+)?)",
-            r"(?:is\s+it|is\s+the\s+simplified\s+fraction|decimal\s+form\s+is)\s*(-?\d+\s+\d+/\d+|-?\d+/\d+|-?\d{1,3}(?:,\d{3})*(?:\.\d+)?|-?\d+(?:\.\d+)?)",
+            r"(?:the\s+)?answer\s*(?:is|should\s+be|=|:)\s*\$?\s*(-?\d+\s+\d+/\d+|-?\d+/\d+|-?\d{1,3}(?:,\d{3})*(?:\.\d+)?|-?\d+(?:\.\d+)?|(?:[0-9]*[a-zA-Z]|[0-9]+)(?:\s*[+\-*/]\s*(?:[0-9]*[a-zA-Z]|[0-9]+))+)",
+            r"(?:i\s+got|i\s+get|i\s+found|my\s+answer\s+is)\s*\$?\s*(-?\d+\s+\d+/\d+|-?\d+/\d+|-?\d{1,3}(?:,\d{3})*(?:\.\d+)?|-?\d+(?:\.\d+)?|(?:[0-9]*[a-zA-Z]|[0-9]+)(?:\s*[+\-*/]\s*(?:[0-9]*[a-zA-Z]|[0-9]+))+)",
+            r"(?:i\s+think\s+(?:the\s+answer\s+is|it(?:'s|s|\s+is))\s*|maybe\s+it(?:'s|s|\s+is)\s*|maybe\s+)\s*\$?\s*(-?\d+\s+\d+/\d+|-?\d+/\d+|-?\d{1,3}(?:,\d{3})*(?:\.\d+)?|-?\d+(?:\.\d+)?|(?:[0-9]*[a-zA-Z]|[0-9]+)(?:\s*[+\-*/]\s*(?:[0-9]*[a-zA-Z]|[0-9]+))+)",
+            r"(?:so|therefore|equals?)\s+\$?\s*(-?\d+\s+\d+/\d+|-?\d+/\d+|-?\d{1,3}(?:,\d{3})*(?:\.\d+)?|-?\d+(?:\.\d+)?)",
+            r"(?:is\s+it|is\s+the\s+simplified\s+fraction|decimal\s+form\s+is)\s*\$?\s*(-?\d+\s+\d+/\d+|-?\d+/\d+|-?\d{1,3}(?:,\d{3})*(?:\.\d+)?|-?\d+(?:\.\d+)?)",
         ]
 
         for pat in intent_patterns:

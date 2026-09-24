@@ -333,7 +333,10 @@ export default function TutorSession() {
       },
       (_err) => {
         setIsStreaming(false)
-        const errorContent = "I had trouble connecting just now. Please try sending your message again!"
+        const isAuth = String(_err?.message || '').includes('401') || String(_err?.message || '').includes('403')
+        const errorContent = isAuth
+          ? "Your session has expired or requires renewal. Please refresh the page or click 'Reset Progress' to start fresh."
+          : "I had trouble connecting just now. Please try sending your message again!"
         setMessages(prev => {
           const updated = [...prev]
           updated[updated.length - 1] = { ...botMsg, content: errorContent }
@@ -389,7 +392,10 @@ export default function TutorSession() {
       },
       (_err) => {
         setIsStreaming(false)
-        const errorContent = "I had trouble connecting just now. Please try requesting a hint again!"
+        const isAuth = String(_err?.message || '').includes('401') || String(_err?.message || '').includes('403')
+        const errorContent = isAuth
+          ? "Your session has expired or requires renewal. Please refresh the page or click 'Reset Progress' to start fresh."
+          : "I had trouble connecting just now. Please try requesting a hint again!"
         setMessages(prev => {
           const updated = [...prev]
           updated[updated.length - 1] = { ...botMsg, content: errorContent }
@@ -424,8 +430,17 @@ export default function TutorSession() {
         setMessages(prev => [...prev, tutorMsg])
         stableSpeak(res.tutor_message)
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to fetch next problem:', err)
+      const isAuth = String(err?.message || '').includes('401') || String(err?.message || '').includes('403')
+      const msgContent = isAuth
+        ? "Your session has expired. Please refresh the page or reset the session to continue."
+        : "Could not load the next problem right now. Please try clicking 'Next Problem' again."
+      setMessages(prev => [...prev, {
+        role: 'system',
+        content: msgContent,
+        timestamp: new Date(),
+      }])
     } finally {
       setIsLoadingNextProblem(false)
     }
@@ -446,9 +461,10 @@ export default function TutorSession() {
       setSession(updatedSession)
       sessionStorage.setItem('session', JSON.stringify(sanitizeSessionForStorage(updatedSession)))
     }
-    const tutorMsg: Message = { role: 'tutor', content: d.corrective_question, timestamp: new Date() }
+    const corrective = d.corrective_question || "I've reviewed your work. Let's look at the next step together!"
+    const tutorMsg: Message = { role: 'tutor', content: corrective, timestamp: new Date() }
     setMessages(prev => [...prev, tutorMsg])
-    stableSpeak(d.corrective_question)
+    stableSpeak(corrective)
   }
 
   const masterySkills = Object.entries(masteryState).map(([skill_id, prob]) => {

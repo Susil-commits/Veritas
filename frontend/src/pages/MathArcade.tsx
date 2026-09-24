@@ -130,10 +130,16 @@ function generateMultiplicationQuestion(): GameQuestion {
   const b = Math.floor(Math.random() * 9) + 2 // 2 to 10
   const answer = a * b
   const optionsSet = new Set<number>([answer])
-  while (optionsSet.size < 4) {
+  let attempts = 0
+  while (optionsSet.size < 4 && attempts < 40) {
+    attempts++
     const delta = (Math.floor(Math.random() * 7) - 3) * (Math.random() > 0.5 ? a : b)
     const fake = Math.max(2, answer + (delta === 0 ? (Math.random() > 0.5 ? 4 : -4) : delta))
     optionsSet.add(fake)
+  }
+  let fallbackOffset = 1
+  while (optionsSet.size < 4) {
+    optionsSet.add(answer + fallbackOffset++)
   }
   const options = Array.from(optionsSet).sort(() => Math.random() - 0.5)
   return {
@@ -149,10 +155,16 @@ function generateDivisionQuestion(): GameQuestion {
   const a = b * quotient // dividend
   const answer = quotient
   const optionsSet = new Set<number>([answer])
-  while (optionsSet.size < 4) {
+  let attempts = 0
+  while (optionsSet.size < 4 && attempts < 40) {
+    attempts++
     const delta = Math.floor(Math.random() * 5) - 2
     const fake = Math.max(1, answer + (delta === 0 ? 3 : delta))
     optionsSet.add(fake)
+  }
+  let fallbackOffset = 1
+  while (optionsSet.size < 4) {
+    optionsSet.add(answer + fallbackOffset++)
   }
   const options = Array.from(optionsSet).sort(() => Math.random() - 0.5)
   return {
@@ -197,10 +209,16 @@ function generateTwoStepQuestion(): GameQuestion {
   }
 
   const optionsSet = new Set<number>([answer])
-  while (optionsSet.size < 4) {
+  let attempts = 0
+  while (optionsSet.size < 4 && attempts < 40) {
+    attempts++
     const delta = Math.floor(Math.random() * 7) - 3
     const fake = Math.max(1, answer + (delta === 0 ? 4 : delta))
     optionsSet.add(fake)
+  }
+  let fallbackOffset = 1
+  while (optionsSet.size < 4) {
+    optionsSet.add(answer + fallbackOffset++)
   }
   const options = Array.from(optionsSet).sort(() => Math.random() - 0.5)
   return {
@@ -222,9 +240,15 @@ function generateFractionQuestion(): GameQuestion {
     const answer = num * multiplier
 
     const optionsSet = new Set<number>([answer])
-    while (optionsSet.size < 4) {
+    let attempts = 0
+    while (optionsSet.size < 4 && attempts < 40) {
+      attempts++
       const fake = Math.max(1, answer + (Math.floor(Math.random() * 7) - 3))
       optionsSet.add(fake)
+    }
+    let fallbackOffset = 1
+    while (optionsSet.size < 4) {
+      optionsSet.add(answer + fallbackOffset++)
     }
     const options = Array.from(optionsSet).sort(() => Math.random() - 0.5)
     return {
@@ -240,9 +264,15 @@ function generateFractionQuestion(): GameQuestion {
     const answer = a + b
 
     const optionsSet = new Set<number>([answer])
-    while (optionsSet.size < 4) {
-      const fake = Math.max(1, Math.min(den, answer + (Math.floor(Math.random() * 5) - 2)))
+    let attempts = 0
+    while (optionsSet.size < 4 && attempts < 40) {
+      attempts++
+      const fake = Math.max(1, Math.min(den + 3, answer + (Math.floor(Math.random() * 5) - 2)))
       optionsSet.add(fake)
+    }
+    let fallbackOffset = 1
+    while (optionsSet.size < 4) {
+      optionsSet.add(answer + fallbackOffset++)
     }
     const options = Array.from(optionsSet).sort(() => Math.random() - 0.5)
     return {
@@ -285,10 +315,16 @@ function generateEquationQuestion(): GameQuestion {
   }
 
   const optionsSet = new Set<number>([answer])
-  while (optionsSet.size < 4) {
+  let attempts = 0
+  while (optionsSet.size < 4 && attempts < 40) {
+    attempts++
     const delta = Math.floor(Math.random() * 7) - 3
     const fake = Math.max(1, answer + (delta === 0 ? 3 : delta))
     optionsSet.add(fake)
+  }
+  let fallbackOffset = 1
+  while (optionsSet.size < 4) {
+    optionsSet.add(answer + fallbackOffset++)
   }
   const options = Array.from(optionsSet).sort(() => Math.random() - 0.5)
   return {
@@ -326,10 +362,17 @@ function generateDecimalQuestion(): GameQuestion {
   }
 
   const optionsSet = new Set<string>([answerStr])
-  while (optionsSet.size < 4) {
+  let attempts = 0
+  while (optionsSet.size < 4 && attempts < 40) {
+    attempts++
     const delta = (Math.floor(Math.random() * 5) - 2) * 0.25
     const fakeNum = Math.max(0.25, Math.round((numAnswer + (delta === 0 ? 0.5 : delta)) * 100) / 100)
     optionsSet.add(fakeNum.toFixed(2).replace(/\.?0+$/, ''))
+  }
+  let fallbackOffset = 0.5
+  while (optionsSet.size < 4) {
+    optionsSet.add((numAnswer + fallbackOffset).toFixed(2).replace(/\.?0+$/, ''))
+    fallbackOffset += 0.5
   }
   const options = Array.from(optionsSet).sort(() => Math.random() - 0.5)
   return {
@@ -365,10 +408,16 @@ function generateGeometryQuestion(): GameQuestion {
   }
 
   const optionsSet = new Set<number>([answer])
-  while (optionsSet.size < 4) {
+  let attempts = 0
+  while (optionsSet.size < 4 && attempts < 40) {
+    attempts++
     const delta = Math.floor(Math.random() * 9) - 4
     const fake = Math.max(4, answer + (delta === 0 ? 6 : delta))
     optionsSet.add(fake)
+  }
+  let fallbackOffset = 1
+  while (optionsSet.size < 4) {
+    optionsSet.add(answer + fallbackOffset++)
   }
   const options = Array.from(optionsSet).sort(() => Math.random() - 0.5)
   return {
@@ -411,7 +460,16 @@ export default function MathArcade() {
   const [gameOver, setGameOver] = useState(false)
   const [starsEarned, setStarsEarned] = useState(0)
   const [isNewHighScore, setIsNewHighScore] = useState(false)
-  const [soundEnabled, setSoundEnabled] = useState(true)
+  const [soundEnabled, setSoundEnabled] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('veritas_arcade_sound')
+      const val = saved !== null ? saved === 'true' : true
+      soundFX.enabled = val
+      return val
+    } catch {
+      return true
+    }
+  })
   const [floatingXP, setFloatingXP] = useState<{ id: number; text: string } | null>(null)
   const floatingIdRef = useRef(0)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -692,6 +750,9 @@ export default function MathArcade() {
               const next = !soundEnabled
               soundFX.enabled = next
               setSoundEnabled(next)
+              try {
+                localStorage.setItem('veritas_arcade_sound', String(next))
+              } catch {}
             }}
             title={soundEnabled ? 'Mute arcade sound effects' : 'Enable arcade sound effects'}
             aria-label={soundEnabled ? 'Mute arcade sound' : 'Enable arcade sound'}

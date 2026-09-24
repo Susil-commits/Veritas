@@ -1022,7 +1022,7 @@ async def upload_work(
                 "bounding_hint": {"x": 10.0, "y": 20.0, "width": 80.0, "height": 22.0},
                 "bounding_box": {"x": 10.0, "y": 20.0, "width": 80.0, "height": 22.0},
             }
-            yield f"data: {json.dumps({'type': 'diagnosis', 'diagnosis': fallback_diag, 'mastery_state': state['mastery_state'], 'next_problem': state.get('current_problem')})}\n\n"
+            yield f"data: {json.dumps({'type': 'diagnosis', 'diagnosis': fallback_diag, 'mastery_state': state['mastery_state'], 'next_problem': _public_problem(state.get('current_problem'))})}\n\n"
             yield f"data: {json.dumps({'type': 'done'})}\n\n"
 
     return StreamingResponse(

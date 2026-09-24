@@ -74,6 +74,14 @@ export function useSpeechInput(onResult: (text: string) => void) {
     setIsListening(false)
   }, [])
 
+  useEffect(() => {
+    return () => {
+      try {
+        recognitionRef.current?.stop()
+      } catch {}
+    }
+  }, [])
+
   return { isListening, interimText, startListening, stopListening, isSupported }
 }
 
@@ -100,6 +108,14 @@ export function cleanTextForSpeech(raw: string): string {
   text = text.replace(/\\neq/g, ' is not equal to ')
   text = text.replace(/\\pm/g, ' plus or minus ')
   text = text.replace(/\\sqrt\{([^}]+)\}/g, 'square root of $1')
+
+  // Exponents, percentages, and degrees
+  text = text.replace(/([a-zA-Z0-9]+)\^2\b/g, '$1 squared')
+  text = text.replace(/([a-zA-Z0-9]+)\^3\b/g, '$1 cubed')
+  text = text.replace(/([a-zA-Z0-9]+)\^([a-zA-Z0-9]+)/g, '$1 to the power of $2')
+  text = text.replace(/(\d+)%/g, '$1 percent')
+  text = text.replace(/(\d+)\s*(?:°|\^\\circ)/g, '$1 degrees')
+  text = text.replace(/(\d+)\s*\*\s*(\d+)/g, '$1 times $2')
 
   // Strip other LaTeX commands: \text{abc} -> abc, \pi -> pi
   text = text.replace(/\\text\{([^}]+)\}/g, '$1')

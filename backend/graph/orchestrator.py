@@ -151,10 +151,10 @@ async def tutor_node(state: TutorState) -> dict:
                 problem_solved = False
                 is_final_attempt = True
 
-    # Secondary safety check: Prevent accidental final answer disclosure
+    # Secondary safety check: Prevent accidental final answer disclosure during guidance
     canonical_ans, _ = extract_expected_answer(current_prob) if current_prob else (None, "none")
     prob_ans = current_prob.get("answer") or canonical_ans or ""
-    if prob_ans and is_answer_leaked(response, str(prob_ans)):
+    if not problem_solved and prob_ans and is_answer_leaked(response, str(prob_ans)):
         response = (
             "That's a great direction! Let's pause right before the final calculation: "
             "what math property explains why this step works?"
