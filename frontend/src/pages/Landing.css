@@ -982,80 +982,117 @@
   align-items: flex-end;
 }
 
-.logged-in-cta-row {
+.logged-in-action-group {
+  display: flex;
+  align-items: stretch;
+  gap: 12px;
+  width: 100%;
+}
+
+@media (max-width: 640px) {
+  .logged-in-action-group {
+    flex-direction: column;
+  }
+}
+
+.logged-in-portal-btn {
   display: flex;
   align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-}
-
-.logged-in-primary-cta {
-  padding: 12px 26px !important;
-  font-size: 1.02rem !important;
-  font-weight: 700 !important;
-  box-shadow: 0 4px 20px rgba(124, 93, 250, 0.45) !important;
-  white-space: nowrap;
-}
-
-.logged-in-arcade-cta {
-  background: linear-gradient(135deg, rgba(6, 182, 212, 0.16) 0%, rgba(124, 93, 250, 0.22) 100%) !important;
-  border: 1.5px solid rgba(6, 182, 212, 0.65) !important;
-  color: #38BDF8 !important;
-  font-weight: 700 !important;
-  padding: 12px 24px !important;
-  border-radius: var(--radius-md) !important;
-  font-size: 1.02rem !important;
+  gap: 12px;
+  padding: 12px 18px;
+  border-radius: 14px;
+  text-decoration: none;
   cursor: pointer;
-  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-  box-shadow: 0 4px 20px rgba(6, 182, 212, 0.25) !important;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  white-space: nowrap;
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  border: 1.5px solid transparent;
+  text-align: left;
+  flex: 1;
 }
 
-.logged-in-arcade-cta:hover {
-  background: linear-gradient(135deg, #06B6D4 0%, #7C5DFA 100%) !important;
-  border-color: #38BDF8 !important;
-  color: #FFFFFF !important;
-  transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(6, 182, 212, 0.5), 0 0 15px rgba(124, 93, 250, 0.35) !important;
-}
-
-.btn-arcade-nav {
-  background: rgba(6, 182, 212, 0.15);
-  border: 1px solid rgba(6, 182, 212, 0.4);
-  color: #38BDF8;
-  font-weight: 700;
-  border-radius: var(--radius-sm);
-  padding: 6px 12px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-}
-
-.btn-arcade-nav:hover {
-  background: rgba(6, 182, 212, 0.28);
-  border-color: #38BDF8;
+.logged-in-portal-btn.primary-portal {
+  background: linear-gradient(135deg, #7C5DFA 0%, #5B21B6 100%);
   color: #FFFFFF;
-  transform: translateY(-1px);
-  box-shadow: 0 0 10px rgba(6, 182, 212, 0.4);
+  border-color: rgba(167, 139, 250, 0.4);
+  box-shadow: 0 4px 18px rgba(124, 93, 250, 0.4);
 }
 
-.nav-link-arcade {
-  color: #38BDF8 !important;
+.logged-in-portal-btn.primary-portal:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(124, 93, 250, 0.6);
+  border-color: #A78BFA;
+}
+
+.logged-in-portal-btn.arcade-portal {
+  background: linear-gradient(135deg, rgba(6, 182, 212, 0.12) 0%, rgba(124, 93, 250, 0.14) 100%);
+  border-color: rgba(6, 182, 212, 0.5);
+  box-shadow: 0 4px 16px rgba(6, 182, 212, 0.15);
+}
+
+.logged-in-portal-btn.arcade-portal:hover {
+  background: linear-gradient(135deg, rgba(6, 182, 212, 0.22) 0%, rgba(124, 93, 250, 0.22) 100%);
+  border-color: #38BDF8;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 22px rgba(6, 182, 212, 0.35);
+}
+
+.portal-icon {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.2));
+}
+
+.portal-text {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.portal-name {
+  font-family: var(--font-display);
+  font-size: 0.95rem;
   font-weight: 700;
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
+  line-height: 1.25;
 }
 
-.nav-link-arcade:hover {
-  color: #7DD3FC !important;
-  text-shadow: 0 0 8px rgba(56, 189, 248, 0.6);
+.primary-portal .portal-name {
+  color: #FFFFFF;
+}
+
+.arcade-portal .portal-name {
+  color: #E0F2FE;
+}
+
+.portal-hint {
+  font-size: 0.72rem;
+  line-height: 1.3;
+  margin-top: 2px;
+}
+
+.primary-portal .portal-hint {
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.arcade-portal .portal-hint {
+  color: #7DD3FC;
+}
+
+.portal-arrow {
+  font-size: 1.15rem;
+  font-weight: 700;
+  margin-left: 6px;
+  transition: transform 0.2s ease;
+}
+
+.primary-portal .portal-arrow {
+  color: #FFFFFF;
+}
+
+.arcade-portal .portal-arrow {
+  color: #38BDF8;
+}
+
+.logged-in-portal-btn:hover .portal-arrow {
+  transform: translateX(3px);
 }
 
 .logged-in-sub-actions {
@@ -2781,39 +2818,39 @@
   color: #B45309;
 }
 
-/* Light Mode Arcade Enhancements */
-[data-theme="light"] .logged-in-arcade-cta {
-  background: linear-gradient(135deg, rgba(6, 182, 212, 0.12) 0%, rgba(107, 78, 230, 0.12) 100%) !important;
-  border-color: #0284C7 !important;
-  color: #0369A1 !important;
-  box-shadow: 0 4px 16px rgba(2, 132, 199, 0.15) !important;
+/* Light Mode Portal Buttons */
+[data-theme="light"] .logged-in-portal-btn.primary-portal {
+  background: linear-gradient(135deg, #6B4EE6 0%, #4F46E5 100%);
+  color: #FFFFFF;
+  box-shadow: 0 4px 16px rgba(107, 78, 230, 0.25);
+  border-color: rgba(107, 78, 230, 0.4);
 }
 
-[data-theme="light"] .logged-in-arcade-cta:hover {
-  background: linear-gradient(135deg, #0284C7 0%, #6B4EE6 100%) !important;
-  border-color: #0284C7 !important;
-  color: #FFFFFF !important;
-  box-shadow: 0 6px 20px rgba(2, 132, 199, 0.3) !important;
+[data-theme="light"] .logged-in-portal-btn.primary-portal:hover {
+  box-shadow: 0 8px 24px rgba(107, 78, 230, 0.38);
 }
 
-[data-theme="light"] .btn-arcade-nav {
-  background: rgba(2, 132, 199, 0.1);
-  border-color: rgba(2, 132, 199, 0.3);
-  color: #0284C7;
+[data-theme="light"] .logged-in-portal-btn.arcade-portal {
+  background: #FFFFFF;
+  border-color: rgba(2, 132, 199, 0.4);
+  box-shadow: 0 4px 16px rgba(2, 132, 199, 0.08);
 }
 
-[data-theme="light"] .btn-arcade-nav:hover {
-  background: rgba(2, 132, 199, 0.2);
+[data-theme="light"] .logged-in-portal-btn.arcade-portal:hover {
+  background: #F0F9FF;
   border-color: #0284C7;
+  box-shadow: 0 6px 20px rgba(2, 132, 199, 0.2);
+}
+
+[data-theme="light"] .arcade-portal .portal-name {
   color: #0369A1;
 }
 
-[data-theme="light"] .nav-link-arcade {
-  color: #0284C7 !important;
+[data-theme="light"] .arcade-portal .portal-hint {
+  color: #0284C7;
 }
 
-[data-theme="light"] .nav-link-arcade:hover {
-  color: #0369A1 !important;
-  text-shadow: none;
+[data-theme="light"] .arcade-portal .portal-arrow {
+  color: #0284C7;
 }
 

@@ -836,17 +836,6 @@ export default function Landing() {
             >
               Math Topics
             </a>
-            <a
-              href="/arcade"
-              className="nav-link nav-link-arcade"
-              onClick={(e) => {
-                e.preventDefault()
-                navigate('/arcade')
-              }}
-              title="Play Veritas Math Arcade speed challenges"
-            >
-              🎮 Math Arcade
-            </a>
           </nav>
 
           <div className="navbar-actions">
@@ -866,14 +855,6 @@ export default function Landing() {
             <ThemeToggle />
             {user && (
               <div className="navbar-user-group">
-                <button
-                  type="button"
-                  className="btn btn-sm btn-arcade-nav"
-                  onClick={() => navigate('/arcade')}
-                  title="Play Math Arcade games"
-                >
-                  🎮 Arcade
-                </button>
                 <button
                   type="button"
                   className="btn btn-sm btn-violet"
@@ -966,23 +947,35 @@ export default function Landing() {
                       </div>
                     </div>
                 <div className="logged-in-actions">
-                  <div className="logged-in-cta-row">
+                  <div className="logged-in-action-group">
                     <button
                       type="button"
-                      className="btn btn-violet btn-lg logged-in-primary-cta"
+                      className="logged-in-portal-btn primary-portal"
                       onClick={handleEnterSession}
-                      title="Move to your learning space"
+                      title="Enter your interactive Socratic tutoring space"
                     >
-                      {role === 'parent' ? 'Enter Parent Dashboard →' : 'Enter Learning Space →'}
+                      <span className="portal-icon">{role === 'parent' ? '📊' : '✏️'}</span>
+                      <div className="portal-text">
+                        <span className="portal-name">{role === 'parent' ? 'Parent Dashboard' : 'Learning Space'}</span>
+                        <span className="portal-hint">{role === 'parent' ? 'Live student radar & progress' : 'Socratic tutor & problem practice'}</span>
+                      </div>
+                      <span className="portal-arrow">→</span>
                     </button>
-                    <button
-                      type="button"
-                      className="btn btn-lg logged-in-arcade-cta"
-                      onClick={() => navigate('/arcade')}
-                      title="Jump straight into 7-tier Math Arcade games, speed challenges, and stars"
-                    >
-                      🎮 Launch Math Arcade →
-                    </button>
+                    {role === 'student' && (
+                      <button
+                        type="button"
+                        className="logged-in-portal-btn arcade-portal"
+                        onClick={() => navigate('/arcade')}
+                        title="Jump straight into 7-tier Math Arcade games, speed challenges, and stars"
+                      >
+                        <span className="portal-icon">🎮</span>
+                        <div className="portal-text">
+                          <span className="portal-name">Math Arcade</span>
+                          <span className="portal-hint">7-tier speed challenges & stars</span>
+                        </div>
+                        <span className="portal-arrow">→</span>
+                      </button>
+                    )}
                   </div>
                   <div className="logged-in-sub-actions">
                   <button
