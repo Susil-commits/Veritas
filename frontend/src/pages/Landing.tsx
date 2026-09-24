@@ -17,6 +17,7 @@ import InteractivePipeline from '../components/InteractivePipeline'
 import ThemeToggle from '../components/ThemeToggle'
 import UserAvatar from '../components/UserAvatar'
 import AvatarModal from '../components/AvatarModal'
+import { EvaluatorLabModal } from '../components/EvaluatorLabModal'
 import './Landing.css'
 
 const STATS = [
@@ -186,6 +187,7 @@ export default function Landing() {
   const [fullName, setFullName] = useState('')
   const [roleMismatchNotice, setRoleMismatchNotice] = useState<string | null>(null)
   const [showAvatarModal, setShowAvatarModal] = useState(false)
+  const [showEvaluatorModal, setShowEvaluatorModal] = useState(false)
   const [isRegistrationAvatarStep, setIsRegistrationAvatarStep] = useState(false)
   const [copiedStudentId, setCopiedStudentId] = useState(false)
 
@@ -832,6 +834,15 @@ export default function Landing() {
           </nav>
 
           <div className="navbar-actions">
+            <button
+              type="button"
+              className="btn btn-sm btn-outline-violet"
+              style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700 }}
+              onClick={() => setShowEvaluatorModal(true)}
+              title="Open Reviewer & Evaluator Interactive Demo Lab"
+            >
+              <span>⚡</span> Evaluator Lab
+            </button>
             <ThemeToggle />
             {user && (
               <div className="navbar-user-group">
@@ -860,6 +871,32 @@ export default function Landing() {
         <p className="hero-sub">
           An encouraging math tutor that spots where you get stuck — asking helpful questions so you learn the concepts and solve problems on your own.
         </p>
+
+        {/* Evaluator Showcase Lab Banner */}
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1.25rem' }}>
+          <button
+            type="button"
+            className="btn btn-outline-violet"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '8px 18px',
+              borderRadius: '24px',
+              background: 'rgba(124, 93, 250, 0.12)',
+              border: '1px solid rgba(124, 93, 250, 0.35)',
+              color: '#FFFFFF',
+              fontWeight: 700,
+              fontSize: '0.88rem',
+              cursor: 'pointer',
+              boxShadow: '0 4px 15px rgba(124, 93, 250, 0.2)',
+              transition: 'all 0.2s ease',
+            }}
+            onClick={() => setShowEvaluatorModal(true)}
+          >
+            <span>⚡</span> <strong>Evaluator Showcase Lab:</strong> Socratic Jailbreak, Vision Reticles &amp; Bayesian BKT →
+          </button>
+        </div>
 
         {/* Server Connection Status - shows connecting, then 'Connected to learning space', then smoothly disappears */}
         {connVisible && (
@@ -1787,6 +1824,12 @@ export default function Landing() {
         await updateAvatar('initials')
         setShowAvatarModal(false)
       }}
+    />
+
+    {/* Reviewer & Evaluator Interactive Demo Lab */}
+    <EvaluatorLabModal
+      isOpen={showEvaluatorModal}
+      onClose={() => setShowEvaluatorModal(false)}
     />
     </>
   )

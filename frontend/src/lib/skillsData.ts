@@ -213,4 +213,238 @@ export function getBarGradient(tier: MasteryTier): string {
   }
 }
 
+export type DAGCluster = 'foundations' | 'fractions' | 'equations'
+
+export interface SkillDAGNode extends SkillMeta {
+  prerequisites: string[]
+  prior: number
+  learn: number
+  guess: number
+  slip: number
+  retentionHalfLifeDays: number
+  decayRate: number
+  cluster: DAGCluster
+  level: number // 1: Foundations, 2: Fractions, 3: Equations
+  colIndex: number // Layout positioning for SVG DAG
+}
+
+export const COGNITIVE_DAG_NODES: Record<string, SkillDAGNode> = {
+  '3.OA.A.1': {
+    ...SKILLS_REGISTRY['3.OA.A.1'],
+    prerequisites: [],
+    prior: 0.30,
+    learn: 0.15,
+    guess: 0.20,
+    slip: 0.10,
+    retentionHalfLifeDays: 21.0,
+    decayRate: 0.0330,
+    cluster: 'foundations',
+    level: 1,
+    colIndex: 0,
+  },
+  '3.OA.A.2': {
+    ...SKILLS_REGISTRY['3.OA.A.2'],
+    prerequisites: ['3.OA.A.1'],
+    prior: 0.25,
+    learn: 0.15,
+    guess: 0.20,
+    slip: 0.10,
+    retentionHalfLifeDays: 18.0,
+    decayRate: 0.0385,
+    cluster: 'foundations',
+    level: 1,
+    colIndex: 1,
+  },
+  '3.OA.D.8': {
+    ...SKILLS_REGISTRY['3.OA.D.8'],
+    prerequisites: ['3.OA.A.1', '3.OA.A.2'],
+    prior: 0.20,
+    learn: 0.12,
+    guess: 0.18,
+    slip: 0.12,
+    retentionHalfLifeDays: 14.0,
+    decayRate: 0.0495,
+    cluster: 'foundations',
+    level: 1,
+    colIndex: 2,
+  },
+  '4.NF.A.1': {
+    ...SKILLS_REGISTRY['4.NF.A.1'],
+    prerequisites: ['3.OA.A.1', '3.OA.A.2'],
+    prior: 0.40,
+    learn: 0.08,
+    guess: 0.22,
+    slip: 0.14,
+    retentionHalfLifeDays: 16.0,
+    decayRate: 0.0433,
+    cluster: 'fractions',
+    level: 2,
+    colIndex: 0,
+  },
+  '4.NF.B.3': {
+    ...SKILLS_REGISTRY['4.NF.B.3'],
+    prerequisites: ['4.NF.A.1'],
+    prior: 0.40,
+    learn: 0.20,
+    guess: 0.18,
+    slip: 0.14,
+    retentionHalfLifeDays: 16.0,
+    decayRate: 0.0433,
+    cluster: 'fractions',
+    level: 2,
+    colIndex: 1,
+  },
+  '4.NF.B.4': {
+    ...SKILLS_REGISTRY['4.NF.B.4'],
+    prerequisites: ['3.OA.A.1', '4.NF.A.1'],
+    prior: 0.40,
+    learn: 0.12,
+    guess: 0.26,
+    slip: 0.14,
+    retentionHalfLifeDays: 18.0,
+    decayRate: 0.0385,
+    cluster: 'fractions',
+    level: 2,
+    colIndex: 2,
+  },
+  '5.NF.B.7': {
+    ...SKILLS_REGISTRY['5.NF.B.7'],
+    prerequisites: ['4.NF.B.4', '3.OA.A.2'],
+    prior: 0.40,
+    learn: 0.24,
+    guess: 0.26,
+    slip: 0.14,
+    retentionHalfLifeDays: 15.0,
+    decayRate: 0.0462,
+    cluster: 'fractions',
+    level: 2,
+    colIndex: 3,
+  },
+  '6.EE.A.2': {
+    ...SKILLS_REGISTRY['6.EE.A.2'],
+    prerequisites: ['3.OA.D.8'],
+    prior: 0.20,
+    learn: 0.13,
+    guess: 0.20,
+    slip: 0.10,
+    retentionHalfLifeDays: 20.0,
+    decayRate: 0.0347,
+    cluster: 'equations',
+    level: 3,
+    colIndex: 0,
+  },
+  '6.EE.B.7': {
+    ...SKILLS_REGISTRY['6.EE.B.7'],
+    prerequisites: ['6.EE.A.2'],
+    prior: 0.35,
+    learn: 0.08,
+    guess: 0.26,
+    slip: 0.14,
+    retentionHalfLifeDays: 18.0,
+    decayRate: 0.0385,
+    cluster: 'equations',
+    level: 3,
+    colIndex: 1,
+  },
+  '7.EE.B.4': {
+    ...SKILLS_REGISTRY['7.EE.B.4'],
+    prerequisites: ['6.EE.B.7', '4.NF.B.3'],
+    prior: 0.40,
+    learn: 0.24,
+    guess: 0.26,
+    slip: 0.14,
+    retentionHalfLifeDays: 14.0,
+    decayRate: 0.0495,
+    cluster: 'equations',
+    level: 3,
+    colIndex: 2,
+  },
+}
+
+/** Get list of prerequisites for a given skill */
+export function getSkillPrerequisites(skillId: string): string[] {
+  return COGNITIVE_DAG_NODES[skillId]?.prerequisites || []
+}
+
+/**
+ * Ebbinghaus Exponential Memory Forgetting Decay:
+ * Predicts mastery probability after `elapsedDays` without practice:
+ * P(L_{t+dt}) = P_prior + (P(L_t) - P_prior) * exp(-lambda * dt)
+ */
+export function applyTimeDecay(
+  currentMastery: number,
+  elapsedDays: number,
+  skillId: string,
+): number {
+  if (elapsedDays <= 0) return currentMastery
+  const node = COGNITIVE_DAG_NODES[skillId]
+  if (!node) return currentMastery
+  const pPrior = node.prior
+  const decayRate = node.decayRate
+
+  if (currentMastery <= pPrior) return currentMastery
+  const decayed = pPrior + (currentMastery - pPrior) * Math.exp(-decayRate * elapsedDays)
+  return Math.round(Math.min(Math.max(decayed, pPrior), 1.0) * 100) / 100
+}
+
+/**
+ * Recursive root-deficit diagnosis:
+ * Traverses upstream prerequisite DAG from a failing skill (mastery < threshold)
+ * to locate the deepest unmastered ancestor.
+ */
+export function diagnoseRootSkillDeficit(
+  masteryMap: Record<string, number>,
+  failingSkillId: string,
+  threshold: number = 0.65,
+): string | null {
+  const visited = new Set<string>()
+  const queue = [...getSkillPrerequisites(failingSkillId)]
+  const unmasteredRoots: { id: string; score: number }[] = []
+
+  while (queue.length > 0) {
+    const curr = queue.shift()!
+    if (visited.has(curr)) continue
+    visited.add(curr)
+
+    const currMastery = masteryMap[curr] ?? (COGNITIVE_DAG_NODES[curr]?.prior ?? 0.3)
+    if (currMastery < threshold) {
+      unmasteredRoots.push({ id: curr, score: currMastery })
+      queue.push(...getSkillPrerequisites(curr))
+    }
+  }
+
+  if (unmasteredRoots.length > 0) {
+    unmasteredRoots.sort((a, b) => a.score - b.score)
+    return unmasteredRoots[0].id
+  }
+  return null
+}
+
+export interface DeficitDiagnosis {
+  targetSkillId: string
+  rootDeficitId: string
+  rootDeficitName: string
+  deficitPath: string[]
+}
+
+export function getDetailedDeficitDiagnosis(
+  masteryMap: Record<string, number>,
+  failingSkillId: string,
+  threshold: number = 0.70,
+): DeficitDiagnosis | null {
+  const rootId = diagnoseRootSkillDeficit(masteryMap, failingSkillId, threshold)
+  if (!rootId || rootId === failingSkillId) return null
+  const rootMeta = getSkillMeta(rootId)
+  return {
+    targetSkillId: failingSkillId,
+    rootDeficitId: rootId,
+    rootDeficitName: rootMeta.title || rootId,
+    deficitPath: [rootId, failingSkillId],
+  }
+}
+
+export const COGNITIVE_DAG_LIST: SkillDAGNode[] = Object.values(COGNITIVE_DAG_NODES)
+
 export { SKILLS_REGISTRY }
+
+

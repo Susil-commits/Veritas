@@ -1058,6 +1058,44 @@ export default function MathArcade() {
                   ))}
                 </div>
 
+                {/* Confetti Particle Celebration */}
+                {starsEarned >= 2 && (
+                  <div className="arcade-confetti-container" aria-hidden="true">
+                    {Array.from({ length: 24 }).map((_, i) => (
+                      <span
+                        key={i}
+                        className="arcade-confetti-piece"
+                        style={{
+                          left: `${(i * 4.2) % 100}%`,
+                          backgroundColor: ['#818CF8', '#34D399', '#FBBF24', '#F472B6', '#60A5FA'][i % 5],
+                          animationDelay: `${(i * 0.12).toFixed(2)}s`,
+                          animationDuration: `${2.2 + (i % 3) * 0.4}s`,
+                        }}
+                      />
+                    ))}
+                  </div>
+                )}
+
+                {/* Concept Mastery Badge Award */}
+                {starsEarned >= 2 && (
+                  <div className="concept-mastery-award">
+                    <span className="mastery-badge-icon">🎖️</span>
+                    <div className="mastery-badge-info">
+                      <h4 className="mastery-badge-title">
+                        {activeLevel?.name ? `${activeLevel.name} Mastery Badge` : 'Conceptual Mastery Badge'}
+                      </h4>
+                      <p className="mastery-badge-desc">
+                        Demonstrated high accuracy across {activeLevel?.skill_required || 'Common Core'} standards!
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                <div className="bkt-mastery-pill">
+                  <span>📈</span>
+                  <span>Bayesian Mastery +0.08 P(L) updated in Veritas Cognitive DAG!</span>
+                </div>
+
                 <div className="modal-score-summary">
                   <div className="summary-item">
                     <span className="sum-label">FINAL ROUND SCORE</span>

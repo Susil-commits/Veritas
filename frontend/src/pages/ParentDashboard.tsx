@@ -8,6 +8,8 @@ import ThemeToggle from '../components/ThemeToggle'
 import UserAvatar from '../components/UserAvatar'
 import AvatarModal from '../components/AvatarModal'
 import ConfirmLogoutModal from '../components/ConfirmLogoutModal'
+import { CognitiveDAGVisualizer } from '../components/CognitiveDAGVisualizer'
+import { CognitiveReportModal } from '../components/CognitiveReportModal'
 import { getSkillMeta, getMasteryTierInfo, getBarGradient } from '../lib/skillsData'
 import { validateEmailFormat, validateNameFormat, sanitizeNameInput } from '../lib/emailValidation'
 import BKTSimulator from '../components/BKTSimulator'
@@ -177,6 +179,8 @@ export default function ParentDashboard() {
   const [liveIndicator, setLiveIndicator] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
+  const [skillViewMode, setSkillViewMode] = useState<'dag' | 'radar'>('dag')
+  const [showReportModal, setShowReportModal] = useState(false)
   const [historyTab, setHistoryTab] = useState<'sessions' | 'games' | 'problems'>('sessions')
   const [deletingData, setDeletingData] = useState(false)
   const [deleteSuccessMsg, setDeleteSuccessMsg] = useState('')
@@ -725,6 +729,39 @@ export default function ParentDashboard() {
               </div>
             )}
 
+            {/* Child Profile & Permanent Executive Actions Strip */}
+            <div className="child-detail-header-strip" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '1rem', background: 'rgba(30, 41, 59, 0.4)', padding: '1rem 1.25rem', borderRadius: '12px', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.35rem', fontWeight: 800, color: '#FFFFFF' }}>
+                  {selectedChild.student_name}
+                </h3>
+                <p style={{ margin: '4px 0 0', fontSize: '0.84rem', color: 'var(--text-secondary)' }}>
+                  Common Core Grade 3–7 Mathematical Growth Track · Active Student Profile
+                </p>
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  className="btn btn-outline-violet"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 700 }}
+                  onClick={() => setShowReportModal(true)}
+                  title="Export Executive Cognitive Growth Report & Print PDF"
+                >
+                  <span>📄</span> Export Cognitive Report
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-violet"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 700 }}
+                  onClick={() => window.open('/student-session', '_blank')}
+                  title="Launch child learning session"
+                >
+                  <span>🚀</span> Launch Kid Session
+                </button>
+              </div>
+            </div>
+
             {/* Demo Highlight Banner */}
             {selectedChild.has_fraction_gap && (
               <div className="alert-banner">
@@ -750,10 +787,10 @@ export default function ParentDashboard() {
                   <button
                     type="button"
                     className="btn btn-outline-violet"
-                    onClick={() => window.print()}
-                    title="Print or export student learning report"
+                    onClick={() => setShowReportModal(true)}
+                    title="Print or export student cognitive growth report"
                   >
-                    📄 Print Report
+                    📄 Cognitive Growth Report
                   </button>
                 </div>
               </div>
@@ -826,12 +863,32 @@ export default function ParentDashboard() {
                       Visualizing live skill progress. Watch this update as your child solves problems!
                     </p>
                   </div>
-                  <div className="overall-badge">
-                    <span>{avgMastery}% Overall</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div style={{ display: 'flex', gap: '4px', background: 'rgba(0,0,0,0.25)', padding: '3px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)' }}>
+                      <button
+                        type="button"
+                        className={`btn btn-xs ${skillViewMode === 'dag' ? 'btn-violet' : 'btn-ghost'}`}
+                        style={{ padding: '3px 8px', fontSize: '0.75rem', borderRadius: '6px' }}
+                        onClick={() => setSkillViewMode('dag')}
+                      >
+                        🧠 Cognitive DAG
+                      </button>
+                      <button
+                        type="button"
+                        className={`btn btn-xs ${skillViewMode === 'radar' ? 'btn-violet' : 'btn-ghost'}`}
+                        style={{ padding: '3px 8px', fontSize: '0.75rem', borderRadius: '6px' }}
+                        onClick={() => setSkillViewMode('radar')}
+                      >
+                        📊 Radar
+                      </button>
+                    </div>
+                    <div className="overall-badge">
+                      <span>{avgMastery}% Overall</span>
+                    </div>
                   </div>
                 </div>
 
-                <div className="radar-container">
+                <div className="radar-container" style={{ minHeight: skillViewMode === 'dag' ? 'auto' : '360px' }}>
                   {detailsLoading && skills.length === 0 ? (
                     <div className="radar-empty">Loading skill map…</div>
                   ) : detailsError ? (
@@ -848,7 +905,11 @@ export default function ParentDashboard() {
                       )}
                     </div>
                   ) : skills.length > 0 ? (
-                    <MasteryRadar skills={skills} showBars={false} />
+                    skillViewMode === 'dag' ? (
+                      <CognitiveDAGVisualizer skills={skills} />
+                    ) : (
+                      <MasteryRadar skills={skills} showBars={false} />
+                    )
                   ) : (
                     <div className="radar-empty">No skill records available for this student yet.</div>
                   )}
@@ -1474,6 +1535,16 @@ export default function ParentDashboard() {
         message="Are you sure you want to log out? Your child's learning history, session diagnosis, and mastery radar remain safely saved."
         confirmText="Yes, Log Out"
         cancelText="Cancel"
+      />
+
+      {/* Executive Cognitive Growth Report Modal */}
+      <CognitiveReportModal
+        isOpen={showReportModal}
+        onClose={() => setShowReportModal(false)}
+        childName={selectedChild?.student_name || 'Alex Jenkins'}
+        childEmail={selectedChild?.student_email}
+        skills={skills}
+        activitySummary={activitySummary}
       />
     </div>
   )

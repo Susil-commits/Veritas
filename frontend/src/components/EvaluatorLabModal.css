@@ -1,0 +1,527 @@
+/* EvaluatorLabModal.css — Reviewer & Evaluator Showcase Lab */
+
+.eval-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 15, 30, 0.88);
+  backdrop-filter: blur(10px);
+  z-index: 1060;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  overflow-y: auto;
+  animation: fadeIn 0.25s ease-out;
+}
+
+.eval-modal-container {
+  background: #0F172A;
+  border: 1px solid rgba(124, 93, 250, 0.25);
+  border-radius: 20px;
+  width: 100%;
+  max-width: 960px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 25px 65px -15px rgba(0, 0, 0, 0.8), 0 0 35px rgba(124, 93, 250, 0.2);
+  color: #F8FAFC;
+  overflow: hidden;
+  position: relative;
+}
+
+/* Modal Header */
+.eval-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.25rem 1.5rem;
+  background: rgba(15, 23, 42, 0.95);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.eval-header-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.eval-badge {
+  background: linear-gradient(135deg, #7C3AED, #6366F1);
+  color: #FFFFFF;
+  font-size: 0.72rem;
+  font-weight: 800;
+  padding: 3px 8px;
+  border-radius: 6px;
+  letter-spacing: 0.5px;
+}
+
+.eval-modal-title {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #FFFFFF;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.eval-modal-title span {
+  color: #818CF8;
+}
+
+.eval-modal-close {
+  background: rgba(255, 255, 255, 0.08);
+  border: none;
+  color: var(--text-secondary);
+  font-size: 1rem;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.eval-modal-close:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: #FFFFFF;
+}
+
+/* Tab Navigation */
+.eval-tabs-bar {
+  display: flex;
+  background: rgba(0, 0, 0, 0.25);
+  padding: 0.5rem 1.5rem 0;
+  gap: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  overflow-x: auto;
+}
+
+.eval-tab-btn {
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 8px 12px 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+
+.eval-tab-btn:hover {
+  color: #FFFFFF;
+}
+
+.eval-tab-btn--active {
+  color: #818CF8;
+  border-bottom-color: #818CF8;
+}
+
+/* Modal Content Area */
+.eval-content-body {
+  padding: 1.5rem;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.eval-section-intro {
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* ── TAB 1: Jailbreak Arena ── */
+.eval-jailbreak-presets {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.eval-preset-pill {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.eval-preset-pill:hover,
+.eval-preset-pill--active {
+  background: rgba(124, 93, 250, 0.2);
+  border-color: #818CF8;
+  color: #FFFFFF;
+}
+
+.eval-input-bar {
+  display: flex;
+  gap: 8px;
+}
+
+.eval-input-field {
+  flex: 1;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  padding: 10px 14px;
+  color: #FFFFFF;
+  font-size: 0.9rem;
+}
+
+.eval-input-field:focus {
+  outline: none;
+  border-color: #818CF8;
+  box-shadow: 0 0 0 3px rgba(129, 140, 248, 0.25);
+}
+
+.eval-run-btn {
+  background: linear-gradient(135deg, #7C3AED, #6366F1);
+  border: none;
+  color: #FFFFFF;
+  font-weight: 700;
+  font-size: 0.85rem;
+  padding: 0 18px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.eval-run-btn:hover {
+  filter: brightness(1.15);
+}
+
+.eval-compare-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem;
+}
+
+@media (max-width: 720px) {
+  .eval-compare-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.eval-box {
+  background: rgba(30, 41, 59, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.eval-box-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.eval-box-header h5 {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.eval-box-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.eval-box--fail {
+  border-color: rgba(239, 68, 68, 0.35);
+  background: rgba(239, 68, 68, 0.04);
+}
+
+.eval-box--fail .eval-box-header h5 {
+  color: #F87171;
+}
+
+.eval-box--pass {
+  border-color: rgba(16, 185, 129, 0.4);
+  background: rgba(16, 185, 129, 0.04);
+}
+
+.eval-box--pass .eval-box-header h5 {
+  color: #34D399;
+}
+
+.eval-box-content {
+  font-size: 0.88rem;
+  line-height: 1.5;
+  color: #E2E8F0;
+  background: rgba(0, 0, 0, 0.25);
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.eval-metric-tag {
+  font-size: 0.76rem;
+  color: var(--text-muted);
+}
+
+/* ── TAB 2: Vision Reticle Scratchpad ── */
+.eval-vision-wrap {
+  display: flex;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.eval-canvas-mock {
+  position: relative;
+  width: 360px;
+  height: 280px;
+  background: #1E293B;
+  border: 2px dashed rgba(255, 255, 255, 0.15);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  user-select: none;
+}
+
+.eval-handwriting-mock {
+  font-family: 'Comic Sans MS', cursive, sans-serif;
+  font-size: 1.4rem;
+  color: #94A3B8;
+  line-height: 1.8;
+  padding: 1.5rem;
+}
+
+.eval-reticle-box {
+  position: absolute;
+  border: 2px solid #EF4444;
+  background: rgba(239, 68, 68, 0.15);
+  border-radius: 6px;
+  box-shadow: 0 0 12px rgba(239, 68, 68, 0.5);
+  cursor: pointer;
+  animation: pulse-reticle 2s infinite ease-in-out;
+}
+
+@keyframes pulse-reticle {
+  0%, 100% { border-color: #EF4444; }
+  50% { border-color: #F87171; box-shadow: 0 0 18px rgba(239, 68, 68, 0.8); }
+}
+
+.eval-reticle-label {
+  position: absolute;
+  top: -22px;
+  left: 0;
+  background: #EF4444;
+  color: #FFFFFF;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.eval-vision-diagnostics {
+  flex: 1;
+  min-width: 280px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.eval-diag-card {
+  background: rgba(30, 41, 59, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 1rem;
+}
+
+.eval-diag-card h5 {
+  margin: 0 0 6px;
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #FFFFFF;
+}
+
+.eval-diag-card p {
+  margin: 0;
+  font-size: 0.84rem;
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+
+/* ── TAB 4: pgvector ZPD Adaptive RAG ── */
+.eval-rag-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  background: rgba(30, 41, 59, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 1.25rem;
+}
+
+.eval-slider-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.eval-slider {
+  flex: 1;
+  accent-color: #818CF8;
+}
+
+.eval-rag-results {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.eval-candidate-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(30, 41, 59, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  padding: 0.85rem 1.15rem;
+  transition: all 0.2s ease;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.eval-candidate-card--matched {
+  background: rgba(124, 93, 250, 0.15);
+  border-color: #818CF8;
+  box-shadow: 0 0 14px rgba(129, 140, 248, 0.2);
+}
+
+.eval-candidate-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.eval-candidate-title {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #FFFFFF;
+  margin: 0;
+}
+
+.eval-candidate-sub {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.eval-candidate-pills {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.eval-match-tag {
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: #10B981;
+  color: #FFFFFF;
+}
+
+/* Light Mode Overrides */
+[data-theme="light"] .eval-modal-container {
+  background: #FFFFFF;
+  color: #0F172A;
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .eval-modal-header {
+  background: #F8FAFC;
+  border-bottom-color: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .eval-modal-title {
+  color: #0F172A;
+}
+
+[data-theme="light"] .eval-tabs-bar {
+  background: #F1F5F9;
+  border-bottom-color: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .eval-tab-btn {
+  color: #64748B;
+}
+
+[data-theme="light"] .eval-tab-btn:hover {
+  color: #0F172A;
+}
+
+[data-theme="light"] .eval-tab-btn--active {
+  color: #6366F1;
+  border-bottom-color: #6366F1;
+}
+
+[data-theme="light"] .eval-input-field {
+  background: #FFFFFF;
+  border-color: #CBD5E1;
+  color: #0F172A;
+}
+
+[data-theme="light"] .eval-box {
+  background: #F8FAFC;
+  border-color: #E2E8F0;
+}
+
+[data-theme="light"] .eval-box-content {
+  background: #FFFFFF;
+  border-color: #E2E8F0;
+  color: #1E293B;
+}
+
+[data-theme="light"] .eval-canvas-mock {
+  background: #F8FAFC;
+  border-color: #CBD5E1;
+}
+
+[data-theme="light"] .eval-diag-card {
+  background: #F8FAFC;
+  border-color: #E2E8F0;
+}
+
+[data-theme="light"] .eval-diag-card h5 {
+  color: #0F172A;
+}
+
+[data-theme="light"] .eval-rag-controls {
+  background: #F8FAFC;
+  border-color: #E2E8F0;
+}
+
+[data-theme="light"] .eval-candidate-card {
+  background: #F8FAFC;
+  border-color: #E2E8F0;
+}
+
+[data-theme="light"] .eval-candidate-title {
+  color: #0F172A;
+}

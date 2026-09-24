@@ -3,6 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { getMastery, getSummary } from '../lib/api'
 import MasteryRadar from '../components/MasteryRadar'
+import { CognitiveDAGVisualizer } from '../components/CognitiveDAGVisualizer'
+import { CognitiveReportModal } from '../components/CognitiveReportModal'
 import { getSkillMeta } from '../lib/skillsData'
 import ThemeToggle from '../components/ThemeToggle'
 import UserAvatar from '../components/UserAvatar'
@@ -19,7 +21,7 @@ interface SkillMastery {
 export default function Dashboard() {
   const { studentId } = useParams<{ studentId: string }>()
   const navigate = useNavigate()
-  const { role, avatar, updateAvatar, signOut } = useAuth()
+  const { user, role, avatar, updateAvatar, signOut } = useAuth()
   const [showAvatarModal, setShowAvatarModal] = useState(false)
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
   const [skills, setSkills] = useState<SkillMastery[]>([])
@@ -29,6 +31,8 @@ export default function Dashboard() {
   const [authDenied, setAuthDenied] = useState<string | null>(null)
   const [retryTrigger, setRetryTrigger] = useState(0)
   const [selectedDomain, setSelectedDomain] = useState<string>('all')
+  const [skillViewMode, setSkillViewMode] = useState<'dag' | 'radar'>('dag')
+  const [showReportModal, setShowReportModal] = useState(false)
   const [copiedId, setCopiedId] = useState(false)
 
   const cachedSession = useMemo(() => {
@@ -418,9 +422,42 @@ export default function Dashboard() {
                   <h3 className="dash-section-title">Your Progress</h3>
                   <p className="dash-section-subtitle">See how you are doing across each math topic</p>
                 </div>
-                <span className="badge badge-violet">{skills.length} Monitored Topics</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div style={{ display: 'flex', gap: '4px', background: 'rgba(0,0,0,0.25)', padding: '3px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)' }}>
+                    <button
+                      type="button"
+                      className={`btn btn-xs ${skillViewMode === 'dag' ? 'btn-violet' : 'btn-ghost'}`}
+                      style={{ padding: '3px 8px', fontSize: '0.75rem', borderRadius: '6px' }}
+                      onClick={() => setSkillViewMode('dag')}
+                    >
+                      🧠 Cognitive DAG
+                    </button>
+                    <button
+                      type="button"
+                      className={`btn btn-xs ${skillViewMode === 'radar' ? 'btn-violet' : 'btn-ghost'}`}
+                      style={{ padding: '3px 8px', fontSize: '0.75rem', borderRadius: '6px' }}
+                      onClick={() => setSkillViewMode('radar')}
+                    >
+                      📊 Radar
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn btn-xs btn-outline-violet"
+                    style={{ padding: '3px 8px', fontSize: '0.75rem', borderRadius: '6px', display: 'inline-flex', alignItems: 'center', gap: '4px', fontWeight: 600 }}
+                    onClick={() => setShowReportModal(true)}
+                    title="Export Student Cognitive Growth Report (PDF / JSON / CSV)"
+                  >
+                    <span>📄</span> Export Report
+                  </button>
+                  <span className="badge badge-violet">{skills.length} Monitored Topics</span>
+                </div>
               </div>
-              <MasteryRadar skills={skills} />
+              {skillViewMode === 'dag' ? (
+                <CognitiveDAGVisualizer skills={skills} />
+              ) : (
+                <MasteryRadar skills={skills} />
+              )}
             </div>
 
             {/* Skill Domain Filters */}
@@ -655,6 +692,15 @@ export default function Dashboard() {
         message="Are you sure you want to log out? Your skill progress, completed problems, and stars are safely saved."
         confirmText="Yes, Log Out"
         cancelText="Cancel"
+      />
+
+      {/* Student Cognitive Growth Report Modal */}
+      <CognitiveReportModal
+        isOpen={showReportModal}
+        onClose={() => setShowReportModal(false)}
+        childName={studentName}
+        childEmail={user?.email}
+        skills={skills}
       />
     </div>
   )

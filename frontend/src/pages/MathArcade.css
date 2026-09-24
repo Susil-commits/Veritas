@@ -1343,3 +1343,90 @@
   30% { opacity: 1; transform: translateY(-5px) scale(1.2); }
   100% { opacity: 0; transform: translateY(-32px) scale(1); }
 }
+
+/* ── Gamified Concept Mastery Celebration & Confetti ── */
+.arcade-confetti-container {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 50;
+}
+
+.arcade-confetti-piece {
+  position: absolute;
+  top: -20px;
+  width: 10px;
+  height: 14px;
+  opacity: 0.9;
+  border-radius: 2px;
+  animation: confetti-fall 3s linear infinite;
+}
+
+@keyframes confetti-fall {
+  0% {
+    transform: translateY(0) rotate(0deg) scale(0.8);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(100vh) rotate(720deg) scale(1);
+    opacity: 0;
+  }
+}
+
+.concept-mastery-award {
+  margin: 1rem 0;
+  padding: 1rem 1.25rem;
+  background: linear-gradient(135deg, rgba(124, 93, 250, 0.25), rgba(16, 185, 129, 0.2));
+  border: 1.5px solid #10B981;
+  border-radius: 14px;
+  box-shadow: 0 0 25px rgba(16, 185, 129, 0.35);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  animation: badge-shine 1.8s ease-in-out infinite alternate;
+}
+
+@keyframes badge-shine {
+  from { filter: drop-shadow(0 0 8px rgba(16, 185, 129, 0.4)); }
+  to { filter: drop-shadow(0 0 18px rgba(124, 93, 250, 0.7)); }
+}
+
+.mastery-badge-icon {
+  font-size: 2.2rem;
+  flex-shrink: 0;
+}
+
+.mastery-badge-info {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+}
+
+.mastery-badge-title {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #FFFFFF;
+  margin: 0;
+}
+
+.mastery-badge-desc {
+  font-size: 0.8rem;
+  color: #A7F3D0;
+  margin: 2px 0 0;
+}
+
+.bkt-mastery-pill {
+  margin-top: 0.5rem;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 0.78rem;
+  color: #93C5FD;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+

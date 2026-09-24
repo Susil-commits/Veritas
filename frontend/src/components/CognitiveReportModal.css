@@ -1,0 +1,504 @@
+/* CognitiveReportModal.css — Executive Cognitive Growth Report & Print Sheet */
+
+.report-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 15, 30, 0.85);
+  backdrop-filter: blur(8px);
+  z-index: 1050;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  overflow-y: auto;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.report-modal-container {
+  background: #0F172A;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 20px;
+  width: 100%;
+  max-width: 860px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.7), 0 0 30px rgba(124, 93, 250, 0.15);
+  color: #F8FAFC;
+  overflow: hidden;
+  position: relative;
+}
+
+/* Modal Actions Header */
+.report-modal-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.5rem;
+  background: rgba(15, 23, 42, 0.95);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.report-modal-topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.report-tag {
+  background: linear-gradient(135deg, #7C3AED, #6366F1);
+  color: #FFFFFF;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 6px;
+  letter-spacing: 0.5px;
+}
+
+.report-modal-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.report-print-btn {
+  background: linear-gradient(135deg, #7C3AED, #6366F1);
+  border: none;
+  color: #FFFFFF;
+  font-size: 0.84rem;
+  font-weight: 600;
+  padding: 6px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
+
+.report-print-btn:hover {
+  filter: brightness(1.15);
+  transform: translateY(-1px);
+}
+
+.report-export-pill-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #E2E8F0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.2s ease;
+}
+
+.report-export-pill-btn:hover {
+  background: rgba(124, 93, 250, 0.2);
+  border-color: #818CF8;
+  color: #FFFFFF;
+}
+
+.report-close-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border: none;
+  color: var(--text-secondary);
+  font-size: 1rem;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.report-close-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: #FFFFFF;
+}
+
+/* Printable Document Body */
+.report-paper {
+  padding: 2rem;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+  background: #0F172A;
+}
+
+/* Header & Watermark */
+.report-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding-bottom: 1.25rem;
+  border-bottom: 2px solid rgba(124, 93, 250, 0.3);
+}
+
+.report-brand-title {
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: #FFFFFF;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.report-brand-title span {
+  color: #818CF8;
+}
+
+.report-subtitle {
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+  margin: 4px 0 0;
+}
+
+.report-meta-box {
+  text-align: right;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.report-meta-box strong {
+  color: #F8FAFC;
+}
+
+/* Student Profile Strip */
+.report-profile-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(30, 41, 59, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 1rem 1.25rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.report-student-info h3 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #FFFFFF;
+  margin: 0;
+}
+
+.report-student-info p {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin: 4px 0 0;
+}
+
+.report-kpi-pills {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.report-kpi-pill {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 6px 14px;
+  text-align: center;
+}
+
+.report-kpi-pill-val {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #38BDF8;
+}
+
+.report-kpi-pill-lbl {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+/* Sections */
+.report-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.report-section-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #FFFFFF;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Deficit Diagnostic Alert */
+.report-deficit-card {
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 12px;
+  padding: 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.report-deficit-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #F87171;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.report-deficit-desc {
+  font-size: 0.86rem;
+  color: #FECACA;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.report-deficit-rec {
+  background: rgba(0, 0, 0, 0.25);
+  border-left: 3px solid #F87171;
+  padding: 8px 12px;
+  font-size: 0.82rem;
+  color: #FEE2E2;
+  border-radius: 4px;
+}
+
+/* Skill Table */
+.report-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+  text-align: left;
+}
+
+.report-table th {
+  padding: 10px 12px;
+  color: var(--text-muted);
+  font-weight: 600;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.report-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  color: #F1F5F9;
+}
+
+.report-std-pill {
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(124, 93, 250, 0.15);
+  color: #A78BFA;
+  border: 1px solid rgba(124, 93, 250, 0.3);
+}
+
+.report-bar-wrap {
+  width: 120px;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  overflow: hidden;
+  display: inline-block;
+  vertical-align: middle;
+  margin-right: 8px;
+}
+
+.report-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+/* Offline Parent Activities */
+.report-activities-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1rem;
+}
+
+.report-activity-card {
+  background: rgba(30, 41, 59, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.report-activity-title {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #FFFFFF;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.report-activity-desc {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  line-height: 1.45;
+  margin: 0;
+}
+
+/* Report Footer */
+.report-footer {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+/* Light Theme Overrides */
+[data-theme="light"] .report-modal-container {
+  background: #FFFFFF;
+  color: #0F172A;
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .report-modal-topbar {
+  background: #F8FAFC;
+  border-bottom-color: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .report-paper {
+  background: #FFFFFF;
+}
+
+[data-theme="light"] .report-brand-title {
+  color: #0F172A;
+}
+
+[data-theme="light"] .report-student-info h3 {
+  color: #0F172A;
+}
+
+[data-theme="light"] .report-profile-card {
+  background: #F1F5F9;
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .report-kpi-pill {
+  background: #FFFFFF;
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .report-section-title {
+  color: #0F172A;
+}
+
+[data-theme="light"] .report-table th {
+  color: #64748B;
+  border-bottom-color: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .report-table td {
+  color: #1E293B;
+  border-bottom-color: rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="light"] .report-activity-card {
+  background: #F8FAFC;
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .report-activity-title {
+  color: #0F172A;
+}
+
+/* ── PRINT STYLESHEET ── */
+@media print {
+  /* Hide all top-level application chrome */
+  body > *:not(.report-modal-backdrop) {
+    display: none !important;
+  }
+
+  .report-modal-backdrop {
+    position: static !important;
+    inset: auto !important;
+    background: #FFFFFF !important;
+    backdrop-filter: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    display: block !important;
+    overflow: visible !important;
+  }
+
+  .report-modal-container {
+    position: static !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: none !important;
+    box-shadow: none !important;
+    border: none !important;
+    background: #FFFFFF !important;
+    color: #0F172A !important;
+    overflow: visible !important;
+  }
+
+  .report-modal-topbar {
+    display: none !important;
+  }
+
+  .report-paper {
+    padding: 0 !important;
+    background: #FFFFFF !important;
+    color: #0F172A !important;
+    overflow: visible !important;
+  }
+
+  .report-brand-title {
+    color: #0F172A !important;
+  }
+
+  .report-brand-title span {
+    color: #4F46E5 !important;
+  }
+
+  .report-profile-card,
+  .report-kpi-pill,
+  .report-activity-card {
+    border: 1px solid #CBD5E1 !important;
+    background: #F8FAFC !important;
+    color: #0F172A !important;
+  }
+
+  .report-bar-wrap {
+    border: 1px solid #94A3B8;
+  }
+
+  .report-bar-fill {
+    background: #4F46E5 !important;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+}
+

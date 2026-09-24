@@ -1,0 +1,352 @@
+/* CognitiveDAGVisualizer.css — Interactive Common Core Knowledge Graph */
+
+.dag-container {
+  display: flex;
+  flex-direction: column;
+  background: rgba(15, 23, 42, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 1.25rem;
+  backdrop-filter: blur(12px);
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.dag-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.dag-header-title {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dag-header-title h3 {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #FFFFFF;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dag-header-sub {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+/* ── Ebbinghaus Time Decay Controls ── */
+.dag-decay-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(0, 0, 0, 0.3);
+  padding: 4px 6px;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.dag-decay-label {
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  padding-left: 6px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.dag-decay-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.dag-decay-btn:hover {
+  color: #FFFFFF;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.dag-decay-btn--active {
+  background: linear-gradient(135deg, rgba(124, 93, 250, 0.85), rgba(99, 102, 241, 0.95));
+  color: #FFFFFF;
+  box-shadow: 0 2px 8px rgba(124, 93, 250, 0.4);
+}
+
+/* ── Interactive SVG Canvas ── */
+.dag-svg-wrapper {
+  position: relative;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  user-select: none;
+}
+
+.dag-svg {
+  width: 100%;
+  height: auto;
+  max-height: 440px;
+  filter: drop-shadow(0 4px 20px rgba(0, 0, 0, 0.35));
+}
+
+/* SVG Edge Lines */
+.dag-edge {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.16);
+  stroke-width: 1.8;
+  transition: all 0.3s ease;
+}
+
+.dag-edge--active {
+  stroke: #818CF8;
+  stroke-width: 2.8;
+  filter: drop-shadow(0 0 6px rgba(129, 140, 248, 0.7));
+}
+
+.dag-edge--deficit {
+  stroke: #F87171;
+  stroke-width: 3.2;
+  stroke-dasharray: 6 3;
+  animation: dag-dash-flow 1s linear infinite;
+  filter: drop-shadow(0 0 8px rgba(248, 113, 113, 0.8));
+}
+
+@keyframes dag-dash-flow {
+  from {
+    stroke-dashoffset: 18;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* SVG Nodes */
+.dag-node {
+  cursor: pointer;
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.dag-node:hover {
+  transform: scale(1.08);
+}
+
+.dag-node-circle {
+  transition: all 0.25s ease;
+}
+
+.dag-node--selected .dag-node-circle {
+  stroke-width: 3.5 !important;
+  filter: drop-shadow(0 0 14px currentColor);
+}
+
+.dag-node-text-code {
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  fill: #FFFFFF;
+  text-anchor: middle;
+  pointer-events: none;
+}
+
+.dag-node-text-pct {
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  text-anchor: middle;
+  pointer-events: none;
+}
+
+.dag-node-text-label {
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  fill: var(--text-secondary);
+  text-anchor: middle;
+  pointer-events: none;
+  transition: fill 0.2s ease;
+}
+
+.dag-node:hover .dag-node-text-label,
+.dag-node--selected .dag-node-text-label {
+  fill: #FFFFFF;
+  font-weight: 700;
+}
+
+/* ── Node Detail Card ── */
+.dag-detail-card {
+  margin-top: 1rem;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 1rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  animation: fadein 0.25s ease-out;
+}
+
+.dag-detail-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.dag-detail-title-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.dag-detail-badge {
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 6px;
+  letter-spacing: 0.4px;
+}
+
+.dag-detail-name {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #FFFFFF;
+  margin: 0;
+}
+
+.dag-detail-metrics {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.dag-detail-pct {
+  font-size: 1.15rem;
+  font-weight: 800;
+}
+
+.dag-detail-desc {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin: 0;
+  line-height: 1.45;
+}
+
+/* Deficit Warning Banner */
+.dag-deficit-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  border-radius: 10px;
+  padding: 8px 12px;
+  color: #FCA5A5;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  flex-wrap: wrap;
+}
+
+.dag-deficit-text strong {
+  color: #FFFFFF;
+}
+
+.dag-deficit-action-btn {
+  background: rgba(239, 68, 68, 0.25);
+  border: 1px solid rgba(239, 68, 68, 0.5);
+  color: #FFFFFF;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.dag-deficit-action-btn:hover {
+  background: rgba(239, 68, 68, 0.4);
+}
+
+/* ── Light Mode Overrides ── */
+[data-theme="light"] .dag-container {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .dag-header {
+  border-bottom-color: rgba(0, 0, 0, 0.07);
+}
+
+[data-theme="light"] .dag-header-title h3 {
+  color: #0F172A;
+}
+
+[data-theme="light"] .dag-decay-controls {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .dag-decay-btn {
+  color: #64748B;
+}
+
+[data-theme="light"] .dag-decay-btn:hover {
+  color: #0F172A;
+  background: rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .dag-edge {
+  stroke: rgba(0, 0, 0, 0.15);
+}
+
+[data-theme="light"] .dag-node-text-label {
+  fill: #475569;
+}
+
+[data-theme="light"] .dag-node:hover .dag-node-text-label,
+[data-theme="light"] .dag-node--selected .dag-node-text-label {
+  fill: #0F172A;
+}
+
+[data-theme="light"] .dag-detail-card {
+  background: #F8FAFC;
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .dag-detail-name {
+  color: #0F172A;
+}
+
+[data-theme="light"] .dag-detail-desc {
+  color: #475569;
+}
+
+[data-theme="light"] .dag-deficit-banner {
+  background: rgba(239, 68, 68, 0.08);
+  border-color: rgba(239, 68, 68, 0.25);
+  color: #991B1B;
+}
+
+[data-theme="light"] .dag-deficit-text strong {
+  color: #7F1D1D;
+}

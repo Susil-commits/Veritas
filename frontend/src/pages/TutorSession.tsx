@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, memo } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { streamMessage, startSession, fetchNextProblem, resetSession } from '../lib/api'
 import { useSpeechInput, useTTS } from '../hooks/useVoice'
@@ -12,6 +12,9 @@ import AvatarModal from '../components/AvatarModal'
 import ConfirmLogoutModal from '../components/ConfirmLogoutModal'
 import MathText from '../components/MathText'
 import AudioVisualizer from '../components/AudioVisualizer'
+import { SocraticVoiceCompanion } from '../components/SocraticVoiceCompanion'
+import { CognitiveDAGVisualizer } from '../components/CognitiveDAGVisualizer'
+import { CognitiveReportModal } from '../components/CognitiveReportModal'
 import { getSkillMeta } from '../lib/skillsData'
 import type { SessionData, Problem, Diagnosis } from '../lib/api'
 import './TutorSession.css'
@@ -116,9 +119,17 @@ export default function TutorSession() {
   const [mobileTab, setMobileTab] = useState<'chat' | 'problem' | 'progress'>('chat')
   const [showResetModal, setShowResetModal] = useState(false)
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
+  const [showVoiceCompanion, setShowVoiceCompanion] = useState(false)
+  const [progressViewMode, setProgressViewMode] = useState<'dag' | 'radar'>('dag')
+  const [showReportModal, setShowReportModal] = useState(false)
   const [isResetting, setIsResetting] = useState(false)
   const [copiedCode, setCopiedCode] = useState(false)
   const chatEndRef = useRef<HTMLDivElement>(null)
+
+  const latestTutorMessage = useMemo(() => {
+    const tutorMsgs = messages.filter(m => m.role === 'tutor' && m.content)
+    return tutorMsgs.length > 0 ? tutorMsgs[tutorMsgs.length - 1].content : ''
+  }, [messages])
 
   const { isSpeaking, speak, stop } = useTTS()
   // Stabilize `speak` ref to prevent session init from re-running on every TTS state change
@@ -282,11 +293,10 @@ export default function TutorSession() {
     }
   }, [session?.session_id, messages])
 
-  const sendMessage = useCallback(() => {
-    if (!input.trim() || !session || isStreaming) return
-    const userMsg: Message = { role: 'student', content: input.trim(), timestamp: new Date() }
+  const sendTextMessage = useCallback((textToSend: string) => {
+    if (!textToSend.trim() || !session || isStreaming) return
+    const userMsg: Message = { role: 'student', content: textToSend.trim(), timestamp: new Date() }
     setMessages(prev => [...prev, userMsg])
-    setInput('')
     setThinkingSteps([])
     setIsStreaming(true)
 
@@ -329,9 +339,15 @@ export default function TutorSession() {
           updated[updated.length - 1] = { ...botMsg, content: errorContent }
           return updated
         })
-      },
+      }
     )
-  }, [input, session, isStreaming, stableSpeak])
+  }, [session, isStreaming, stableSpeak])
+
+  const sendMessage = useCallback(() => {
+    if (!input.trim()) return
+    sendTextMessage(input.trim())
+    setInput('')
+  }, [input, sendTextMessage])
 
   const handleRequestHint = useCallback(() => {
     if (!session || isStreaming) return
@@ -540,6 +556,32 @@ export default function TutorSession() {
           <div className="session-header-actions-row">
             <button
               type="button"
+              className="btn btn-violet"
+              style={{
+                padding: '5px 10px',
+                fontSize: '0.74rem',
+                fontWeight: 700,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+                background: 'linear-gradient(135deg, #7C3AED, #6366F1)',
+              }}
+              onClick={() => setShowVoiceCompanion(true)}
+              title="Enter Socratic Voice Companion Mode"
+            >
+              <span>🎙️</span> Voice Mode
+            </button>
+            <button
+              type="button"
+              className="btn btn-ghost"
+              style={{ padding: '5px 8px', fontSize: '0.74rem', display: 'inline-flex', alignItems: 'center', gap: '3px' }}
+              onClick={() => setShowReportModal(true)}
+              title="View and export Cognitive Growth Report"
+            >
+              <span>📄</span> Report
+            </button>
+            <button
+              type="button"
               className="btn btn-ghost"
               style={{ padding: '5px 8px', fontSize: '0.74rem' }}
               disabled={isStreaming}
@@ -696,6 +738,39 @@ export default function TutorSession() {
             <ThemeToggle />
           </div>
           <div className="session-header-actions-row">
+            <button
+              type="button"
+              className="btn btn-violet"
+              style={{
+                padding: '5px 12px',
+                fontSize: '0.78rem',
+                fontWeight: 700,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px',
+                background: 'linear-gradient(135deg, #7C3AED, #6366F1)',
+                boxShadow: '0 2px 8px rgba(124, 93, 250, 0.4)',
+              }}
+              onClick={() => setShowVoiceCompanion(true)}
+              title="Enter Socratic Voice Companion Mode"
+            >
+              <span>🎙️</span> Voice Mode
+            </button>
+            <button
+              type="button"
+              className="btn btn-ghost"
+              style={{
+                padding: '5px 10px',
+                fontSize: '0.78rem',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+              }}
+              onClick={() => setShowReportModal(true)}
+              title="View and export Cognitive Growth Report"
+            >
+              <span>📄</span> Report
+            </button>
             <button
               type="button"
               className="btn btn-ghost"
@@ -1085,12 +1160,37 @@ export default function TutorSession() {
             <span className="live-pulse-dot" />
             <span className="intel-title">LIVE PROGRESS</span>
           </div>
-          <span className="intel-caption">Tutor Guidance & Skill Map</span>
+          <div style={{ display: 'flex', gap: '4px', background: 'rgba(0,0,0,0.25)', padding: '2px', borderRadius: '6px' }}>
+            <button
+              type="button"
+              className={`btn btn-xs ${progressViewMode === 'dag' ? 'btn-violet' : 'btn-ghost'}`}
+              style={{ padding: '2px 6px', fontSize: '0.7rem', borderRadius: '4px' }}
+              onClick={() => setProgressViewMode('dag')}
+            >
+              🧠 DAG
+            </button>
+            <button
+              type="button"
+              className={`btn btn-xs ${progressViewMode === 'radar' ? 'btn-violet' : 'btn-ghost'}`}
+              style={{ padding: '2px 6px', fontSize: '0.7rem', borderRadius: '4px' }}
+              onClick={() => setProgressViewMode('radar')}
+            >
+              📊 Radar
+            </button>
+          </div>
         </div>
 
         <ThinkingTrace steps={thinkingSteps} isActive={isStreaming} />
 
-        <MasteryRadar skills={masterySkills} />
+        {progressViewMode === 'dag' ? (
+          <CognitiveDAGVisualizer
+            skills={masterySkills}
+            activeSkillId={currentProblem?.skill_id}
+            showDecayControls={false}
+          />
+        ) : (
+          <MasteryRadar skills={masterySkills} />
+        )}
 
         <div className="mobile-only-return-chat">
           <button
@@ -1200,6 +1300,25 @@ export default function TutorSession() {
         message="Are you sure you want to log out? Your current problem, conversation history, and skill mastery are safely saved."
         confirmText="Yes, Log Out"
         cancelText="Cancel"
+      />
+
+      {/* Immersive Socratic Voice Companion Mode */}
+      <SocraticVoiceCompanion
+        isOpen={showVoiceCompanion}
+        onClose={() => setShowVoiceCompanion(false)}
+        problem={currentProblem}
+        latestTutorMessage={latestTutorMessage}
+        onSendMessage={sendTextMessage}
+        isStreaming={isStreaming}
+        onNextProblem={() => handleNextProblem(problemSolved)}
+      />
+
+      {/* Session Cognitive Growth Report Modal */}
+      <CognitiveReportModal
+        isOpen={showReportModal}
+        onClose={() => setShowReportModal(false)}
+        childName={session?.student_name || 'Student'}
+        skills={masterySkills}
       />
     </div>
   )
