@@ -327,3 +327,49 @@
   font-size: 0.75rem;
   color: var(--text-secondary);
 }
+
+@media (max-width: 600px) {
+  .intro-portal {
+    padding: 1.25rem 1rem;
+  }
+  .intro-core-container {
+    gap: 1.25rem;
+  }
+  .intro-orbital-wrapper {
+    width: 120px;
+    height: 120px;
+  }
+  .ring-outer {
+    width: 120px;
+    height: 120px;
+  }
+  .ring-middle {
+    width: 90px;
+    height: 90px;
+  }
+  .ring-inner {
+    width: 65px;
+    height: 65px;
+  }
+  .emblem-core {
+    width: 48px;
+    height: 48px;
+    font-size: 1.3rem;
+  }
+  .intro-title {
+    font-size: clamp(1.8rem, 7vw, 2.4rem);
+  }
+  .intro-subtitle {
+    font-size: 0.92rem;
+    line-height: 1.5;
+  }
+  .intro-enter-btn {
+    padding: 12px 28px;
+    font-size: 0.95rem;
+    width: 100%;
+    max-width: 260px;
+  }
+  .intro-key-hint {
+    display: none;
+  }
+}

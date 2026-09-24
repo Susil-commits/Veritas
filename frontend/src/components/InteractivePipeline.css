@@ -654,3 +654,23 @@
     justify-content: flex-start;
   }
 }
+
+@media (max-width: 540px) {
+  .pipeline-wrapper {
+    border-radius: 14px;
+    margin-top: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  .pipeline-topbar {
+    padding: 0.75rem 0.85rem;
+    gap: 8px;
+  }
+  .pipeline-btn {
+    padding: 5px 10px;
+    font-size: 0.76rem;
+  }
+  .pipeline-view-toggle .toggle-btn {
+    padding: 5px 10px;
+    font-size: 0.74rem;
+  }
+}

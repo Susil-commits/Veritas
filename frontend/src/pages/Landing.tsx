@@ -841,7 +841,9 @@ export default function Landing() {
               onClick={() => setShowEvaluatorModal(true)}
               title="Open Reviewer & Evaluator Interactive Demo Lab"
             >
-              <span>⚡</span> Evaluator Lab
+              <span>⚡</span>
+              <span className="eval-btn-text">Evaluator Lab</span>
+              <span className="eval-btn-text-short">Lab</span>
             </button>
             <ThemeToggle />
             {user && (
@@ -894,7 +896,7 @@ export default function Landing() {
             }}
             onClick={() => setShowEvaluatorModal(true)}
           >
-            <span>⚡</span> <strong>Evaluator Showcase Lab:</strong> Socratic Jailbreak, Vision Reticles &amp; Bayesian BKT →
+            <span>⚡</span> <strong>Interactive AI &amp; Learning Showcase Lab:</strong> Socratic Guardrails, Visual Problem Solving &amp; Adaptive Skill Tracing →
           </button>
         </div>
 

@@ -434,16 +434,131 @@
   color: #0F172A;
 }
 
+.report-table-scroll {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin-top: 0.5rem;
+}
+
+@media (max-width: 600px) {
+  .report-modal-backdrop {
+    padding: 0.35rem;
+  }
+  .report-modal-container {
+    border-radius: 14px;
+    max-height: 96vh;
+  }
+  .report-modal-topbar {
+    padding: 0.75rem 0.85rem;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  .report-modal-topbar-left {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+  }
+  .report-modal-actions {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr) auto;
+    gap: 6px;
+    width: 100%;
+  }
+  .report-export-pill-btn,
+  .report-print-btn {
+    padding: 6px 8px;
+    font-size: 0.74rem;
+    min-height: 38px;
+    justify-content: center;
+    text-align: center;
+  }
+  .report-close-btn {
+    grid-column: 3;
+    grid-row: 1 / span 2;
+    height: 100%;
+    min-width: 36px;
+  }
+  .report-paper {
+    padding: 1rem 0.75rem;
+    gap: 1.15rem;
+  }
+  .report-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.65rem;
+  }
+  .report-brand-title {
+    font-size: 1.35rem;
+  }
+  .report-meta-box {
+    text-align: left;
+    font-size: 0.76rem;
+  }
+  .report-profile-card {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.85rem;
+    padding: 0.9rem;
+  }
+  .report-kpi-pills {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    width: 100%;
+    gap: 8px;
+  }
+  .report-kpi-pill {
+    padding: 8px 6px;
+  }
+  .report-kpi-pill-val {
+    font-size: 1.15rem;
+  }
+  .report-kpi-pill-lbl {
+    font-size: 0.68rem;
+  }
+  .report-activities-grid {
+    grid-template-columns: 1fr;
+  }
+  .report-table {
+    min-width: 480px;
+  }
+}
+
+@media (max-width: 360px) {
+  .report-modal-actions {
+    grid-template-columns: 1fr 1fr;
+  }
+  .report-close-btn {
+    grid-column: auto;
+    grid-row: auto;
+  }
+}
+
 /* ── PRINT STYLESHEET ── */
 @media print {
-  /* Hide all top-level application chrome */
-  body > *:not(.report-modal-backdrop) {
-    display: none !important;
+  @page {
+    size: letter portrait;
+    margin: 12mm 15mm;
+  }
+
+  /* Robust print isolation: hide all elements, make modal content visible */
+  body * {
+    visibility: hidden;
+  }
+
+  .report-modal-backdrop,
+  .report-modal-backdrop * {
+    visibility: visible;
   }
 
   .report-modal-backdrop {
-    position: static !important;
-    inset: auto !important;
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    min-height: 100% !important;
     background: #FFFFFF !important;
     backdrop-filter: none !important;
     padding: 0 !important;
@@ -462,6 +577,7 @@
     background: #FFFFFF !important;
     color: #0F172A !important;
     overflow: visible !important;
+    border-radius: 0 !important;
   }
 
   .report-modal-topbar {
@@ -473,32 +589,151 @@
     background: #FFFFFF !important;
     color: #0F172A !important;
     overflow: visible !important;
+    gap: 1.25rem !important;
+  }
+
+  .report-header {
+    border-bottom: 2px solid #E2E8F0 !important;
+    padding-bottom: 0.85rem !important;
+    page-break-inside: avoid;
+    break-inside: avoid;
   }
 
   .report-brand-title {
     color: #0F172A !important;
+    font-size: 1.5rem !important;
   }
 
   .report-brand-title span {
     color: #4F46E5 !important;
   }
 
-  .report-profile-card,
-  .report-kpi-pill,
+  .report-subtitle {
+    color: #475569 !important;
+    font-size: 0.85rem !important;
+  }
+
+  .report-meta-box {
+    color: #475569 !important;
+    font-size: 0.78rem !important;
+  }
+
+  .report-meta-box strong {
+    color: #0F172A !important;
+  }
+
+  .report-profile-card {
+    border: 1px solid #CBD5E1 !important;
+    background: #F8FAFC !important;
+    color: #0F172A !important;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  .report-student-info h3 {
+    color: #0F172A !important;
+  }
+
+  .report-student-info p {
+    color: #475569 !important;
+  }
+
+  .report-kpi-pill {
+    border: 1px solid #CBD5E1 !important;
+    background: #FFFFFF !important;
+    color: #0F172A !important;
+  }
+
+  .report-kpi-pill-val {
+    color: #4338CA !important;
+  }
+
+  .report-section {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  .report-section-title {
+    color: #0F172A !important;
+  }
+
+  .report-deficit-card {
+    background: #FEF2F2 !important;
+    border: 1px solid #FECACA !important;
+    color: #991B1B !important;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  .report-deficit-desc {
+    color: #7F1D1D !important;
+  }
+
+  .report-deficit-rec {
+    background: #FEE2E2 !important;
+    color: #7F1D1D !important;
+    border-left-color: #EF4444 !important;
+  }
+
+  .report-table {
+    page-break-inside: auto;
+  }
+
+  .report-table tr {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  .report-table th {
+    color: #475569 !important;
+    border-bottom: 2px solid #CBD5E1 !important;
+    background: #F8FAFC !important;
+  }
+
+  .report-table td {
+    color: #1E293B !important;
+    border-bottom: 1px solid #E2E8F0 !important;
+  }
+
+  .report-std-pill {
+    background: #EEF2FF !important;
+    color: #4338CA !important;
+    border: 1px solid #C7D2FE !important;
+  }
+
+  .report-bar-wrap {
+    border: 1px solid #CBD5E1 !important;
+    background: #F1F5F9 !important;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  .report-bar-fill {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
   .report-activity-card {
     border: 1px solid #CBD5E1 !important;
     background: #F8FAFC !important;
     color: #0F172A !important;
+    page-break-inside: avoid;
+    break-inside: avoid;
   }
 
-  .report-bar-wrap {
-    border: 1px solid #94A3B8;
+  .report-activity-title {
+    color: #0F172A !important;
   }
 
-  .report-bar-fill {
-    background: #4F46E5 !important;
-    print-color-adjust: exact;
-    -webkit-print-color-adjust: exact;
+  .report-activity-desc {
+    color: #475569 !important;
+  }
+
+  .report-footer {
+    border-top: 1px solid #E2E8F0 !important;
+    color: #64748B !important;
+    page-break-inside: avoid;
+    break-inside: avoid;
   }
 }
 

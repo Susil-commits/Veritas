@@ -259,3 +259,37 @@
   font-style: italic;
   line-height: 1.5;
 }
+
+@media (max-width: 480px) {
+  .work-upload {
+    padding: 0.85rem;
+    border-radius: var(--radius-md);
+  }
+  .upload-zone {
+    padding: 1.25rem 0.75rem;
+  }
+  .upload-zone p {
+    font-size: 0.82rem;
+  }
+  .upload-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+  .work-mode-tabs {
+    width: 100%;
+  }
+  .mode-tab-btn {
+    flex: 1;
+    justify-content: center;
+  }
+  .camera-actions,
+  .upload-actions {
+    flex-direction: column;
+    width: 100%;
+  }
+  .camera-actions button,
+  .upload-actions button {
+    width: 100%;
+  }
+}

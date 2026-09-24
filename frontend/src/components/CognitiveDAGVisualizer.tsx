@@ -118,14 +118,14 @@ export const CognitiveDAGVisualizer: React.FC<CognitiveDAGVisualizerProps> = ({
 
   return (
     <div className="dag-container">
-      {/* Header with Title & Ebbinghaus Time-Decay horizon controls */}
+      {/* Header with Title & Retention time controls */}
       <div className="dag-header">
         <div className="dag-header-title">
           <h3>
-            <span>🧠</span> Cognitive Knowledge Graph (DAG)
+            <span>🧠</span> Math Learning Journey &amp; Skill Map
           </h3>
           <p className="dag-header-sub">
-            Common Core prerequisite relationships &amp; Bayesian deficit flow
+            See how elementary math foundations connect directly to middle school algebra
           </p>
         </div>
 
@@ -352,18 +352,18 @@ export const CognitiveDAGVisualizer: React.FC<CognitiveDAGVisualizerProps> = ({
 
         <p className="dag-detail-desc">{selectedNode.description}</p>
 
-        {/* Root Deficit Alert Banner if prerequisite gap detected */}
+        {/* Foundational Gap Alert Banner if prerequisite support needed */}
         {deficitAnalysis && (
           <div className="dag-deficit-banner">
             <div className="dag-deficit-text">
-              <span>⚠️ <strong>Root Deficit Detected:</strong> Mastery in <em>{selectedNode.title}</em> is bottlenecked by unmet prerequisite <strong>{deficitAnalysis.rootDeficitName}</strong> ({Math.round((activeMasteryMap[deficitAnalysis.rootDeficitId] ?? 0.5) * 100)}%).</span>
+              <span>🎯 <strong>Foundational Concept Focus:</strong> Mastery in <em>{selectedNode.title}</em> builds directly upon <strong>{deficitAnalysis.rootDeficitName}</strong> ({Math.round((activeMasteryMap[deficitAnalysis.rootDeficitId] ?? 0.5) * 100)}%). Strengthening this prerequisite first will make this topic much easier!</span>
             </div>
             <button
               type="button"
               className="dag-deficit-action-btn"
               onClick={() => handleNodeClick(deficitAnalysis.rootDeficitId)}
             >
-              Jump to Root Prerequisite →
+              Practice Foundational Skill →
             </button>
           </div>
         )}

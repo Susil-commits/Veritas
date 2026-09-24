@@ -95,6 +95,19 @@
   }
 }
 
+@media (max-width: 600px) {
+  .socratic-preview-card {
+    padding: 1.25rem 1rem;
+    border-radius: var(--radius-lg);
+  }
+  .scenario-tab {
+    min-width: 100%;
+  }
+  .preview-col {
+    padding: 1rem 0.85rem;
+  }
+}
+
 .preview-col {
   display: flex;
   flex-direction: column;

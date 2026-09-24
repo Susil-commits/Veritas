@@ -1273,6 +1273,75 @@
   }
 }
 
+@media (max-width: 580px) {
+  .arcade-level-node {
+    gap: 0.75rem;
+  }
+  .level-orb {
+    width: 44px;
+    height: 44px;
+  }
+  .orb-num {
+    font-size: 1rem;
+  }
+  .arcade-conduit {
+    left: 20px;
+    top: 44px;
+  }
+  .level-card {
+    padding: 1rem 0.85rem;
+    gap: 0.85rem;
+  }
+  .level-name {
+    font-size: 1.15rem;
+  }
+  .arcade-stat-pill {
+    padding: 0.3rem 0.6rem;
+    gap: 0.4rem;
+  }
+  .stat-value {
+    font-size: 0.82rem;
+  }
+  .stat-label {
+    font-size: 0.62rem;
+  }
+  .arena-header {
+    padding: 0.75rem 0.85rem;
+    gap: 0.5rem;
+  }
+  .arena-stats-bar {
+    gap: 0.75rem;
+  }
+  .arena-stat-item .value {
+    font-size: 1.1rem;
+  }
+  .arena-playfield {
+    padding: 1.5rem 0.75rem;
+    gap: 1.5rem;
+  }
+  .question-plasma-orb {
+    width: 190px;
+    height: 190px;
+  }
+  .plasma-core {
+    width: 150px;
+    height: 150px;
+  }
+  .question-text {
+    font-size: 1.45rem;
+  }
+  .plasma-options-grid {
+    gap: 0.75rem;
+  }
+  .plasma-bubble-btn {
+    padding: 0.9rem 0.5rem;
+    border-radius: var(--radius-lg);
+  }
+  .bubble-val {
+    font-size: 1.4rem;
+  }
+}
+
 /* ── Light Mode Overrides for Mode Selectors and Reset Button ── */
 [data-theme="light"] .arcade-reset-scores-btn {
   background: rgba(239, 68, 68, 0.12);

@@ -1093,7 +1093,7 @@ export default function MathArcade() {
 
                 <div className="bkt-mastery-pill">
                   <span>📈</span>
-                  <span>Bayesian Mastery +0.08 P(L) updated in Veritas Cognitive DAG!</span>
+                  <span>Skill Level Boosted! +8% Mastery added to your learning journey!</span>
                 </div>
 
                 <div className="modal-score-summary">

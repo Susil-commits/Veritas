@@ -238,3 +238,24 @@
 [data-theme="light"] .mastery-bar-track {
   background: rgba(0, 0, 0, 0.07);
 }
+
+@media (max-width: 480px) {
+  .mastery-container {
+    padding: 0.85rem;
+    border-radius: var(--radius-md);
+  }
+  .mastery-skill-card {
+    padding: 0.7rem 0.75rem;
+    gap: 5px;
+  }
+  .mastery-skill-top {
+    gap: 4px;
+  }
+  .mastery-skill-desc {
+    font-size: 0.72rem;
+  }
+  .mastery-filter-pill {
+    padding: 3px 8px;
+    font-size: 0.68rem;
+  }
+}

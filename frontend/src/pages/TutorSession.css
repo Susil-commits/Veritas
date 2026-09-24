@@ -730,17 +730,32 @@
   .session-header-mini--mobile {
     padding: 0.5rem 0.75rem;
   }
+  .session-header-top-row {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
   .mobile-tab-btn {
     font-size: 0.72rem;
-    padding: 6px 4px;
-    gap: 4px;
+    padding: 6px 3px;
+    gap: 3px;
   }
   .chat-bubble {
     max-width: 92%;
+    word-break: break-word;
+    overflow-wrap: break-word;
   }
   .bubble-text {
     padding: 8px 11px;
     font-size: 0.86rem;
+    word-break: break-word;
+    overflow-wrap: break-word;
+  }
+  .problem-card-actions {
+    gap: 6px;
+  }
+  .problem-action-btn {
+    padding: 6px 10px;
+    font-size: 0.78rem;
   }
 }
 

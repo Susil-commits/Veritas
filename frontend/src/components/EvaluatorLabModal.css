@@ -525,3 +525,34 @@
 [data-theme="light"] .eval-candidate-title {
   color: #0F172A;
 }
+
+@media (max-width: 580px) {
+  .eval-modal-backdrop {
+    padding: 0.5rem;
+  }
+  .eval-modal-container {
+    border-radius: 14px;
+    max-height: 94vh;
+  }
+  .eval-modal-header {
+    padding: 0.75rem 0.85rem;
+  }
+  .eval-tabs-bar {
+    padding: 0.4rem 0.75rem 0;
+  }
+  .eval-tab-btn {
+    padding: 6px 10px 8px;
+    font-size: 0.78rem;
+  }
+  .eval-modal-body {
+    padding: 0.85rem;
+  }
+  .eval-input-bar {
+    flex-direction: column;
+  }
+  .eval-run-btn {
+    padding: 10px 16px;
+    width: 100%;
+    justify-content: center;
+  }
+}

@@ -368,3 +368,25 @@
   background: #FFFFFF;
   border-top-color: #F1F5F9;
 }
+
+@media (max-width: 480px) {
+  .avatar-modal-overlay {
+    padding: 0.5rem;
+  }
+  .avatar-modal-card {
+    border-radius: 16px;
+    max-height: 94vh;
+  }
+  .avatar-modal-header {
+    padding: 1rem 1rem 0.75rem;
+  }
+  .avatar-quick-actions {
+    padding: 0.75rem 1rem 0.25rem;
+  }
+  .avatar-modal-body {
+    padding: 0.75rem 1rem;
+  }
+  .avatar-modal-footer {
+    padding: 1rem;
+  }
+}

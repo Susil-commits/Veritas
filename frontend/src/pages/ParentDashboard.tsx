@@ -693,7 +693,7 @@ export default function ParentDashboard() {
                         <h4>{child.student_name}</h4>
                         <p>{child.student_email}</p>
                         {(isDemoParent || child.student_id === DEMO_STUDENT_ID) && (
-                          <span className="synthetic-demo-pill">DEMO DATA — Synthetic learner profile</span>
+                          <span className="synthetic-demo-pill">INTERACTIVE DEMO — Sample Learner</span>
                         )}
                       </div>
                     </div>
@@ -718,13 +718,13 @@ export default function ParentDashboard() {
         {/* Selected Child Detailed View */}
         {selectedChild ? (
           <div className="child-detail-view">
-            {/* Synthetic Demo Learner Notice */}
+            {/* Interactive Demo Learner Notice */}
             {(isDemoParent || selectedChild.student_id === DEMO_STUDENT_ID) && (
               <div className="synthetic-demo-notice-banner">
                 <span className="synthetic-badge-icon">ℹ️</span>
                 <div className="synthetic-notice-text">
-                  <span className="synthetic-notice-title">DEMO DATA — Synthetic learner profile</span>
-                  <p>Sample learning trajectory, Common Core mastery radar, and inactivity alerts shown for demonstration. No actual children are being monitored.</p>
+                  <span className="synthetic-notice-title">INTERACTIVE DEMO — Sample Learner Profile</span>
+                  <p>Interactive preview showcasing sample learning progress, mastery radar, and practice alerts. Connect your child&rsquo;s account to track live progress.</p>
                 </div>
               </div>
             )}
@@ -871,7 +871,7 @@ export default function ParentDashboard() {
                         style={{ padding: '3px 8px', fontSize: '0.75rem', borderRadius: '6px' }}
                         onClick={() => setSkillViewMode('dag')}
                       >
-                        🧠 Cognitive DAG
+                        🧠 Skill Map
                       </button>
                       <button
                         type="button"
@@ -879,7 +879,7 @@ export default function ParentDashboard() {
                         style={{ padding: '3px 8px', fontSize: '0.75rem', borderRadius: '6px' }}
                         onClick={() => setSkillViewMode('radar')}
                       >
-                        📊 Radar
+                        🎯 Radar View
                       </button>
                     </div>
                     <div className="overall-badge">

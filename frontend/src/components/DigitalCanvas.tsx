@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect, useCallback, useImperativeHandle, forwardRef } from 'react'
-import { Pen, Eraser, RotateCcw, Trash2, Grid, Sparkles } from 'lucide-react'
+import { Pen, Eraser, RotateCcw, Trash2, Grid, Sparkles, AlignJustify } from 'lucide-react'
 import './DigitalCanvas.css'
 
 export interface DigitalCanvasRef {
@@ -371,6 +371,7 @@ export const DigitalCanvas = forwardRef<DigitalCanvasRef, DigitalCanvasProps>(fu
             title="Lined Paper"
             aria-label="Lined paper background"
           >
+            <AlignJustify size={14} />
             <span>Lined</span>
           </button>
         </div>

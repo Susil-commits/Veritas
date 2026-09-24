@@ -389,3 +389,47 @@ h3 { font-size: 1.2rem; }
   transform: translateX(14px);
   background: #fff;
 }
+
+/* ══════════════════════════════════════════════════
+   MOBILE VIEWPORT ENHANCEMENTS & SAFETY CONTROLS
+   ══════════════════════════════════════════════════ */
+@media (max-width: 480px) {
+  .theme-toggle {
+    padding: 3px 5px;
+    gap: 0;
+  }
+  .theme-toggle-label {
+    display: none;
+  }
+}
+
+/* ── KaTeX Math Responsive Overflow Guard ── */
+.katex-display,
+.math-display-block {
+  max-width: 100% !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  -webkit-overflow-scrolling: touch;
+  padding: 4px 0;
+}
+
+.math-text-container {
+  max-width: 100%;
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+
+.katex {
+  max-width: 100%;
+  white-space: normal;
+}
+
+/* ── Mobile Touch Accessibility ── */
+button,
+a,
+input,
+select {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+

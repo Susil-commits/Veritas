@@ -463,19 +463,19 @@ async def get_parent_children(
         )
 
         # 1. Process latest session & count
-        if isinstance(sess_res, Exception) or not hasattr(sess_res, "data"):
+        if isinstance(sess_res, BaseException) or not hasattr(sess_res, "data"):
             sessions_available = False
         elif sess_res.data:
             latest_session_time = sess_res.data[0].get("started_at")
 
-        if isinstance(count_res, Exception) or not hasattr(count_res, "data"):
+        if isinstance(count_res, BaseException) or not hasattr(count_res, "data"):
             sessions_available = False
         else:
-            session_count = count_res.count or len(count_res.data or [])
+            session_count = getattr(count_res, "count", None) or len(getattr(count_res, "data", None) or [])
 
         # 2. Process skill mastery
         all_mastery_map: dict[str, float] = {}
-        if isinstance(m_res, Exception) or not hasattr(m_res, "data"):
+        if isinstance(m_res, BaseException) or not hasattr(m_res, "data"):
             mastery_available = False
         elif m_res.data:
             for r in m_res.data:
@@ -498,7 +498,7 @@ async def get_parent_children(
 
         # 5. Process recent events
         recent_events: list[dict] = []
-        if isinstance(recent_res, Exception) or not hasattr(recent_res, "data"):
+        if isinstance(recent_res, BaseException) or not hasattr(recent_res, "data"):
             events_available = False
         else:
             recent_events = recent_res.data or []

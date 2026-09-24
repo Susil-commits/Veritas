@@ -206,3 +206,24 @@
   opacity: 0.6;
   cursor: not-allowed;
 }
+
+@media (max-width: 480px) {
+  .logout-modal-overlay {
+    padding: 0.5rem;
+  }
+  .logout-modal-card {
+    padding: 1.25rem 1rem;
+    border-radius: 14px;
+  }
+  .logout-modal-actions {
+    width: 100%;
+    gap: 0.5rem;
+  }
+  .logout-btn-cancel,
+  .logout-btn-confirm {
+    flex: 1;
+    text-align: center;
+    justify-content: center;
+    padding: 10px 12px;
+  }
+}

@@ -138,17 +138,17 @@ export default function BKTSimulator() {
         <div className="bkt-sim-title-group">
           <div className="bkt-sim-badge">
             <Sparkles size={14} />
-            <span>COGNITIVE HMM ENGINE</span>
+            <span>ADAPTIVE LEARNING MODEL</span>
           </div>
-          <h3 className="bkt-sim-title">Bayesian Knowledge Tracing (BKT) Simulator</h3>
+          <h3 className="bkt-sim-title">Adaptive Skill Growth &amp; Mastery Simulator</h3>
           <p className="bkt-sim-subtitle">
-            Simulate how student problem attempts update latent competency $P(L_t)$ in real-time according to calibrated Hidden Markov Model parameters.
+            See how Veritas estimates student mastery in real time as they practice, solve math problems independently, or learn with guided hints.
           </p>
         </div>
 
-        <button type="button" className="bkt-reset-btn" onClick={handleReset} title="Reset mastery to prior">
+        <button type="button" className="bkt-reset-btn" onClick={handleReset} title="Reset mastery level to baseline">
           <RotateCcw size={14} />
-          <span>Reset Prior</span>
+          <span>Reset to Baseline</span>
         </button>
       </div>
 
@@ -163,7 +163,7 @@ export default function BKTSimulator() {
         >
           {BKT_SKILLS.map((s) => (
             <option key={s.id} value={s.id}>
-              {s.id}: {s.name} {s.calibrated ? '★ [ASSISTments MLE Calibrated]' : '[Cognitive Baseline]'}
+              {s.id}: {s.name} {s.calibrated ? '★ [Calibrated Benchmark]' : '[Curriculum Baseline]'}
             </option>
           ))}
         </select>
@@ -173,22 +173,22 @@ export default function BKTSimulator() {
       <div className="bkt-params-grid">
         <div className="bkt-param-box">
           <span className="param-symbol">P(L₀)</span>
-          <span className="param-name">Prior Mastery</span>
+          <span className="param-name">Starting Knowledge</span>
           <span className="param-value">{(skill.prior * 100).toFixed(0)}%</span>
         </div>
         <div className="bkt-param-box">
           <span className="param-symbol">P(T)</span>
-          <span className="param-name">Learning Rate</span>
+          <span className="param-name">Learning Pace</span>
           <span className="param-value">{(skill.learn * 100).toFixed(0)}%</span>
         </div>
         <div className="bkt-param-box">
           <span className="param-symbol">P(G)</span>
-          <span className="param-name">Guess Rate</span>
+          <span className="param-name">Lucky Guess Chance</span>
           <span className="param-value">{(skill.guess * 100).toFixed(0)}%</span>
         </div>
         <div className="bkt-param-box">
           <span className="param-symbol">P(S)</span>
-          <span className="param-name">Slip Rate</span>
+          <span className="param-name">Accidental Slip Rate</span>
           <span className="param-value">{(skill.slip * 100).toFixed(0)}%</span>
         </div>
       </div>
@@ -196,7 +196,7 @@ export default function BKTSimulator() {
       {/* Live Probability Gauge */}
       <div className="bkt-gauge-card">
         <div className="gauge-header">
-          <span className="gauge-label">CURRENT LATENT MASTERY PROBABILITY:</span>
+          <span className="gauge-label">ESTIMATED CURRENT MASTERY LEVEL:</span>
           <div className="gauge-value-display">
             <span className="gauge-pct">{(currentPL * 100).toFixed(1)}%</span>
             {lastCalc && (
@@ -217,16 +217,16 @@ export default function BKTSimulator() {
         </div>
 
         <div className="gauge-scale-ticks">
-          <span>0.0 (Emerging)</span>
-          <span>0.4 (Developing)</span>
-          <span>0.7 (Mastered Threshold)</span>
-          <span>1.0</span>
+          <span>0% (Emerging)</span>
+          <span>40% (Developing)</span>
+          <span>70% (Mastered Threshold)</span>
+          <span>100%</span>
         </div>
       </div>
 
       {/* Simulation Trigger Buttons */}
       <div className="bkt-actions-section">
-        <span className="bkt-label">Simulate Next Student Observation:</span>
+        <span className="bkt-label">Simulate Next Student Practice Attempt:</span>
         <div className="bkt-btn-row">
           <button
             type="button"
@@ -236,7 +236,7 @@ export default function BKTSimulator() {
             <CheckCircle2 size={16} />
             <div>
               <strong>Independent Correct</strong>
-              <small>Full credit (w = 1.0)</small>
+              <small>Solved fully on own</small>
             </div>
           </button>
 
@@ -248,7 +248,7 @@ export default function BKTSimulator() {
             <HelpCircle size={16} />
             <div>
               <strong>Hint-Assisted Correct</strong>
-              <small>Scaffold discount (w = 0.6)</small>
+              <small>Guided Socratic hint</small>
             </div>
           </button>
 
@@ -260,7 +260,7 @@ export default function BKTSimulator() {
             <Sparkles size={16} />
             <div>
               <strong>Correct After Feedback</strong>
-              <small>Persistence credit (w = 0.5)</small>
+              <small>Learned from explanation</small>
             </div>
           </button>
 
@@ -271,8 +271,8 @@ export default function BKTSimulator() {
           >
             <AlertCircle size={16} />
             <div>
-              <strong>Incorrect Response</strong>
-              <small>Diagnosed gap / slip</small>
+              <strong>Needs Another Try</strong>
+              <small>Learning opportunity</small>
             </div>
           </button>
         </div>
@@ -282,7 +282,7 @@ export default function BKTSimulator() {
       {lastCalc && (
         <div className="bkt-math-breakdown animate-fadein">
           <div className="math-breakdown-title">
-            <span>Mathematical Derivation (Bayes Rule + Markov Transition)</span>
+            <span>Adaptive Model Derivation (Evidence Update + Learning Transition)</span>
             <span className="math-source-badge">{skill.source}</span>
           </div>
 
@@ -290,7 +290,7 @@ export default function BKTSimulator() {
             <div className="math-step-item">
               <span className="step-num">Step 1</span>
               <div className="step-content">
-                <strong>Observation Probability P(Obs):</strong>
+                <strong>Likelihood Calculation P(Obs):</strong>
                 <MathText
                   content={
                     '$$P(\\text{Obs}) = P(L_t) \\cdot P(\\text{Obs}|L) + (1 - P(L_t)) \\cdot P(\\text{Obs}|\\neg L) = ' +
@@ -304,7 +304,7 @@ export default function BKTSimulator() {
             <div className="math-step-item">
               <span className="step-num">Step 2</span>
               <div className="step-content">
-                <strong>Posterior Belief P(L_t | Obs):</strong>
+                <strong>Updated Understanding P(L_t | Obs):</strong>
                 <MathText
                   content={
                     '$$P(L_t|\\text{Obs}) = \\frac{P(L_t) \\cdot P(\\text{Obs}|L)}{P(\\text{Obs})} = ' +
@@ -314,7 +314,7 @@ export default function BKTSimulator() {
                 />
                 {lastCalc.weight < 1.0 && (
                   <p className="discount-note">
-                    ⚡ Pedagogical discount applied: weighted to <strong>{(lastCalc.pLGivenObsDiscounted).toFixed(3)}</strong> to avoid mastery inflation during assisted practice.
+                    ⚡ Guided Practice Credit applied: calibrated to <strong>{(lastCalc.pLGivenObsDiscounted).toFixed(3)}</strong> to accurately reward assisted practice.
                   </p>
                 )}
               </div>
@@ -323,7 +323,7 @@ export default function BKTSimulator() {
             <div className="math-step-item">
               <span className="step-num">Step 3</span>
               <div className="step-content">
-                <strong>Knowledge State Transition P(L_t+1):</strong>
+                <strong>Projected Mastery State P(L_t+1):</strong>
                 <MathText
                   content={
                     '$$P(L_{t+1}) = P(L_t|\\text{Obs}) + (1 - P(L_t|\\text{Obs})) \\cdot P(T) = ' +
@@ -340,7 +340,7 @@ export default function BKTSimulator() {
       {/* History timeline */}
       {history.length > 0 && (
         <div className="bkt-history-drawer">
-          <span className="history-label">Session Interaction Sequence:</span>
+          <span className="history-label">Session Practice History:</span>
           <div className="history-chips">
             {history.map((h) => (
               <span key={h.step} className="history-chip">

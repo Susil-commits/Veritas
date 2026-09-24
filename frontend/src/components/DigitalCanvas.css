@@ -184,3 +184,21 @@
     display: none;
   }
 }
+
+@media (max-width: 480px) {
+  .canvas-surface-container {
+    height: 220px;
+  }
+  .canvas-tool-btn {
+    padding: 6px 8px;
+  }
+  .color-dot {
+    width: 22px;
+    height: 22px;
+  }
+  .tool-group,
+  .paper-style-group,
+  .action-group {
+    gap: 3px;
+  }
+}

@@ -677,6 +677,60 @@
   }
 }
 
+@media (max-width: 580px) {
+  .dash-header {
+    padding: 0.65rem 0.75rem;
+  }
+  .dash-hero-container,
+  .dash-metrics-container,
+  .dash-content {
+    padding: 0 0.75rem;
+  }
+  .dash-hero-card {
+    padding: 1.25rem 1rem;
+    gap: 1.25rem;
+  }
+  .dash-hero-title {
+    font-size: 1.3rem;
+  }
+  .dash-hero-profile-group {
+    min-width: 0;
+    width: 100%;
+    gap: 1rem;
+  }
+  .dash-metrics-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.6rem;
+  }
+  .metric-card {
+    padding: 0.85rem 0.65rem;
+  }
+  .metric-number {
+    font-size: 1.35rem;
+  }
+  .metric-label {
+    font-size: 0.68rem;
+  }
+  .domain-filters {
+    gap: 4px;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 6px;
+  }
+  .domain-filter-btn {
+    flex-shrink: 0;
+    padding: 4px 8px;
+    font-size: 0.72rem;
+  }
+}
+
+@media (max-width: 360px) {
+  .dash-metrics-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* ═══════════════════════════════════════════════════════
    LIGHT MODE — Dashboard Overrides
    ═══════════════════════════════════════════════════════ */

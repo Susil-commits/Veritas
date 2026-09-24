@@ -818,6 +818,28 @@
 
 @media (max-width: 580px) {
   .parent-activity-kpis {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.65rem;
+  }
+  .activity-kpi-card {
+    padding: 0.85rem 0.75rem;
+    gap: 8px;
+  }
+  .kpi-icon-box {
+    width: 34px;
+    height: 34px;
+    font-size: 1rem;
+  }
+  .kpi-value {
+    font-size: 1.35rem;
+  }
+  .kpi-label {
+    font-size: 0.68rem;
+  }
+}
+
+@media (max-width: 360px) {
+  .parent-activity-kpis {
     grid-template-columns: 1fr;
   }
 }
@@ -1785,6 +1807,18 @@
     flex-direction: column;
     align-items: flex-start;
   }
+  .alert-banner {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 1rem 1.15rem;
+    gap: 1rem;
+  }
+  .child-detail-header-strip {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 0.85rem !important;
+    padding: 0.9rem !important;
+  }
 }
 
 @media (max-width: 480px) {
@@ -1795,6 +1829,23 @@
     flex-direction: column;
     align-items: flex-start;
     gap: 0.5rem;
+  }
+  .demo-parent-badge {
+    display: none;
+  }
+  .parent-navbar {
+    padding: 0 0.65rem;
+  }
+  .child-tab {
+    padding: 6px 10px;
+    font-size: 0.8rem;
+  }
+  .child-tabs-bar {
+    gap: 6px;
+  }
+  .alert-action-btn {
+    width: 100%;
+    justify-content: center;
   }
 }
 

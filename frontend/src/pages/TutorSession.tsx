@@ -1253,7 +1253,7 @@ export default function TutorSession() {
               Reset Practice Progress?
             </h3>
             <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: '20px' }}>
-              This will reset your BKT skill mastery back to baseline (30%), clear your current conversation, and start fresh from problem 1.
+              This will reset your skill progress back to baseline (30%), clear your current conversation, and start fresh from problem 1.
             </p>
             <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
               <button

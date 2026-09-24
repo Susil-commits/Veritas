@@ -152,14 +152,14 @@ export const EvaluatorLabModal: React.FC<EvaluatorLabModalProps> = ({
             className={`eval-tab-btn ${activeTab === 'bkt' ? 'eval-tab-btn--active' : ''}`}
             onClick={() => setActiveTab('bkt')}
           >
-            📈 Bayesian BKT Simulator
+            📈 Adaptive Learning Simulator
           </button>
           <button
             type="button"
             className={`eval-tab-btn ${activeTab === 'rag' ? 'eval-tab-btn--active' : ''}`}
             onClick={() => setActiveTab('rag')}
           >
-            🎯 pgvector ZPD Adaptive RAG
+            🎯 Adaptive Challenge Matcher
           </button>
         </div>
 
@@ -294,10 +294,10 @@ export const EvaluatorLabModal: React.FC<EvaluatorLabModalProps> = ({
                   </div>
 
                   <div className="eval-diag-card">
-                    <h5>🧠 Bayesian Misconception Classification</h5>
+                    <h5>🧠 Intelligent Misconception Diagnosis</h5>
                     <p>
                       <strong>Diagnostic:</strong> Inverse Operation Sign Reversal<br />
-                      <strong>Underlying Deficit:</strong> 6.EE.B.7 (Properties of Equality)<br />
+                      <strong>Foundational Concept:</strong> 6.EE.B.7 (Properties of Equality)<br />
                       <strong>Action:</strong> Veritas highlights the &ldquo;+ 5&rdquo; on student canvas and asks: &ldquo;To undo adding 5 to the left side, what must we do to both sides?&rdquo;
                     </p>
                   </div>
@@ -306,21 +306,21 @@ export const EvaluatorLabModal: React.FC<EvaluatorLabModalProps> = ({
             </>
           )}
 
-          {/* ── TAB 3: BKT Bayesian Simulator ── */}
+          {/* ── TAB 3: Adaptive Learning Simulator ── */}
           {activeTab === 'bkt' && (
             <>
               <p className="eval-section-intro">
-                Interactive Bayesian Knowledge Tracing engine. Simulate observation sequences (Correct vs Incorrect) and watch the posterior mastery curve update dynamically in real time.
+                Experience our adaptive skill model in action. Simulate problem-solving attempts (independent solutions, hint usage, or mistake corrections) and watch skill mastery adapt in real time.
               </p>
               <BKTSimulator />
             </>
           )}
 
-          {/* ── TAB 4: pgvector ZPD Adaptive RAG ── */}
+          {/* ── TAB 4: Adaptive Challenge Matcher ── */}
           {activeTab === 'rag' && (
             <>
               <p className="eval-section-intro">
-                Veritas queries 768-dimensional problem embeddings stored in PostgreSQL pgvector. It dynamically filters for items in the student&rsquo;s <strong>Zone of Proximal Development (ZPD)</strong>: expected success rate $0.50 \sim 0.70$.
+                Veritas matches each student with math challenges in their optimal learning zone — questions calibrated so they are neither too easy nor too frustrating, accelerating mastery and building confidence.
               </p>
 
               {/* Slider for Student Mastery */}
