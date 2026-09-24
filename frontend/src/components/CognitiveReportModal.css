@@ -536,6 +536,139 @@
   }
 }
 
+/* ═══════════════════════════════════════════════════════════════════
+   LIGHT MODE — Screen Modal Overrides
+   ═══════════════════════════════════════════════════════════════════ */
+[data-theme="light"] .report-modal-container {
+  background: #FFFFFF;
+  color: #0F172A;
+  border-color: rgba(0, 0, 0, 0.12);
+  box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.2), 0 0 30px rgba(107, 78, 230, 0.1);
+}
+
+[data-theme="light"] .report-modal-topbar {
+  background: #F8FAFC;
+  border-bottom-color: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .report-export-pill-btn {
+  background: #FFFFFF;
+  border-color: #CBD5E1;
+  color: #334155;
+}
+[data-theme="light"] .report-export-pill-btn:hover {
+  background: #EDE9FE;
+  border-color: #6B4EE6;
+  color: #5B21B6;
+}
+
+[data-theme="light"] .report-close-btn {
+  background: rgba(0, 0, 0, 0.05);
+  color: #64748B;
+}
+[data-theme="light"] .report-close-btn:hover {
+  background: rgba(0, 0, 0, 0.10);
+  color: #0F172A;
+}
+
+[data-theme="light"] .report-paper {
+  background: #FFFFFF;
+  color: #0F172A;
+}
+
+[data-theme="light"] .report-brand-title {
+  color: #0F172A;
+}
+[data-theme="light"] .report-brand-title span {
+  color: #4338CA;
+}
+[data-theme="light"] .report-subtitle {
+  color: #475569;
+}
+[data-theme="light"] .report-meta-box {
+  color: #475569;
+}
+[data-theme="light"] .report-meta-box strong {
+  color: #0F172A;
+}
+
+[data-theme="light"] .report-profile-card {
+  border-color: #E2E8F0;
+  background: #F8FAFC;
+  color: #0F172A;
+}
+[data-theme="light"] .report-student-info h3 {
+  color: #0F172A;
+}
+[data-theme="light"] .report-student-info p {
+  color: #475569;
+}
+
+[data-theme="light"] .report-kpi-pill {
+  border-color: #CBD5E1;
+  background: #FFFFFF;
+  color: #0F172A;
+}
+[data-theme="light"] .report-kpi-pill-val {
+  color: #4338CA;
+}
+
+[data-theme="light"] .report-section-title {
+  color: #0F172A;
+}
+
+[data-theme="light"] .report-deficit-card {
+  background: #FEF2F2;
+  border-color: #FECACA;
+  color: #991B1B;
+}
+[data-theme="light"] .report-deficit-desc {
+  color: #7F1D1D;
+}
+[data-theme="light"] .report-deficit-rec {
+  background: #FEE2E2;
+  color: #7F1D1D;
+  border-left-color: #EF4444;
+}
+
+[data-theme="light"] .report-table th {
+  color: #475569;
+  border-bottom-color: #CBD5E1;
+  background: #F8FAFC;
+}
+[data-theme="light"] .report-table td {
+  color: #1E293B;
+  border-bottom-color: #E2E8F0;
+}
+
+[data-theme="light"] .report-std-pill {
+  background: #EEF2FF;
+  color: #4338CA;
+  border-color: #C7D2FE;
+}
+
+[data-theme="light"] .report-bar-wrap {
+  border-color: #CBD5E1;
+  background: #F1F5F9;
+}
+
+[data-theme="light"] .report-activity-card {
+  border-color: #E2E8F0;
+  background: #F8FAFC;
+  color: #0F172A;
+}
+[data-theme="light"] .report-activity-title {
+  color: #0F172A;
+}
+[data-theme="light"] .report-activity-desc {
+  color: #475569;
+}
+
+[data-theme="light"] .report-footer {
+  border-top-color: #E2E8F0;
+  color: #64748B;
+}
+
 /* ── PRINT STYLESHEET ── */
 @media print {
   @page {

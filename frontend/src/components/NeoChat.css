@@ -738,3 +738,156 @@
     right: -2px;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   LIGHT MODE — Neo AI Assistant Overrides
+   ═══════════════════════════════════════════════════════════════════ */
+[data-theme="light"] .neo-minimize-btn {
+  background: #FFFFFF;
+  border-color: #CBD5E1;
+  color: #64748B;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+[data-theme="light"] .neo-minimize-btn:hover {
+  background: #F1F5F9;
+  color: #0F172A;
+  border-color: #94A3B8;
+}
+
+[data-theme="light"] .neo-launcher-mini {
+  background: #FFFFFF;
+  border-color: #6B4EE6;
+  color: #5B21B6;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12), 0 0 16px rgba(107, 78, 230, 0.2);
+}
+
+[data-theme="light"] .neo-launcher-mini-text {
+  color: #5B21B6;
+}
+
+[data-theme="light"] .neo-tooltip {
+  background: #FFFFFF;
+  border-color: rgba(107, 78, 230, 0.3);
+  color: #1E293B;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12), 0 0 15px rgba(107, 78, 230, 0.15);
+}
+[data-theme="light"] .neo-tooltip strong {
+  color: #5B21B6;
+}
+
+[data-theme="light"] .neo-window {
+  background: rgba(255, 255, 255, 0.96);
+  border-color: rgba(107, 78, 230, 0.25);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15), 0 0 35px rgba(107, 78, 230, 0.1);
+}
+
+[data-theme="light"] .neo-header {
+  background: #F8FAFC;
+  border-bottom-color: rgba(0, 0, 0, 0.08);
+}
+[data-theme="light"] .neo-title {
+  color: #0F172A;
+}
+[data-theme="light"] .neo-subtitle-row {
+  color: #64748B;
+}
+[data-theme="light"] .neo-tag {
+  background: rgba(107, 78, 230, 0.12);
+  color: #5B21B6;
+  border-color: rgba(107, 78, 230, 0.28);
+}
+[data-theme="light"] .neo-user-pill {
+  background: rgba(0, 0, 0, 0.04);
+  color: #475569;
+  border-color: rgba(0, 0, 0, 0.08);
+}
+[data-theme="light"] .neo-text-btn {
+  background: rgba(0, 0, 0, 0.04);
+  color: #475569;
+  border-color: rgba(0, 0, 0, 0.1);
+}
+[data-theme="light"] .neo-text-btn:hover {
+  background: rgba(0, 0, 0, 0.08);
+  color: #0F172A;
+}
+
+[data-theme="light"] .neo-welcome-card {
+  background: #F8FAFC;
+  border-color: #E2E8F0;
+}
+[data-theme="light"] .neo-welcome-header h4 {
+  color: #0F172A;
+}
+[data-theme="light"] .neo-welcome-desc {
+  color: #475569;
+}
+[data-theme="light"] .neo-welcome-badge {
+  color: #5B21B6;
+  background: rgba(107, 78, 230, 0.12);
+}
+[data-theme="light"] .neo-guardrail-notice {
+  background: #ECFDF5;
+  border-color: #A7F3D0;
+  color: #065F46;
+}
+[data-theme="light"] .neo-suggestions-label {
+  color: #64748B;
+}
+[data-theme="light"] .neo-suggestion-chip {
+  background: #FFFFFF;
+  border-color: #CBD5E1;
+  color: #334155;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+}
+[data-theme="light"] .neo-suggestion-chip:hover {
+  background: #EDE9FE;
+  border-color: #6B4EE6;
+  color: #5B21B6;
+}
+
+[data-theme="light"] .neo-bubble {
+  background: #F1F5F9;
+  border-color: #E2E8F0;
+  color: #0F172A;
+}
+[data-theme="light"] .neo-text-line strong {
+  color: #4338CA;
+}
+[data-theme="light"] .guardrailed-bubble {
+  background: #FFFBEB;
+  border-color: #FDE68A;
+  color: #92400E;
+}
+[data-theme="light"] .neo-guardrail-alert {
+  color: #B45309;
+  background: rgba(245, 158, 11, 0.15);
+  border-color: rgba(245, 158, 11, 0.35);
+}
+[data-theme="light"] .neo-action-chip {
+  background: rgba(107, 78, 230, 0.10);
+  border-color: rgba(107, 78, 230, 0.25);
+  color: #5B21B6;
+}
+[data-theme="light"] .neo-action-chip:hover {
+  background: #6B4EE6;
+  border-color: #6B4EE6;
+  color: #FFFFFF;
+}
+
+[data-theme="light"] .neo-footer {
+  background: #F8FAFC;
+  border-top-color: rgba(0, 0, 0, 0.08);
+}
+[data-theme="light"] .neo-input-form {
+  background: #FFFFFF;
+  border-color: #CBD5E1;
+}
+[data-theme="light"] .neo-input {
+  color: #0F172A;
+}
+[data-theme="light"] .neo-input::placeholder {
+  color: #94A3B8;
+}
+[data-theme="light"] .neo-footer-disclaimer {
+  color: #64748B;
+}

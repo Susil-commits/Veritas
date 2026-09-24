@@ -813,3 +813,101 @@
 [data-theme="light"] .summary-text {
   color: #475569;
 }
+
+/* Contrast text colors in light mode */
+[data-theme="light"] .text-gold { color: #B45309 !important; }
+[data-theme="light"] .text-orange { color: #C2410C !important; }
+[data-theme="light"] .text-emerald { color: #047857 !important; }
+[data-theme="light"] .text-amber { color: #B45309 !important; }
+[data-theme="light"] .text-rose { color: #B91C1C !important; }
+
+/* Progress tracks & metric mini-bars */
+[data-theme="light"] .skill-bar-track,
+[data-theme="light"] .metric-mini-bar {
+  background: #E2E8F0;
+}
+
+/* Difficulty dots */
+[data-theme="light"] .dot {
+  background: #CBD5E1;
+}
+[data-theme="light"] .dot.active {
+  background: #D97706;
+}
+
+/* Practice links and action buttons */
+[data-theme="light"] .skill-practice-link {
+  color: #6B4EE6;
+}
+[data-theme="light"] .skill-practice-link:hover {
+  color: #4338CA;
+}
+
+[data-theme="light"] .rec-action-btn {
+  border-color: rgba(107, 78, 230, 0.35);
+  color: #5B21B6;
+}
+[data-theme="light"] .rec-action-btn:hover {
+  background: rgba(107, 78, 230, 0.1);
+}
+
+[data-theme="light"] .rec-good-box {
+  background: rgba(16, 185, 129, 0.08);
+  border-color: rgba(16, 185, 129, 0.25);
+}
+[data-theme="light"] .rec-good {
+  color: #047857;
+}
+
+/* Badges in light mode */
+[data-theme="light"] .metric-badge--violet {
+  color: #5B21B6;
+  background: rgba(107, 78, 230, 0.12);
+  border-color: rgba(107, 78, 230, 0.28);
+}
+[data-theme="light"] .metric-badge--emerald {
+  color: #047857;
+  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(16, 185, 129, 0.28);
+}
+[data-theme="light"] .metric-badge--amber {
+  color: #B45309;
+  background: rgba(245, 158, 11, 0.15);
+  border-color: rgba(245, 158, 11, 0.35);
+}
+[data-theme="light"] .metric-badge--rose {
+  color: #B91C1C;
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.28);
+}
+
+[data-theme="light"] .skill-badge--strong {
+  background: rgba(16, 185, 129, 0.12);
+  color: #047857;
+}
+[data-theme="light"] .skill-badge--developing {
+  background: rgba(245, 158, 11, 0.12);
+  color: #B45309;
+}
+[data-theme="light"] .skill-badge--weak {
+  background: rgba(244, 63, 94, 0.12);
+  color: #B91C1C;
+}
+
+[data-theme="light"] .badge-cyan {
+  background: rgba(14, 165, 233, 0.12);
+  color: #0E7490;
+  border-color: rgba(14, 165, 233, 0.3);
+}
+
+[data-theme="light"] .dash-id-pill {
+  border-color: rgba(180, 83, 9, 0.35);
+  background: rgba(245, 158, 11, 0.12);
+  color: #B45309;
+}
+
+[data-theme="light"] .dash-error-banner {
+  background: #FEF2F2;
+  border-color: #FCA5A5;
+  color: #991B1B;
+}

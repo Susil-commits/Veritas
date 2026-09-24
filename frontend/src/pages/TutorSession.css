@@ -821,36 +821,147 @@
 /* ═══════════════════════════════════════════════════════
    LIGHT MODE — TutorSession overrides
    ═══════════════════════════════════════════════════════ */
-[data-theme="light"] .tutor-session,
-[data-theme="light"] .session-shell {
-  background: var(--bg-base);
+[data-theme="light"] .session-sidebar,
+[data-theme="light"] .session-mastery {
+  background: #FFFFFF;
+  border-color: rgba(0, 0, 0, 0.08);
 }
-[data-theme="light"] .session-header,
-[data-theme="light"] .tutor-header {
-  background: rgba(245, 244, 240, 0.92);
-  border-bottom: 1px solid rgba(0,0,0,0.07);
-  backdrop-filter: blur(14px);
+
+[data-theme="light"] .session-main {
+  background: #F8F9FA;
 }
-[data-theme="light"] .chat-panel,
-[data-theme="light"] .chat-bubble--assistant,
-[data-theme="light"] .session-panel {
-  background: rgba(255,255,255,0.88);
-  border-color: rgba(0,0,0,0.07);
-  box-shadow: 0 2px 16px rgba(0,0,0,0.06);
+
+[data-theme="light"] .chat-bubble.tutor .bubble-text {
+  background: #FFFFFF;
+  border-color: rgba(0, 0, 0, 0.09);
+  color: #1E293B;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
 }
-[data-theme="light"] .chat-bubble--user {
-  background: linear-gradient(135deg, rgba(107,78,230,0.12), rgba(68,96,232,0.10));
-  border-color: rgba(107,78,230,0.18);
+
+[data-theme="light"] .problem-card {
+  background: #FFFFFF;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: var(--radius-md);
+  padding: 1rem;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.03);
 }
-[data-theme="light"] .chat-input-bar,
-[data-theme="light"] .input-area {
-  background: rgba(248,248,246,0.95);
-  border-top: 1px solid rgba(0,0,0,0.06);
+
+[data-theme="light"] .problem-card-actions {
+  border-top-color: rgba(0, 0, 0, 0.08);
 }
-[data-theme="light"] .send-btn,
-[data-theme="light"] .session-btn {
-  background: linear-gradient(135deg, var(--violet), var(--indigo));
-  color: #fff;
+
+[data-theme="light"] .dot {
+  background: #CBD5E1;
+}
+[data-theme="light"] .dot.active {
+  background: #D97706;
+}
+
+[data-theme="light"] .inquiry-chip {
+  background: rgba(107, 78, 230, 0.08);
+  border-color: rgba(107, 78, 230, 0.25);
+  color: #5B21B6;
+}
+[data-theme="light"] .inquiry-chip:hover:not(:disabled) {
+  background: #6B4EE6;
+  border-color: #6B4EE6;
+  color: #FFFFFF;
+}
+
+[data-theme="light"] .mathpad-sym-btn {
+  background: #FFFFFF;
+  border-color: #CBD5E1;
+  color: #1E293B;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+[data-theme="light"] .mathpad-sym-btn:hover {
+  background: #F1F5F9;
+  border-color: #6B4EE6;
+  color: #6B4EE6;
+}
+
+[data-theme="light"] .btn-advance-problem {
+  color: #4338CA;
+  background: rgba(99, 102, 241, 0.10);
+  border-color: rgba(99, 102, 241, 0.3);
+}
+[data-theme="light"] .btn-advance-problem:hover:not(:disabled) {
+  background: rgba(99, 102, 241, 0.18);
+  border-color: #4338CA;
+}
+
+[data-theme="light"] .btn-hint {
+  color: #B45309;
+  background: rgba(245, 158, 11, 0.12);
+  border-color: rgba(245, 158, 11, 0.35);
+}
+[data-theme="light"] .btn-hint:hover:not(:disabled) {
+  background: rgba(245, 158, 11, 0.22);
+  border-color: #B45309;
+}
+
+[data-theme="light"] .btn-stop-speaking {
+  color: #DC2626;
+  background: rgba(239, 68, 68, 0.10);
+  border-color: rgba(239, 68, 68, 0.3);
+}
+[data-theme="light"] .btn-stop-speaking:hover {
+  background: #DC2626;
+  border-color: #DC2626;
+  color: #FFFFFF;
+}
+
+[data-theme="light"] .voice-indicator {
+  background: rgba(245, 158, 11, 0.12);
+  border-top-color: rgba(245, 158, 11, 0.25);
+  color: #B45309;
+}
+
+[data-theme="light"] .problem-solved-banner {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(99, 102, 241, 0.08));
+  border-color: rgba(16, 185, 129, 0.35);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+}
+[data-theme="light"] .solved-banner-badge {
+  color: #059669;
+}
+
+[data-theme="light"] .quick-mathpad-wrapper,
+[data-theme="light"] .chat-actions-bar,
+[data-theme="light"] .chat-input-area {
+  background: #FFFFFF;
+  border-top-color: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .mobile-session-tabs {
+  background: #F1F5F9;
+  border-bottom-color: rgba(0, 0, 0, 0.08);
+}
+[data-theme="light"] .mobile-tab-btn--active {
+  background: #FFFFFF;
+  color: #1E293B;
+  border-color: rgba(107, 78, 230, 0.3);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .mobile-problem-banner {
+  background: rgba(107, 78, 230, 0.08);
+  border-bottom-color: rgba(107, 78, 230, 0.2);
+}
+[data-theme="light"] .mobile-problem-banner-action {
+  color: #6B4EE6;
+}
+
+[data-theme="light"] .session-error-card {
+  background: #FFFFFF;
+  border-color: #FCA5A5;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.1);
+}
+[data-theme="light"] .session-error-card h3 {
+  color: #991B1B;
+}
+[data-theme="light"] .session-error-card p {
+  color: #B91C1C;
 }
 
 /* ── Frozen Buttons During AI Thinking ── */

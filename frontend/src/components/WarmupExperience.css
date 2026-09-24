@@ -589,3 +589,72 @@
     justify-content: center;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   LIGHT MODE — Cold Start Warmup Experience Overrides
+   ═══════════════════════════════════════════════════════════════════ */
+[data-theme="light"] .warmup-container {
+  background: #FFFFFF;
+  border-color: rgba(0, 0, 0, 0.12);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.2);
+}
+
+[data-theme="light"] .warmup-header {
+  background: #F8FAFC;
+  border-bottom-color: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .game-role-chip {
+  color: #5B21B6;
+  background: rgba(107, 78, 230, 0.10);
+  border-color: rgba(107, 78, 230, 0.25);
+}
+
+[data-theme="light"] .game-score-badge {
+  color: #B45309;
+  background: rgba(245, 158, 11, 0.12);
+  border-color: rgba(245, 158, 11, 0.35);
+}
+
+[data-theme="light"] .game-progress-bar-wrap {
+  background: #E2E8F0;
+}
+
+[data-theme="light"] .student-math-prompt {
+  color: #0F172A;
+  background: #F1F5F9;
+  border-color: #CBD5E1;
+  text-shadow: none;
+}
+
+[data-theme="light"] .student-opt-btn {
+  background: #FFFFFF;
+  border-color: #CBD5E1;
+  color: #1E293B;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+[data-theme="light"] .student-opt-btn:hover:not(:disabled) {
+  background: #EDE9FE;
+  border-color: #6B4EE6;
+  color: #5B21B6;
+}
+
+[data-theme="light"] .parent-question-text {
+  color: #0F172A;
+  background: #F8FAFC;
+  border-color: #E2E8F0;
+}
+
+[data-theme="light"] .warmup-fallback-box h3 {
+  color: #0F172A;
+}
+
+[data-theme="light"] .btn-warmup-ghost {
+  background: #F1F5F9;
+  border-color: #CBD5E1;
+  color: #334155;
+}
+[data-theme="light"] .btn-warmup-ghost:hover {
+  background: #E2E8F0;
+  color: #0F172A;
+}

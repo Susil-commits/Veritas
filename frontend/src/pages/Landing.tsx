@@ -834,17 +834,19 @@ export default function Landing() {
           </nav>
 
           <div className="navbar-actions">
-            <button
-              type="button"
-              className="btn btn-sm btn-outline-violet"
-              style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700 }}
-              onClick={() => setShowEvaluatorModal(true)}
-              title="Open Reviewer & Evaluator Interactive Demo Lab"
-            >
-              <span>⚡</span>
-              <span className="eval-btn-text">Evaluator Lab</span>
-              <span className="eval-btn-text-short">Lab</span>
-            </button>
+            {!user && (
+              <button
+                type="button"
+                className="btn btn-sm btn-outline-violet"
+                style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700 }}
+                onClick={() => setShowEvaluatorModal(true)}
+                title="Open Reviewer & Evaluator Interactive Demo Lab"
+              >
+                <span>⚡</span>
+                <span className="eval-btn-text">Evaluator Lab</span>
+                <span className="eval-btn-text-short">Lab</span>
+              </button>
+            )}
             <ThemeToggle />
             {user && (
               <div className="navbar-user-group">
@@ -1803,11 +1805,13 @@ export default function Landing() {
       }}
     />
 
-    {/* Reviewer & Evaluator Interactive Demo Lab */}
-    <EvaluatorLabModal
-      isOpen={showEvaluatorModal}
-      onClose={() => setShowEvaluatorModal(false)}
-    />
+    {/* Reviewer & Evaluator Interactive Demo Lab (Guest Mode Only) */}
+    {!user && (
+      <EvaluatorLabModal
+        isOpen={showEvaluatorModal}
+        onClose={() => setShowEvaluatorModal(false)}
+      />
+    )}
     </>
   )
 }

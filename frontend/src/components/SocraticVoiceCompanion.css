@@ -335,3 +335,65 @@
     max-width: 100%;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   LIGHT MODE — Socratic Voice Companion Overrides
+   ═══════════════════════════════════════════════════════════════════ */
+[data-theme="light"] .voice-companion-overlay {
+  background: radial-gradient(circle at center, #F5F3FF 0%, #F8FAFC 70%, #EDE9FE 100%);
+  color: #1E293B;
+}
+
+[data-theme="light"] .voice-topbar {
+  background: rgba(255, 255, 255, 0.85);
+  border-bottom-color: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .voice-status-pill {
+  color: #5B21B6;
+  background: rgba(107, 78, 230, 0.12);
+  border-color: rgba(107, 78, 230, 0.3);
+}
+
+[data-theme="light"] .voice-exit-btn {
+  background: #FFFFFF;
+  border-color: #CBD5E1;
+  color: #475569;
+}
+[data-theme="light"] .voice-exit-btn:hover {
+  background: #FEE2E2;
+  border-color: #F87171;
+  color: #DC2626;
+}
+
+[data-theme="light"] .voice-blackboard {
+  background: #FFFFFF;
+  border-color: #E2E8F0;
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .voice-blackboard-math {
+  color: #0F172A;
+}
+
+[data-theme="light"] .voice-chip-btn {
+  background: #FFFFFF;
+  border-color: #CBD5E1;
+  color: #334155;
+}
+[data-theme="light"] .voice-chip-btn:hover {
+  background: #EDE9FE;
+  border-color: #6B4EE6;
+  color: #5B21B6;
+}
+
+[data-theme="light"] .voice-bottom-controls {
+  background: rgba(255, 255, 255, 0.85);
+  border-top-color: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .voice-text-fallback-input {
+  background: #FFFFFF;
+  border-color: #CBD5E1;
+  color: #0F172A;
+}

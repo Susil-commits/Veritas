@@ -522,8 +522,50 @@
   border-color: #E2E8F0;
 }
 
+[data-theme="light"] .eval-candidate-card--matched {
+  background: rgba(107, 78, 230, 0.10);
+  border-color: #6B4EE6;
+  box-shadow: 0 0 14px rgba(107, 78, 230, 0.15);
+}
+
 [data-theme="light"] .eval-candidate-title {
   color: #0F172A;
+}
+
+[data-theme="light"] .eval-preset-pill {
+  background: #FFFFFF;
+  border-color: #CBD5E1;
+  color: #475569;
+}
+
+[data-theme="light"] .eval-preset-pill:hover,
+[data-theme="light"] .eval-preset-pill--active {
+  background: rgba(107, 78, 230, 0.12);
+  border-color: #6B4EE6;
+  color: #5B21B6;
+  font-weight: 700;
+}
+
+[data-theme="light"] .eval-modal-close {
+  background: rgba(0, 0, 0, 0.05);
+  color: #64748B;
+}
+
+[data-theme="light"] .eval-modal-close:hover {
+  background: rgba(0, 0, 0, 0.10);
+  color: #0F172A;
+}
+
+[data-theme="light"] .eval-handwriting-mock {
+  color: #1E293B;
+}
+
+[data-theme="light"] .eval-box--fail .eval-box-header h5 {
+  color: #DC2626;
+}
+
+[data-theme="light"] .eval-box--pass .eval-box-header h5 {
+  color: #059669;
 }
 
 @media (max-width: 580px) {

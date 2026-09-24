@@ -1499,3 +1499,195 @@
   gap: 6px;
 }
 
+/* ═══════════════════════════════════════════════════════════════════
+   LIGHT MODE — Math Arcade Overrides
+   ═══════════════════════════════════════════════════════════════════ */
+[data-theme="light"] .math-arcade-container {
+  background: #F8F9FA;
+  color: #1E293B;
+}
+
+[data-theme="light"] .arcade-navbar {
+  background: rgba(245, 244, 240, 0.92);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .arcade-brand-title {
+  background: linear-gradient(135deg, #1E1B4B 0%, #6B4EE6 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+[data-theme="light"] .arcade-back-btn {
+  color: #5B21B6;
+  background: rgba(107, 78, 230, 0.10);
+  border-color: rgba(107, 78, 230, 0.28);
+}
+[data-theme="light"] .arcade-back-btn:hover {
+  background: rgba(107, 78, 230, 0.18);
+  border-color: #5B21B6;
+}
+
+[data-theme="light"] .arcade-stat-pill {
+  background: #FFFFFF;
+  border-color: rgba(0, 0, 0, 0.08);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+[data-theme="light"] .stat-value {
+  color: #0F172A;
+}
+
+[data-theme="light"] .arcade-hero-badge {
+  color: #5B21B6;
+  background: rgba(107, 78, 230, 0.10);
+  border-color: rgba(107, 78, 230, 0.25);
+}
+
+[data-theme="light"] .neon-text {
+  background: linear-gradient(135deg, #6B4EE6 0%, #0284C7 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: none;
+}
+
+[data-theme="light"] .level-orb {
+  background: #FFFFFF;
+  border-color: #CBD5E1;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+}
+[data-theme="light"] .orb-num {
+  color: #0F172A;
+}
+[data-theme="light"] .arcade-level-node.unlocked .level-orb {
+  background: radial-gradient(circle, #EDE9FE 0%, #FFFFFF 80%);
+  border-color: #6B4EE6;
+  box-shadow: 0 0 20px rgba(107, 78, 230, 0.2);
+}
+
+[data-theme="light"] .level-card {
+  background: #FFFFFF;
+  border-color: rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+}
+[data-theme="light"] .arcade-level-node.unlocked .level-card {
+  background: #FFFFFF;
+  border-color: rgba(107, 78, 230, 0.3);
+  box-shadow: 0 6px 24px rgba(107, 78, 230, 0.08);
+}
+[data-theme="light"] .level-name {
+  color: #0F172A;
+}
+[data-theme="light"] .level-tag {
+  color: #5B21B6;
+}
+
+[data-theme="light"] .level-requirement-box {
+  background: #F8FAFC;
+  border-color: #E2E8F0;
+}
+[data-theme="light"] .req-title {
+  color: #0F172A;
+}
+[data-theme="light"] .req-skill-code {
+  color: #5B21B6;
+  background: rgba(107, 78, 230, 0.10);
+}
+[data-theme="light"] .req-progress-track {
+  background: #E2E8F0;
+}
+
+[data-theme="light"] .level-card-footer {
+  border-top-color: rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .btn-practice-unlock {
+  background: #F8FAFC;
+  border-color: #CBD5E1;
+  color: #334155;
+}
+[data-theme="light"] .btn-practice-unlock:hover {
+  background: #EDE9FE;
+  border-color: #6B4EE6;
+  color: #5B21B6;
+}
+
+[data-theme="light"] .star-slot.inactive {
+  color: #CBD5E1;
+}
+
+[data-theme="light"] .arcade-arena-view {
+  background: radial-gradient(circle at 50% 30%, #F5F3FF 0%, #F8F9FA 80%);
+}
+
+[data-theme="light"] .arena-header {
+  background: rgba(245, 244, 240, 0.92);
+  border-bottom-color: rgba(0, 0, 0, 0.08);
+}
+[data-theme="light"] .arena-game-name {
+  color: #0F172A;
+}
+[data-theme="light"] .arena-game-mode {
+  color: #5B21B6;
+}
+[data-theme="light"] .arena-exit-btn {
+  background: #FFFFFF;
+  border-color: #CBD5E1;
+  color: #334155;
+}
+[data-theme="light"] .arena-exit-btn:hover {
+  background: #F1F5F9;
+  color: #0F172A;
+}
+
+[data-theme="light"] .plasma-core {
+  background: radial-gradient(circle, #6B4EE6 0%, #4338CA 100%);
+  border-color: #8B5CF6;
+}
+
+[data-theme="light"] .plasma-bubble-btn {
+  background: #FFFFFF;
+  border-color: rgba(107, 78, 230, 0.3);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+}
+[data-theme="light"] .plasma-bubble-btn:hover:not(:disabled) {
+  background: #F5F3FF;
+  border-color: #6B4EE6;
+  box-shadow: 0 8px 24px rgba(107, 78, 230, 0.18);
+}
+[data-theme="light"] .bubble-val {
+  color: #1E1B4B;
+  text-shadow: none;
+}
+
+[data-theme="light"] .concept-mastery-award {
+  background: linear-gradient(135deg, rgba(107, 78, 230, 0.1), rgba(16, 185, 129, 0.12));
+  border-color: #059669;
+}
+[data-theme="light"] .mastery-badge-title {
+  color: #065F46;
+}
+[data-theme="light"] .mastery-badge-desc {
+  color: #047857;
+}
+[data-theme="light"] .bkt-mastery-pill {
+  background: #EFF6FF;
+  border-color: #BFDBFE;
+  color: #1E40AF;
+}
+
+[data-theme="light"] .game-over-modal {
+  background: #FFFFFF;
+  border-color: rgba(107, 78, 230, 0.3);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+}
+[data-theme="light"] .game-over-modal .modal-title {
+  color: #0F172A;
+}
+[data-theme="light"] .modal-badge {
+  color: #5B21B6;
+  background: rgba(107, 78, 230, 0.12);
+  border-color: rgba(107, 78, 230, 0.3);
+}
+

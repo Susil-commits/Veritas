@@ -424,3 +424,78 @@
     gap: 2px;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   LIGHT MODE — BKT Simulator Overrides
+   ═══════════════════════════════════════════════════════════════════ */
+[data-theme="light"] .bkt-simulator-card {
+  background: #FFFFFF;
+  border-color: rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="light"] .bkt-sim-badge {
+  color: #5B21B6;
+  background: rgba(107, 78, 230, 0.12);
+  border-color: rgba(107, 78, 230, 0.28);
+}
+
+[data-theme="light"] .bkt-reset-btn {
+  background: #F8FAFC;
+  border-color: #CBD5E1;
+  color: #475569;
+}
+[data-theme="light"] .bkt-reset-btn:hover {
+  background: #F1F5F9;
+  color: #0F172A;
+  border-color: #94A3B8;
+}
+
+[data-theme="light"] .bkt-select {
+  background: #FFFFFF;
+  border-color: #CBD5E1;
+  color: #0F172A;
+}
+
+[data-theme="light"] .bkt-param-box {
+  background: #F8FAFC;
+  border-color: #E2E8F0;
+}
+[data-theme="light"] .param-symbol {
+  color: #5B21B6;
+}
+
+[data-theme="light"] .bkt-gauge-card {
+  background: #F8FAFC;
+  border-color: #E2E8F0;
+}
+[data-theme="light"] .bkt-progress-bar-bg {
+  background: #E2E8F0;
+}
+
+[data-theme="light"] .sim-action-btn {
+  background: #FFFFFF;
+  border-color: #CBD5E1;
+  color: #1E293B;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+}
+[data-theme="light"] .sim-action-btn strong {
+  color: #0F172A;
+}
+
+[data-theme="light"] .bkt-math-breakdown {
+  background: #F8FAFC;
+  border-color: #E2E8F0;
+}
+[data-theme="light"] .math-source-badge {
+  color: #5B21B6;
+  background: rgba(107, 78, 230, 0.12);
+}
+[data-theme="light"] .step-num {
+  background: #E2E8F0;
+  border-color: #CBD5E1;
+  color: #334155;
+}
+[data-theme="light"] .discount-note {
+  color: #B45309;
+}

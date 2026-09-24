@@ -202,3 +202,54 @@
     gap: 3px;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   LIGHT MODE — Digital Canvas Overrides
+   ═══════════════════════════════════════════════════════════════════ */
+[data-theme="light"] .digital-canvas-wrapper {
+  background: #FFFFFF;
+  border-color: rgba(0, 0, 0, 0.12);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .canvas-toolbar {
+  background: #F8FAFC;
+  border-bottom-color: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .canvas-tool-btn {
+  background: #FFFFFF;
+  border-color: #CBD5E1;
+  color: #334155;
+}
+[data-theme="light"] .canvas-tool-btn:hover:not(:disabled) {
+  background: #F1F5F9;
+  color: #0F172A;
+  border-color: #94A3B8;
+}
+[data-theme="light"] .canvas-tool-btn.active {
+  background: #6B4EE6;
+  border-color: #6B4EE6;
+  color: #FFFFFF;
+}
+
+[data-theme="light"] .canvas-tool-btn.demo-btn {
+  background: rgba(107, 78, 230, 0.08);
+  border-color: rgba(107, 78, 230, 0.25);
+  color: #5B21B6;
+}
+[data-theme="light"] .canvas-tool-btn.demo-btn:hover:not(:disabled) {
+  background: rgba(107, 78, 230, 0.16);
+  color: #4338CA;
+}
+
+[data-theme="light"] .width-btn {
+  background: #FFFFFF;
+  border-color: #CBD5E1;
+  color: #334155;
+}
+[data-theme="light"] .width-btn.selected {
+  background: #E2E8F0;
+  color: #0F172A;
+  border-color: #94A3B8;
+}

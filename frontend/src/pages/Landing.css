@@ -2672,3 +2672,35 @@
   color: var(--text-primary);
 }
 
+/* Topic Card Light Overrides */
+[data-theme="light"] .topic-standard {
+  color: #5B21B6;
+  background: rgba(107, 78, 230, 0.10);
+  border-color: rgba(107, 78, 230, 0.25);
+}
+
+[data-theme="light"] .topic-grade {
+  color: #B45309;
+}
+
+[data-theme="light"] .topic-example {
+  background: #F1F5F9;
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .topic-example code {
+  color: #0F172A;
+}
+
+[data-theme="light"] .citation-card {
+  background: rgba(255, 255, 255, 0.90);
+  border-color: rgba(0, 0, 0, 0.08);
+  box-shadow: 0 2px 14px rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="light"] .citation-source {
+  color: #047857;
+  font-weight: 600;
+  border-top-color: rgba(0, 0, 0, 0.08);
+}
+

@@ -1984,4 +1984,80 @@
   border-color: rgba(0, 0, 0, 0.06);
 }
 
+/* Light mode navbar & branding */
+[data-theme="light"] .parent-navbar {
+  background: rgba(245, 244, 240, 0.92);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .brand-title {
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .parent-badge,
+[data-theme="light"] .demo-mode-tag,
+[data-theme="light"] .demo-parent-badge {
+  color: #5B21B6;
+  background: rgba(107, 78, 230, 0.12);
+  border-color: rgba(107, 78, 230, 0.28);
+}
+
+/* Synthetic demo notices */
+[data-theme="light"] .synthetic-demo-pill {
+  color: #1D4ED8;
+  background: rgba(59, 130, 246, 0.12);
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+[data-theme="light"] .synthetic-demo-notice-banner {
+  background: #EFF6FF;
+  border-color: #BFDBFE;
+  border-left-color: #2563EB;
+}
+
+[data-theme="light"] .synthetic-demo-notice-banner .synthetic-notice-title {
+  color: #1E40AF;
+}
+
+[data-theme="light"] .synthetic-demo-notice-banner p {
+  color: #1E3A8A;
+}
+
+/* Light mode modals */
+[data-theme="light"] .modal-card {
+  background: #FFFFFF;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.15);
+}
+
+[data-theme="light"] .modal-card--danger {
+  border-color: rgba(239, 68, 68, 0.4);
+}
+
+[data-theme="light"] .modal-title-box h3 {
+  color: #0F172A;
+}
+
+[data-theme="light"] .form-group label {
+  color: #334155;
+}
+
+[data-theme="light"] .close-btn {
+  background: rgba(0, 0, 0, 0.05);
+  border-color: rgba(0, 0, 0, 0.1);
+  color: #64748B;
+}
+
+[data-theme="light"] .close-btn:hover {
+  color: #EF4444;
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.25);
+}
+
+[data-theme="light"] .success-banner {
+  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(16, 185, 129, 0.3);
+  color: #047857;
+}
+
 
