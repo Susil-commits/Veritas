@@ -11,6 +11,7 @@ export interface DigitalCanvasRef {
 interface DigitalCanvasProps {
   onStrokeDrawn?: () => void
   disabled?: boolean
+  height?: number | string
 }
 
 type ToolMode = 'pen' | 'eraser'
@@ -20,11 +21,13 @@ const PEN_COLORS = [
   { name: 'Pencil', value: '#1e293b' },
   { name: 'Royal Ink', value: '#1d4ed8' },
   { name: 'Emerald', value: '#047857' },
+  { name: 'Purple', value: '#7c3aed' },
+  { name: 'Crimson', value: '#e11d48' },
   { name: 'Highlighter', value: '#facc15' },
 ]
 
 export const DigitalCanvas = forwardRef<DigitalCanvasRef, DigitalCanvasProps>(function DigitalCanvas(
-  { onStrokeDrawn, disabled = false },
+  { onStrokeDrawn, disabled = false, height },
   ref
 ) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -433,7 +436,7 @@ export const DigitalCanvas = forwardRef<DigitalCanvasRef, DigitalCanvasProps>(fu
       </div>
 
       {/* Canvas Drawing Surface */}
-      <div className="canvas-surface-container">
+      <div className="canvas-surface-container" style={height ? { height: typeof height === 'number' ? `${height}px` : height } : undefined}>
         <canvas
           ref={canvasRef}
           className="scratchpad-canvas"

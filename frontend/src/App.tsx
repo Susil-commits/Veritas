@@ -13,6 +13,7 @@ const TutorSession = lazy(() => import('./pages/TutorSession'))
 const Dashboard = lazy(() => import('./pages/Dashboard'))
 const ParentDashboard = lazy(() => import('./pages/ParentDashboard'))
 const MathArcade = lazy(() => import('./pages/MathArcade'))
+const Scratchpad = lazy(() => import('./pages/Scratchpad'))
 
 function ConfigWarningBanner() {
   const [dismissed, setDismissed] = useState(false)
@@ -160,6 +161,15 @@ export default function App() {
                 }
               />
               <Route path="/games" element={<Navigate to="/arcade" replace />} />
+              <Route
+                path="/scratchpad"
+                element={
+                  <ProtectedRoute>
+                    <Scratchpad />
+                  </ProtectedRoute>
+                }
+              />
+              <Route path="/session/scratchpad" element={<Navigate to="/scratchpad" replace />} />
               <Route
                 path="/dashboard"
                 element={

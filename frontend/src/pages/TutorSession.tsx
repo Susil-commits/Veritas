@@ -13,7 +13,6 @@ import ConfirmLogoutModal from '../components/ConfirmLogoutModal'
 import MathText from '../components/MathText'
 import AudioVisualizer from '../components/AudioVisualizer'
 import { SocraticVoiceCompanion } from '../components/SocraticVoiceCompanion'
-import { CognitiveDAGVisualizer } from '../components/CognitiveDAGVisualizer'
 import { CognitiveReportModal } from '../components/CognitiveReportModal'
 import { getSkillMeta } from '../lib/skillsData'
 import type { SessionData, Problem, Diagnosis } from '../lib/api'
@@ -128,7 +127,6 @@ export default function TutorSession() {
   const [showResetModal, setShowResetModal] = useState(false)
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
   const [showVoiceCompanion, setShowVoiceCompanion] = useState(false)
-  const [progressViewMode, setProgressViewMode] = useState<'dag' | 'radar'>('dag')
   const [showReportModal, setShowReportModal] = useState(false)
   const [isResetting, setIsResetting] = useState(false)
   const [copiedCode, setCopiedCode] = useState(false)
@@ -1156,38 +1154,11 @@ export default function TutorSession() {
             <span className="live-pulse-dot" />
             <span className="intel-title">LIVE PROGRESS</span>
           </div>
-          <div className="intel-view-toggle">
-            <button
-              type="button"
-              className={`btn btn-xs ${progressViewMode === 'dag' ? 'btn-violet' : 'btn-ghost'}`}
-              style={{ padding: '2px 6px', fontSize: '0.7rem', borderRadius: '4px' }}
-              onClick={() => setProgressViewMode('dag')}
-            >
-              🧠 DAG
-            </button>
-            <button
-              type="button"
-              className={`btn btn-xs ${progressViewMode === 'radar' ? 'btn-violet' : 'btn-ghost'}`}
-              style={{ padding: '2px 6px', fontSize: '0.7rem', borderRadius: '4px' }}
-              onClick={() => setProgressViewMode('radar')}
-            >
-              📊 Radar
-            </button>
-          </div>
         </div>
 
         <ThinkingTrace steps={thinkingSteps} isActive={isStreaming} />
 
-        {progressViewMode === 'dag' ? (
-          <CognitiveDAGVisualizer
-            skills={masterySkills}
-            activeSkillId={currentProblem?.skill_id}
-            showDecayControls={false}
-            compact={true}
-          />
-        ) : (
-          <MasteryRadar skills={masterySkills} />
-        )}
+        <MasteryRadar skills={masterySkills} />
 
         <div className="mobile-only-return-chat">
           <button

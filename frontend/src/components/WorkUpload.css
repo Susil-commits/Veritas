@@ -11,9 +11,8 @@
 
 .upload-header {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
+  flex-direction: column;
+  align-items: stretch;
   gap: 8px;
 }
 
@@ -26,26 +25,33 @@
 
 .work-mode-tabs {
   display: flex;
+  width: 100%;
   background: var(--bg-elevated);
   padding: 3px;
   border-radius: 8px;
   border: 1px solid var(--border);
-  gap: 2px;
+  gap: 3px;
+  box-sizing: border-box;
 }
 
 .mode-tab-btn {
+  flex: 1 1 0;
+  min-width: 0;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 5px;
   background: transparent;
   border: none;
   border-radius: 6px;
-  padding: 4px 9px;
-  font-size: 0.76rem;
+  padding: 5px 6px;
+  font-size: 0.74rem;
   font-weight: 600;
   color: var(--text-secondary);
   cursor: pointer;
+  white-space: nowrap;
   transition: all 150ms ease;
+  box-sizing: border-box;
 }
 
 .mode-tab-btn:hover:not(:disabled) {
@@ -62,6 +68,66 @@
 .mode-tab-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.upload-options-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+
+.scratchpad-launch-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md, 10px);
+  background: linear-gradient(135deg, rgba(124, 93, 250, 0.14), rgba(59, 130, 246, 0.12));
+  border: 1px solid rgba(124, 93, 250, 0.35);
+  cursor: pointer;
+  text-align: left;
+  transition: all 180ms ease;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.scratchpad-launch-card:hover:not(:disabled) {
+  background: linear-gradient(135deg, rgba(124, 93, 250, 0.24), rgba(59, 130, 246, 0.2));
+  border-color: var(--violet, #7c5dfa);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(124, 93, 250, 0.25);
+}
+
+.scratchpad-card-icon {
+  font-size: 1.3rem;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: rgba(124, 93, 250, 0.2);
+}
+
+.scratchpad-card-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.scratchpad-card-title {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--violet-light, #c4b5fd);
+}
+
+.scratchpad-card-desc {
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  line-height: 1.3;
 }
 
 .upload-zone {

@@ -8,7 +8,6 @@ import ThemeToggle from '../components/ThemeToggle'
 import UserAvatar from '../components/UserAvatar'
 import AvatarModal from '../components/AvatarModal'
 import ConfirmLogoutModal from '../components/ConfirmLogoutModal'
-import { CognitiveDAGVisualizer } from '../components/CognitiveDAGVisualizer'
 import { CognitiveReportModal } from '../components/CognitiveReportModal'
 import { getSkillMeta, getMasteryTierInfo, getBarGradient } from '../lib/skillsData'
 import { validateEmailFormat, validateNameFormat, sanitizeNameInput } from '../lib/emailValidation'
@@ -179,7 +178,6 @@ export default function ParentDashboard() {
   const [liveIndicator, setLiveIndicator] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
-  const [skillViewMode, setSkillViewMode] = useState<'dag' | 'radar'>('dag')
   const [showReportModal, setShowReportModal] = useState(false)
   const [historyTab, setHistoryTab] = useState<'sessions' | 'games' | 'problems'>('sessions')
   const [deletingData, setDeletingData] = useState(false)
@@ -858,37 +856,19 @@ export default function ParentDashboard() {
               <div className="radar-panel">
                 <div className="panel-header">
                   <div>
-                    <h3>Live Skill Map</h3>
+                    <h3>Live Skill Radar</h3>
                     <p className="panel-sub">
                       Visualizing live skill progress. Watch this update as your child solves problems!
                     </p>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <div style={{ display: 'flex', gap: '4px', background: 'rgba(0,0,0,0.25)', padding: '3px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)' }}>
-                      <button
-                        type="button"
-                        className={`btn btn-xs ${skillViewMode === 'dag' ? 'btn-violet' : 'btn-ghost'}`}
-                        style={{ padding: '3px 8px', fontSize: '0.75rem', borderRadius: '6px' }}
-                        onClick={() => setSkillViewMode('dag')}
-                      >
-                        🧠 Skill Map
-                      </button>
-                      <button
-                        type="button"
-                        className={`btn btn-xs ${skillViewMode === 'radar' ? 'btn-violet' : 'btn-ghost'}`}
-                        style={{ padding: '3px 8px', fontSize: '0.75rem', borderRadius: '6px' }}
-                        onClick={() => setSkillViewMode('radar')}
-                      >
-                        🎯 Radar View
-                      </button>
-                    </div>
                     <div className="overall-badge">
                       <span>{avgMastery}% Overall</span>
                     </div>
                   </div>
                 </div>
 
-                <div className="radar-container" style={{ minHeight: skillViewMode === 'dag' ? 'auto' : '360px' }}>
+                <div className="radar-container" style={{ minHeight: '360px' }}>
                   {detailsLoading && skills.length === 0 ? (
                     <div className="radar-empty">Loading skill map…</div>
                   ) : detailsError ? (
@@ -905,11 +885,7 @@ export default function ParentDashboard() {
                       )}
                     </div>
                   ) : skills.length > 0 ? (
-                    skillViewMode === 'dag' ? (
-                      <CognitiveDAGVisualizer skills={skills} />
-                    ) : (
-                      <MasteryRadar skills={skills} showBars={false} />
-                    )
+                    <MasteryRadar skills={skills} showBars={false} />
                   ) : (
                     <div className="radar-empty">No skill records available for this student yet.</div>
                   )}

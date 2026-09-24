@@ -853,18 +853,6 @@ export default function Landing() {
               </button>
             )}
             <ThemeToggle />
-            {user && (
-              <div className="navbar-user-group">
-                <button
-                  type="button"
-                  className="btn btn-sm btn-violet"
-                  onClick={handleEnterSession}
-                  title="Move to your learning space"
-                >
-                  {role === 'parent' ? 'Parent Portal →' : 'Learning Space →'}
-                </button>
-              </div>
-            )}
           </div>
         </div>
       </header>
@@ -978,38 +966,24 @@ export default function Landing() {
                     )}
                   </div>
                   <div className="logged-in-sub-actions">
-                  <button
-                    type="button"
-                    className="btn btn-ghost btn-sm"
-                    onClick={() => scrollToSection('pipeline', true)}
-                  >
-                    Explore Live Pipeline ↓
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-ghost btn-sm"
-                    onClick={() => scrollToSection('topics', true)}
-                  >
-                    View Math Topics ↓
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-ghost btn-sm logged-in-logout-btn"
-                    onClick={async () => {
-                      try {
-                        await signOut()
-                      } catch (err) {
-                        console.error('Sign out error:', err)
-                      }
-                      setEmail('')
-                      setRoleMismatchNotice(null)
-                      setAuthScreen('form')
-                    }}
-                    title="Log out of Veritas"
-                  >
-                    Log Out
-                  </button>
-                </div>
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-sm logged-in-logout-btn"
+                      onClick={async () => {
+                        try {
+                          await signOut()
+                        } catch (err) {
+                          console.error('Sign out error:', err)
+                        }
+                        setEmail('')
+                        setRoleMismatchNotice(null)
+                        setAuthScreen('form')
+                      }}
+                      title="Log out of Veritas"
+                    >
+                      Log Out
+                    </button>
+                  </div>
                 </div>
               </div>
             </>

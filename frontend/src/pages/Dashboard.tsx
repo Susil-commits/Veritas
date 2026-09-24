@@ -3,7 +3,6 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { getMastery, getSummary } from '../lib/api'
 import MasteryRadar from '../components/MasteryRadar'
-import { CognitiveDAGVisualizer } from '../components/CognitiveDAGVisualizer'
 import { CognitiveReportModal } from '../components/CognitiveReportModal'
 import { getSkillMeta } from '../lib/skillsData'
 import ThemeToggle from '../components/ThemeToggle'
@@ -31,7 +30,6 @@ export default function Dashboard() {
   const [authDenied, setAuthDenied] = useState<string | null>(null)
   const [retryTrigger, setRetryTrigger] = useState(0)
   const [selectedDomain, setSelectedDomain] = useState<string>('all')
-  const [skillViewMode, setSkillViewMode] = useState<'dag' | 'radar'>('dag')
   const [showReportModal, setShowReportModal] = useState(false)
   const [copiedId, setCopiedId] = useState(false)
 
@@ -423,24 +421,6 @@ export default function Dashboard() {
                   <p className="dash-section-subtitle">See how you are doing across each math topic</p>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <div style={{ display: 'flex', gap: '4px', background: 'rgba(0,0,0,0.25)', padding: '3px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)' }}>
-                    <button
-                      type="button"
-                      className={`btn btn-xs ${skillViewMode === 'dag' ? 'btn-violet' : 'btn-ghost'}`}
-                      style={{ padding: '3px 8px', fontSize: '0.75rem', borderRadius: '6px' }}
-                      onClick={() => setSkillViewMode('dag')}
-                    >
-                      🧠 Cognitive DAG
-                    </button>
-                    <button
-                      type="button"
-                      className={`btn btn-xs ${skillViewMode === 'radar' ? 'btn-violet' : 'btn-ghost'}`}
-                      style={{ padding: '3px 8px', fontSize: '0.75rem', borderRadius: '6px' }}
-                      onClick={() => setSkillViewMode('radar')}
-                    >
-                      📊 Radar
-                    </button>
-                  </div>
                   <button
                     type="button"
                     className="btn btn-xs btn-outline-violet"
@@ -453,11 +433,7 @@ export default function Dashboard() {
                   <span className="badge badge-violet">{skills.length} Monitored Topics</span>
                 </div>
               </div>
-              {skillViewMode === 'dag' ? (
-                <CognitiveDAGVisualizer skills={skills} />
-              ) : (
-                <MasteryRadar skills={skills} />
-              )}
+              <MasteryRadar skills={skills} />
             </div>
 
             {/* Skill Domain Filters */}

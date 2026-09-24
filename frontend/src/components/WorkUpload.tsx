@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import type { Diagnosis, Problem } from '../lib/api'
 import { streamDiagnosis } from '../lib/api'
-import DigitalCanvas, { type DigitalCanvasRef } from './DigitalCanvas'
 import { PenTool, Upload, Camera } from 'lucide-react'
 import './WorkUpload.css'
 
@@ -14,10 +14,11 @@ interface Props {
 
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024 // 10MB cap matching backend safety boundary
 
-type UploadMode = 'scratchpad' | 'upload' | 'camera'
+type UploadMode = 'upload' | 'camera'
 
 export default function WorkUpload({ sessionId, onThinking, onDiagnosis, disabled = false }: Props) {
-  const [mode, setMode] = useState<UploadMode>('scratchpad')
+  const navigate = useNavigate()
+  const [mode, setMode] = useState<UploadMode>('upload')
   const [preview, setPreview] = useState<string | null>(null)
   const [file, setFile] = useState<File | null>(null)
   const [uploading, setUploading] = useState(false)
@@ -26,7 +27,6 @@ export default function WorkUpload({ sessionId, onThinking, onDiagnosis, disable
   const fileInputRef = useRef<HTMLInputElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const digitalCanvasRef = useRef<DigitalCanvasRef>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const [cameraOpen, setCameraOpen] = useState(false)
 
@@ -208,21 +208,6 @@ async function compressImageFile(f: File, maxDimension = 1600, quality = 0.85): 
     )
   }, [sessionId, onThinking, onDiagnosis])
 
-  const handleCheckScratchpad = async () => {
-    if (!digitalCanvasRef.current || !sessionId) return
-    const blob = await digitalCanvasRef.current.getBlob()
-    if (!blob) {
-      setUploadError('Please write your math steps on the scratchpad before checking.')
-      return
-    }
-
-    const f = new File([blob], 'scratchpad_work.jpg', { type: 'image/jpeg' })
-    const previewUrl = URL.createObjectURL(blob)
-    setFile(f)
-    setPreview(previewUrl)
-    analyzeFile(f)
-  }
-
   return (
     <div className="work-upload">
       <div className="upload-header">
@@ -231,12 +216,13 @@ async function compressImageFile(f: File, maxDimension = 1600, quality = 0.85): 
           <div className="work-mode-tabs">
             <button
               type="button"
-              className={`mode-tab-btn ${mode === 'scratchpad' ? 'active' : ''}`}
-              onClick={() => setMode('scratchpad')}
+              className="mode-tab-btn"
+              onClick={() => navigate('/scratchpad')}
               disabled={disabled || uploading}
+              title="Open full-screen digital scratchpad workspace"
             >
               <PenTool size={13} />
-              <span>Scratchpad</span>
+              <span>Scratchpad ↗</span>
             </button>
             <button
               type="button"
@@ -371,33 +357,35 @@ async function compressImageFile(f: File, maxDimension = 1600, quality = 0.85): 
             </svg>
           </button>
         </div>
-      ) : mode === 'scratchpad' ? (
-        <div className="scratchpad-view">
-          <DigitalCanvas ref={digitalCanvasRef} disabled={disabled || uploading} />
-          <div className="upload-actions">
-            <button
-              className="btn btn-primary"
-              onClick={handleCheckScratchpad}
-              disabled={uploading || disabled}
-              aria-label="Check scratchpad handwriting"
-            >
-              {uploading ? 'Analyzing steps…' : '✨ Check My Scratchpad'}
-            </button>
-          </div>
-        </div>
       ) : (
-        <div
-          className={`upload-zone ${disabled ? 'upload-zone--disabled' : ''}`}
-          role="button"
-          tabIndex={disabled ? -1 : 0}
-          aria-label="Upload photo of handwritten work. Click to browse or drag and drop."
-          onClick={() => !disabled && fileInputRef.current?.click()}
-          onKeyDown={(e) => !disabled && (e.key === 'Enter' || e.key === ' ') && fileInputRef.current?.click()}
-          onDragOver={(e) => e.preventDefault()}
-          onDrop={(e) => { e.preventDefault(); if (!disabled) { const f = e.dataTransfer.files[0]; if (f) handleFile(f) } }}
-        >
-          <span className="upload-prompt-badge">Upload Work</span>
-          <p>Drop your photo here<br /><span>or click to browse</span></p>
+        <div className="upload-options-stack">
+          <button
+            type="button"
+            className="scratchpad-launch-card"
+            onClick={() => navigate('/scratchpad')}
+            disabled={disabled || uploading}
+            title="Open full-screen digital scratchpad workspace"
+          >
+            <div className="scratchpad-card-icon">✍️</div>
+            <div className="scratchpad-card-text">
+              <span className="scratchpad-card-title">Digital Scratchpad ↗</span>
+              <span className="scratchpad-card-desc">Work out steps with pen, graph paper & AI checks</span>
+            </div>
+          </button>
+
+          <div
+            className={`upload-zone ${disabled ? 'upload-zone--disabled' : ''}`}
+            role="button"
+            tabIndex={disabled ? -1 : 0}
+            aria-label="Upload photo of handwritten work. Click to browse or drag and drop."
+            onClick={() => !disabled && fileInputRef.current?.click()}
+            onKeyDown={(e) => !disabled && (e.key === 'Enter' || e.key === ' ') && fileInputRef.current?.click()}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => { e.preventDefault(); if (!disabled) { const f = e.dataTransfer.files[0]; if (f) handleFile(f) } }}
+          >
+            <span className="upload-prompt-badge">Upload Work</span>
+            <p>Drop your photo here<br /><span>or click to browse</span></p>
+          </div>
         </div>
       )}
 
@@ -416,7 +404,7 @@ async function compressImageFile(f: File, maxDimension = 1600, quality = 0.85): 
         </div>
       )}
 
-      {file && !diagnosis && !cameraOpen && mode !== 'scratchpad' && (
+      {file && !diagnosis && !cameraOpen && (
         <div className="upload-actions">
           <button
             className="btn btn-primary"
