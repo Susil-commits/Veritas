@@ -23,6 +23,9 @@ export default defineConfig({
           if (id.includes('node_modules/@supabase/')) {
             return 'vendor-supabase'
           }
+          if (id.includes('node_modules/katex/')) {
+            return 'vendor-katex'
+          }
         },
       },
     },

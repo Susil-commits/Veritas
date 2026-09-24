@@ -141,6 +141,19 @@ export const DigitalCanvas = forwardRef<DigitalCanvasRef, DigitalCanvasProps>(fu
     }
   }, [disabled])
 
+  // Global undo keyboard shortcut (Ctrl+Z / Cmd+Z)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+        if (!e.shiftKey) {
+          handleUndo()
+        }
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [handleUndo])
+
   // Clear Canvas
   const handleClear = useCallback(() => {
     if (disabled) return
@@ -253,8 +266,12 @@ export const DigitalCanvas = forwardRef<DigitalCanvasRef, DigitalCanvasProps>(fu
         ctx.lineWidth = strokeWidth * 4
       }
 
+      // Smooth stroke interpolation using midpoint quadratic curve
+      const midX = (lastPt.x + currentPt.x) / 2
+      const midY = (lastPt.y + currentPt.y) / 2
       ctx.beginPath()
       ctx.moveTo(lastPt.x, lastPt.y)
+      ctx.quadraticCurveTo(lastPt.x, lastPt.y, midX, midY)
       ctx.lineTo(currentPt.x, currentPt.y)
       ctx.stroke()
     }

@@ -118,7 +118,7 @@ def get_session_lock(session_id: str) -> asyncio.Lock:
         if len(_session_locks) > MAX_SESSION_LOCKS:
             # Prefer evicting locks that are (a) unlocked AND (b) oldest by last-access time
             # Fallback: also evict locks idle for >2h even if they appear locked (stale context)
-            stale_ids = sorted(_session_lock_times, key=_session_lock_times.get)
+            stale_ids = sorted(_session_lock_times, key=lambda k: _session_lock_times.get(k, 0.0))
             for stale_id in stale_ids:
                 if stale_id == session_id:
                     continue

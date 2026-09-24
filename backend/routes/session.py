@@ -94,7 +94,8 @@ async def _update_mastery_for_skill(session_state: dict, skill_id: str, attempt_
         )
         return
 
-    old_m = session_state.get("mastery_state", {}).get(skill_id, 0.3)
+    raw_old = session_state.get("mastery_state", {}).get(skill_id)
+    old_m = float(raw_old) if raw_old is not None else 0.3
     new_m = update_mastery(old_m, True, skill_id, attempt_type=attempt_type)
     # Persist to DB BEFORE committing in-memory mutation so we can roll back on failure
     try:
@@ -259,7 +260,8 @@ async def start_session(
     )
     mastery_state = initialize_mastery()
     for row in (mastery_rows.data or []):
-        mastery_state[row["skill_id"]] = row["mastery_prob"]
+        if row.get("skill_id") and row.get("mastery_prob") is not None:
+            mastery_state[row["skill_id"]] = float(row["mastery_prob"])
 
     # Check recent active session to resume
     if req.student_id and student_id:
@@ -905,8 +907,10 @@ async def upload_work(
                 is_correct = diagnosis.get("is_correct", False)
 
                 if not is_correct and curr_skill:
+                    raw_curr = current_state["mastery_state"].get(curr_skill)
+                    cur_val = float(raw_curr) if raw_curr is not None else 0.3
                     new_mastery = update_mastery(
-                        current_mastery=current_state["mastery_state"].get(curr_skill, 0.3),
+                        current_mastery=cur_val,
                         is_correct=False,
                         skill_id=curr_skill,
                     )
@@ -973,7 +977,8 @@ async def upload_work(
                                 m_info["resolved_at"] = now_iso
                         await asyncio.to_thread(resolve_student_misconceptions_for_skill, current_state["student_id"], curr_skill)
 
-                    cur_m = current_state["mastery_state"].get(curr_skill, 0.3)
+                    raw_cur_m = current_state["mastery_state"].get(curr_skill)
+                    cur_m = float(raw_cur_m) if raw_cur_m is not None else 0.3
                     mastery_pct = f"{cur_m*100:.0f}%"
                     yield f"data: {json.dumps({'type': 'thinking', 'content': 'Updating skill progress: ' + mastery_pct})}\n\n"
 

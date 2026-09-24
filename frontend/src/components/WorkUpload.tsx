@@ -119,13 +119,74 @@ export default function WorkUpload({ sessionId, onThinking, onDiagnosis, disable
     }, 'image/jpeg', 0.9)
   }
 
-  const analyzeFile = useCallback((targetFile: File) => {
+async function compressImageFile(f: File, maxDimension = 1600, quality = 0.85): Promise<File> {
+  if (!f.type.startsWith('image/') || f.size < 200 * 1024) {
+    return f
+  }
+
+  return new Promise((resolve) => {
+    const img = new Image()
+    const url = URL.createObjectURL(f)
+    img.onload = () => {
+      URL.revokeObjectURL(url)
+      let { width, height } = img
+      if (width <= maxDimension && height <= maxDimension && f.size < 1024 * 1024) {
+        resolve(f)
+        return
+      }
+
+      if (width > maxDimension || height > maxDimension) {
+        if (width > height) {
+          height = Math.round((height * maxDimension) / width)
+          width = maxDimension
+        } else {
+          width = Math.round((width * maxDimension) / height)
+          height = maxDimension
+        }
+      }
+
+      const canvas = document.createElement('canvas')
+      canvas.width = width
+      canvas.height = height
+      const ctx = canvas.getContext('2d')
+      if (!ctx) {
+        resolve(f)
+        return
+      }
+      ctx.fillStyle = '#FFFFFF'
+      ctx.fillRect(0, 0, width, height)
+      ctx.drawImage(img, 0, 0, width, height)
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) {
+            resolve(f)
+            return
+          }
+          const compressed = new File([blob], f.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' })
+          resolve(compressed)
+        },
+        'image/jpeg',
+        quality,
+      )
+    }
+    img.onerror = () => {
+      URL.revokeObjectURL(url)
+      resolve(f)
+    }
+    img.src = url
+  })
+}
+
+  const analyzeFile = useCallback(async (targetFile: File) => {
     if (!targetFile || !sessionId) return
     setUploading(true)
     setUploadError(null)
+
+    const uploadPayload = await compressImageFile(targetFile)
+
     streamDiagnosis(
       sessionId,
-      targetFile,
+      uploadPayload,
       onThinking,
       (d, mastery, next) => {
         setDiagnosis(d)

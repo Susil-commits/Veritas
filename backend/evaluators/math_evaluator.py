@@ -209,6 +209,7 @@ try:
     SYMPY_AVAILABLE = True
 except Exception:
     sympy = None
+    parse_expr = None  # type: ignore
     _SYMPY_TRANSFORMS = None
     SYMPY_AVAILABLE = False
 
@@ -321,7 +322,7 @@ def normalize_expression(expr: str) -> str:
 def verify_symbolic_algebraic_equivalence(cand: str, exp: str) -> bool:
     """Verify algebraic equivalence using SymPy CAS when available, with AST parser fallback."""
     # 1. SymPy CAS verification
-    if SYMPY_AVAILABLE and sympy is not None and _SYMPY_TRANSFORMS is not None:
+    if SYMPY_AVAILABLE and sympy is not None and parse_expr is not None and _SYMPY_TRANSFORMS is not None:
         try:
             cand_sym_str = cand.replace("^", "**")
             exp_sym_str = exp.replace("^", "**")

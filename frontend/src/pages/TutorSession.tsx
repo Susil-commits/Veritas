@@ -1131,7 +1131,12 @@ export default function TutorSession() {
             placeholder={isSupported ? "Type your answer, or use the mic…" : "Type your answer here…"}
             value={isListening ? interimText : input}
             onChange={e => setInput(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendMessage()}
+            onKeyDown={e => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault()
+                sendMessage()
+              }
+            }}
             disabled={isListening || isStreaming}
             aria-label="Type your math answer or reasoning"
           />

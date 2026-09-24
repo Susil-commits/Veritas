@@ -106,6 +106,12 @@ def sync_skills_from_db(force: bool = False) -> bool:
     return False
 
 
+async def async_sync_skills_from_db(force: bool = False) -> bool:
+    """Non-blocking asynchronous wrapper around sync_skills_from_db for FastAPI event loops."""
+    import asyncio
+    return await asyncio.to_thread(sync_skills_from_db, force)
+
+
 # Cold-boot initialization from local seed
 _load_params_from_seed()
 
@@ -189,7 +195,10 @@ def diagnose_root_skill_deficit(
             continue
         visited.add(curr)
 
-        curr_mastery = mastery_state.get(curr, get_skill_params(curr).get("prior", 0.3))
+        curr_val = mastery_state.get(curr)
+        if curr_val is None:
+            curr_val = get_skill_params(curr).get("prior", 0.3)
+        curr_mastery = float(curr_val) if curr_val is not None else 0.3
         if curr_mastery < mastery_threshold:
             unmastered_roots.append((curr, curr_mastery))
             # Continue checking if this root itself has deeper unmastered prerequisites
