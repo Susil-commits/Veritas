@@ -143,6 +143,38 @@
   flex-shrink: 0;
 }
 
+.arcade-unlock-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(124, 93, 250, 0.12);
+  border: 1px solid rgba(124, 93, 250, 0.3);
+  border-radius: 8px;
+  padding: 8px 14px;
+  width: 100%;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.arcade-unlock-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.86rem;
+  color: var(--text-primary);
+}
+
+.arcade-unlock-icon {
+  font-size: 1.2rem;
+}
+
+.arcade-unlock-btn {
+  font-weight: 700;
+  padding: 4px 12px;
+  font-size: 0.8rem;
+}
+
+
 .chat-actions-left {
   display: flex;
   align-items: center;
@@ -213,10 +245,12 @@
   border-radius: 50%;
   background: var(--violet-dim);
   border: 1px solid var(--border-accent);
+  color: var(--violet-light);
+  font-weight: 700;
+  font-size: 0.8rem;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1rem;
   flex-shrink: 0;
 }
 
@@ -254,7 +288,34 @@
 }
 .chat-bubble.student .bubble-time { text-align: right; }
 
-.typing { opacity: 0.5; }
+.tutor-typing-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 2px;
+}
+
+.tutor-typing-dots span {
+  width: 7px;
+  height: 7px;
+  background: var(--violet-light);
+  border-radius: 50%;
+  animation: tutorTypingBounce 1.4s infinite ease-in-out both;
+}
+
+.tutor-typing-dots span:nth-child(1) { animation-delay: -0.32s; }
+.tutor-typing-dots span:nth-child(2) { animation-delay: -0.16s; }
+
+@keyframes tutorTypingBounce {
+  0%, 80%, 100% {
+    transform: scale(0.6);
+    opacity: 0.4;
+  }
+  40% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
 
 /* ── Voice indicator ── */
 .voice-indicator {
@@ -501,11 +562,58 @@
 
 .session-loading {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   height: 100vh;
+  gap: 16px;
   color: var(--text-secondary);
-  font-size: 1.1rem;
+  font-size: 1rem;
+  background: var(--bg-base);
+}
+
+.session-spinner {
+  width: 38px;
+  height: 38px;
+  border: 3px solid rgba(124, 93, 250, 0.2);
+  border-top-color: var(--violet-light);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.intel-view-toggle {
+  display: flex;
+  gap: 4px;
+  background: rgba(0, 0, 0, 0.25);
+  padding: 2px;
+  border-radius: 6px;
+}
+
+.reset-modal-card {
+  max-width: 440px;
+  width: 100%;
+  background: var(--bg-card);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.5);
+  text-align: center;
+}
+
+.btn-danger-action {
+  background: #DC2626;
+  color: #FFFFFF;
+  border: none;
+  font-weight: 600;
+  padding: 8px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-danger-action:hover:not(:disabled) {
+  background: #B91C1C;
+  transform: translateY(-1px);
 }
 
 /* ── Mobile Navigation Bar & Tabs ── */
@@ -985,3 +1093,48 @@
   margin-bottom: 2px;
   animation: fadein 0.25s ease;
 }
+
+[data-theme="light"] .tutor-typing-dots span {
+  background: #6B4EE6;
+}
+
+[data-theme="light"] .tutor-avatar {
+  background: rgba(107, 78, 230, 0.12);
+  border-color: rgba(107, 78, 230, 0.25);
+  color: #6B4EE6;
+}
+
+[data-theme="light"] .speaking-badge {
+  color: #059669;
+}
+
+[data-theme="light"] .arcade-unlock-card {
+  background: rgba(107, 78, 230, 0.08);
+  border-color: rgba(107, 78, 230, 0.25);
+}
+
+[data-theme="light"] .intel-view-toggle {
+  background: #F1F5F9;
+  border: 1px solid #E2E8F0;
+}
+
+[data-theme="light"] .intel-view-toggle .btn-ghost {
+  color: #475569;
+}
+
+[data-theme="light"] .intel-view-toggle .btn-ghost:hover {
+  color: #0F172A;
+  background: #E2E8F0;
+}
+
+[data-theme="light"] .reset-modal-card {
+  background: #FFFFFF;
+  border-color: rgba(239, 68, 68, 0.3);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.12);
+}
+
+[data-theme="light"] .session-spinner {
+  border-color: rgba(107, 78, 230, 0.15);
+  border-top-color: #6B4EE6;
+}
+

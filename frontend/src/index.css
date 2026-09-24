@@ -501,6 +501,26 @@ h3 { font-size: 1.2rem; }
   white-space: normal;
 }
 
+.math-inline-code {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 2px 5px;
+  border-radius: 4px;
+  font-size: 0.9em;
+  font-family: var(--font-mono, monospace);
+}
+
+[data-theme="light"] .math-inline-code {
+  background: #F1F5F9;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  color: #0F172A;
+}
+
+.chat-bubble.student .math-inline-code {
+  background: rgba(255, 255, 255, 0.25);
+  color: #FFFFFF;
+  border: none;
+}
+
 /* ── Mobile Touch Accessibility ── */
 button,
 a,

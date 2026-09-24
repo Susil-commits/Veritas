@@ -53,12 +53,7 @@ function renderMarkdownSegment(text: string, keyPrefix: string): React.ReactNode
           return (
             <code
               key={`${keyPrefix}-c-${idx}`}
-              style={{
-                background: 'rgba(255, 255, 255, 0.1)',
-                padding: '2px 5px',
-                borderRadius: '4px',
-                fontSize: '0.9em',
-              }}
+              className="math-inline-code"
             >
               {part.slice(1, -1)}
             </code>

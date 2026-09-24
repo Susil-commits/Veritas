@@ -93,7 +93,15 @@ const ChatBubble = memo(function ChatBubble({ role, content, timestamp, studentN
       )}
       <div className="bubble-body">
         <div className="bubble-text">
-          <MathText content={content} />
+          {content ? (
+            <MathText content={content} />
+          ) : (
+            <div className="tutor-typing-dots" aria-label="Tutor is thinking">
+              <span />
+              <span />
+              <span />
+            </div>
+          )}
         </div>
         <span className="bubble-time">{formattedTime}</span>
       </div>
@@ -125,6 +133,7 @@ export default function TutorSession() {
   const [isResetting, setIsResetting] = useState(false)
   const [copiedCode, setCopiedCode] = useState(false)
   const chatEndRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
 
   const latestTutorMessage = useMemo(() => {
     const tutorMsgs = messages.filter(m => m.role === 'tutor' && m.content)
@@ -508,7 +517,12 @@ export default function TutorSession() {
         </div>
       )
     }
-    return <div className="session-loading">Loading session…</div>
+    return (
+      <div className="session-loading">
+        <div className="session-spinner" />
+        <span>Preparing your personalized practice session…</span>
+      </div>
+    )
   }
 
   return (
@@ -987,26 +1001,14 @@ export default function TutorSession() {
                   {isLoadingNextProblem ? <span className="spinner" /> : 'Next Problem →'}
                 </button>
               </div>
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                background: 'rgba(124, 93, 250, 0.12)',
-                border: '1px solid rgba(124, 93, 250, 0.3)',
-                borderRadius: '8px',
-                padding: '8px 14px',
-                width: '100%',
-                gap: '10px',
-                flexWrap: 'wrap',
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.86rem', color: 'var(--text-primary)' }}>
-                  <span style={{ fontSize: '1.2rem' }}>🎮</span>
+              <div className="arcade-unlock-card">
+                <div className="arcade-unlock-info">
+                  <span className="arcade-unlock-icon">🎮</span>
                   <span><strong>Math Arcade Challenge:</strong> You earned progress toward game unlocks!</span>
                 </div>
                 <button
                   type="button"
-                  className="btn btn-sm btn-violet"
-                  style={{ fontWeight: 700, padding: '4px 12px', fontSize: '0.8rem' }}
+                  className="btn btn-sm btn-violet arcade-unlock-btn"
                   disabled={isStreaming}
                   onClick={() => {
                     stop()
@@ -1071,7 +1073,10 @@ export default function TutorSession() {
                 key={sym}
                 type="button"
                 className="mathpad-sym-btn"
-                onClick={() => setInput((prev) => prev + sym)}
+                onClick={() => {
+                  setInput((prev) => prev + sym)
+                  inputRef.current?.focus()
+                }}
                 title={`Insert ${sym}`}
               >
                 {sym}
@@ -1091,7 +1096,10 @@ export default function TutorSession() {
             <button
               type="button"
               className="inquiry-chip"
-              onClick={() => setInput('Can you explain this step to me?')}
+              onClick={() => {
+                setInput('Can you explain this step to me?')
+                inputRef.current?.focus()
+              }}
               disabled={isStreaming || isListening}
               title="Ask to unpack current step"
             >
@@ -1100,7 +1108,10 @@ export default function TutorSession() {
             <button
               type="button"
               className="inquiry-chip"
-              onClick={() => setInput('Is my mathematical thinking on track?')}
+              onClick={() => {
+                setInput('Is my mathematical thinking on track?')
+                inputRef.current?.focus()
+              }}
               disabled={isStreaming || isListening}
               title="Verify reasoning without asking for answers"
             >
@@ -1109,7 +1120,10 @@ export default function TutorSession() {
             <button
               type="button"
               className="inquiry-chip"
-              onClick={() => setInput('Can you give a visual or real-world example?')}
+              onClick={() => {
+                setInput('Can you give a visual or real-world example?')
+                inputRef.current?.focus()
+              }}
               disabled={isStreaming || isListening}
               title="Request a conceptual visual metaphor"
             >
@@ -1143,6 +1157,7 @@ export default function TutorSession() {
           </button>
 
           <input
+            ref={inputRef}
             className="input chat-input"
             placeholder={isSupported ? "Type your answer, or use the mic…" : "Type your answer here…"}
             value={isListening ? interimText : input}
@@ -1181,7 +1196,7 @@ export default function TutorSession() {
             <span className="live-pulse-dot" />
             <span className="intel-title">LIVE PROGRESS</span>
           </div>
-          <div style={{ display: 'flex', gap: '4px', background: 'rgba(0,0,0,0.25)', padding: '2px', borderRadius: '6px' }}>
+          <div className="intel-view-toggle">
             <button
               type="button"
               className={`btn btn-xs ${progressViewMode === 'dag' ? 'btn-violet' : 'btn-ghost'}`}
@@ -1256,19 +1271,7 @@ export default function TutorSession() {
             padding: '1rem',
           }}
         >
-          <div
-            className="card"
-            style={{
-              maxWidth: '440px',
-              width: '100%',
-              background: 'var(--card-bg, #1e1e2f)',
-              border: '1px solid rgba(239, 68, 68, 0.4)',
-              borderRadius: '16px',
-              padding: '24px',
-              boxShadow: '0 12px 36px rgba(0,0,0,0.6)',
-              textAlign: 'center',
-            }}
-          >
+          <div className="card reset-modal-card">
             <div style={{ fontSize: '2.4rem', marginBottom: '12px' }}>🔄</div>
             <h3 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '8px', color: 'var(--text-primary)' }}>
               Reset Practice Progress?
@@ -1287,8 +1290,7 @@ export default function TutorSession() {
               </button>
               <button
                 type="button"
-                className="btn"
-                style={{ background: '#DC2626', color: '#FFFFFF', border: 'none', fontWeight: 600, padding: '8px 16px', borderRadius: '8px' }}
+                className="btn btn-danger-action"
                 onClick={handleResetProgress}
                 disabled={isResetting}
               >
