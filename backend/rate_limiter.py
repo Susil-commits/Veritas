@@ -131,6 +131,21 @@ class RateLimiter:
 
             self._cleanup_if_needed(now)
 
+    def reset(self, key: str) -> None:
+        """Explicitly clear rate limiting and burst cooldown history for a key."""
+        with self._lock:
+            self._last_request_time.pop(key, None)
+            self._request_history.pop(key, None)
+            auth_key = f"auth_{key}"
+            self._last_request_time.pop(auth_key, None)
+            self._request_history.pop(auth_key, None)
+        if redis_service.is_connected:
+            try:
+                redis_service.delete(f"cooldown:{key}")
+                redis_service.delete(f"auth:{key}")
+            except Exception:
+                pass
+
 
 # Global singleton instance
 limiter = RateLimiter()

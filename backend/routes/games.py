@@ -212,9 +212,13 @@ async def _get_student_game_progress(student_id: str) -> dict[str, Any]:
     for active_sid in get_all_active_session_ids():
         active_state = get_session(active_sid)
         if active_state and active_state.get("student_id") == student_id:
-            for s_id, prob in active_state.get("mastery_state", {}).items():
-                if prob > mastery_map.get(s_id, 0.0):
-                    mastery_map[s_id] = prob
+            for s_id, raw_prob in active_state.get("mastery_state", {}).items():
+                try:
+                    prob = float(raw_prob)
+                    if prob > mastery_map.get(s_id, 0.0):
+                        mastery_map[s_id] = prob
+                except (ValueError, TypeError):
+                    pass
 
     # 3. Fetch solved events for skills from session_events
     solved_skills: set[str] = set()
@@ -250,8 +254,10 @@ async def _get_student_game_progress(student_id: str) -> dict[str, Any]:
         req_skill = item["skill_required"]
         alt_skill = item.get("alt_skill_required")
 
-        req_mastery = mastery_map.get(req_skill, 0.3)
-        alt_mastery = mastery_map.get(alt_skill, 0.3) if alt_skill else 0.0
+        raw_req = mastery_map.get(req_skill)
+        raw_alt = mastery_map.get(alt_skill) if alt_skill else None
+        req_mastery = float(raw_req) if raw_req is not None else 0.3
+        alt_mastery = float(raw_alt) if raw_alt is not None else 0.0
         effective_mastery = max(req_mastery, alt_mastery)
 
         skill_solved = (req_skill in solved_skills) or (bool(alt_skill) and alt_skill in solved_skills)
@@ -416,7 +422,7 @@ async def record_game_score(
                 "last_played": game_record["last_played"],
                 "history": game_record["history"],
                 "updated_at": now_iso,
-            })
+            }, on_conflict="student_id,game_id")
         )
     except Exception as e:
         logger.debug("Supabase student_game_progress write-through skipped: %s", e)

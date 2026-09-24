@@ -458,9 +458,20 @@ async def verify_student_access(
         except Exception:
             pass
 
-        # Fallback check from persistent children_store.json if local fallback or offline
+        # Fallback check from persistent children_store.json or Redis if local fallback or offline
+        try:
+            from services.redis_service import redis_service
+            if redis_service.is_connected:
+                cached_kids = redis_service.get_json(f"veritas:parent_children:{caller_sub}")
+                if isinstance(cached_kids, list) and any(c.get("student_id") == student_id for c in cached_kids):
+                    return payload
+        except Exception:
+            pass
+
         try:
             store_file = Path(__file__).resolve().parent.parent / "data" / "children_store.json"
+            if not store_file.exists():
+                store_file = Path(__file__).resolve().parent / "data" / "children_store.json"
             if store_file.exists():
                 with open(store_file, "r", encoding="utf-8") as f:
                     store_data = json.load(f)

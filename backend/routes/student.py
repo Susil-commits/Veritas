@@ -109,15 +109,21 @@ async def get_summary(
     except Exception:
         pass
 
-    student_row = await db_exec(supabase.table("students").select("*").eq("id", student_id).single())
+    student_row = await db_exec(supabase.table("students").select("name").eq("id", student_id).limit(1))
     mastery_rows = await db_exec(
         supabase.table("student_skill_mastery")
-        .select("*")
+        .select("skill_id, mastery_prob")
         .eq("student_id", student_id)
     )
-    mastery_state = {r["skill_id"]: r["mastery_prob"] for r in (mastery_rows.data or [])}
+    mastery_state = {
+        r["skill_id"]: float(r["mastery_prob"])
+        for r in (mastery_rows.data or [])
+        if r.get("skill_id") and r.get("mastery_prob") is not None
+    }
 
-    student_name = student_row.data.get("name", "Student") if (student_row and student_row.data) else "Student"
+    student_name = "Student"
+    if student_row and hasattr(student_row, "data") and student_row.data:
+        student_name = student_row.data[0].get("name") or "Student"
     summary = await asyncio.to_thread(
         generate_session_summary,
         student_name=student_name,

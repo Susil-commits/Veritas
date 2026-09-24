@@ -554,7 +554,14 @@ def _write_misconceptions_to_disk() -> None:
 
 
 def get_student_misconceptions(student_id: str) -> dict[str, dict[str, Any]]:
-    """Retrieve all tracked misconceptions and resolution status for a student."""
+    """Retrieve all tracked misconceptions and resolution status for a student with Redis tiering."""
+    try:
+        if redis_service.is_connected:
+            cached = redis_service.get_json(f"veritas:student_misconceptions:{student_id}")
+            if isinstance(cached, dict):
+                return cached
+    except Exception:
+        pass
     all_misc = _load_misconceptions_from_disk()
     return dict(all_misc.get(student_id, {}))
 
@@ -594,6 +601,11 @@ def save_student_misconception(
         entry["resolved_at"] = now_iso
     student_misc[misconception_type] = entry
     _write_misconceptions_to_disk()
+    try:
+        if redis_service.is_connected:
+            redis_service.set_json(f"veritas:student_misconceptions:{student_id}", student_misc, ex=30 * 86400)
+    except Exception:
+        pass
     return entry
 
 
@@ -610,6 +622,11 @@ def resolve_student_misconceptions_for_skill(student_id: str, skill_id: str) -> 
             resolved_types.append(m_type)
     if resolved_types:
         _write_misconceptions_to_disk()
+        try:
+            if redis_service.is_connected:
+                redis_service.set_json(f"veritas:student_misconceptions:{student_id}", student_misc, ex=30 * 86400)
+        except Exception:
+            pass
     return resolved_types
 
 
@@ -619,6 +636,11 @@ def clear_student_misconceptions(student_id: str) -> None:
     if student_id in all_misc:
         del all_misc[student_id]
         _write_misconceptions_to_disk()
+    try:
+        if redis_service.is_connected:
+            redis_service.delete(f"veritas:student_misconceptions:{student_id}")
+    except Exception:
+        pass
 
 
 def get_all_active_session_ids() -> list[str]:

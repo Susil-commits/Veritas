@@ -31,14 +31,14 @@ function cleanProblemTitle(title?: string): string {
 }
 
 /**
- * Strip session_token before persisting to sessionStorage.
- * The bearer token is retrieved at API-call time via getAuthHeaders() — there
- * is no need to store it in sessionStorage, and doing so widens the exposure
- * window if the page storage is ever read by a third-party script or devtools.
+ * Sanitize session data before persisting to tab-scoped sessionStorage.
+ * Strips bulky temporary image data while preserving session_token so
+ * API client getAuthHeaders() maintains valid HMAC authentication across turns.
  */
 function sanitizeSessionForStorage(session: Record<string, unknown> | SessionData): Record<string, unknown> {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { session_token: _removed, ...rest } = session as Record<string, unknown>
+  const rest = { ...(session as Record<string, unknown>) }
+  delete rest.latest_image_bytes
+  delete rest.image
   return rest
 }
 

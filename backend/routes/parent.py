@@ -56,10 +56,23 @@ class AddChildRequest(BaseModel):
 
 
 def _get_fallback_children(parent_id: str) -> list[dict]:
-    if not CHILDREN_FALLBACK_FILE.exists():
-        return []
     try:
-        with open(CHILDREN_FALLBACK_FILE, "r", encoding="utf-8") as f:
+        from services.redis_service import redis_service
+        if redis_service.is_connected:
+            cached = redis_service.get_json(f"veritas:parent_children:{parent_id}")
+            if isinstance(cached, list):
+                return cached
+    except Exception:
+        pass
+    file_path = CHILDREN_FALLBACK_FILE
+    if not file_path.exists():
+        alt_path = BACKEND_DIR / "data" / "children_store.json"
+        if alt_path.exists():
+            file_path = alt_path
+        else:
+            return []
+    try:
+        with open(file_path, "r", encoding="utf-8") as f:
             data = json.load(f)
             return [c for c in data if c.get("parent_id") == parent_id]
     except Exception:
@@ -89,6 +102,14 @@ def _save_fallback_child(record: dict):
         with open(temp_path, "w", encoding="utf-8") as f:
             json.dump(current, f, indent=2)
         temp_path.replace(CHILDREN_FALLBACK_FILE)
+    try:
+        from services.redis_service import redis_service
+        parent_id = record.get("parent_id")
+        if parent_id and redis_service.is_connected:
+            parent_kids = [c for c in current if c.get("parent_id") == parent_id]
+            redis_service.set_json(f"veritas:parent_children:{parent_id}", parent_kids, ex=30 * 86400)
+    except Exception:
+        pass
 
 
 def _sync_purge_fallback_file(parent_id: str):
@@ -105,6 +126,12 @@ def _sync_purge_fallback_file(parent_id: str):
             temp_path.replace(CHILDREN_FALLBACK_FILE)
         except Exception:
             pass
+    try:
+        from services.redis_service import redis_service
+        if redis_service.is_connected:
+            redis_service.delete(f"veritas:parent_children:{parent_id}")
+    except Exception:
+        pass
 
 
 def generate_student_alerts(
