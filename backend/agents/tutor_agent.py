@@ -23,11 +23,14 @@ def _parse_tutor_response(raw: str, fallback_text: str) -> dict:
 
     try:
         data = json.loads(clean_json)
-        if not isinstance(data, dict) or not data.get("reply"):
+        if not isinstance(data, dict):
+            raise ValueError("Response is not a JSON object")
+        reply_content = data.get("reply") or data.get("response") or data.get("message")
+        if not reply_content:
             raise ValueError("Missing reply field")
         extracted_ans = data.get("extracted_student_answer")
         return {
-            "reply": str(data["reply"]).strip(),
+            "reply": str(reply_content).strip(),
             "problem_solved": bool(data.get("problem_solved", False)),
             "is_final_attempt": bool(data["is_final_attempt"]) if "is_final_attempt" in data and data["is_final_attempt"] is not None else None,
             "extracted_student_answer": str(extracted_ans).strip() if extracted_ans else None,

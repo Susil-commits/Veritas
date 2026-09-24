@@ -158,9 +158,11 @@ def test_fastapi_http_endpoints():
     assert "suggestions" in data and len(data["suggestions"]) > 0
     print(f"   ✓ GET /neo/suggestions returned {len(data['suggestions'])} prompts")
 
+    import uuid
+    test_vis_id = f"test_http_vis_{uuid.uuid4().hex[:6]}"
     # 2. Test off-topic HTTP request
     off_payload = {"message": "Write a python script to download youtube videos", "history": []}
-    off_res = client.post("/neo/chat", json=off_payload, headers={"X-Visitor-Id": "test_http_vis_1"})
+    off_res = client.post("/neo/chat", json=off_payload, headers={"X-Visitor-Id": test_vis_id})
     assert off_res.status_code == 200
     off_data = off_res.json()
     assert off_data["guardrailed"] is True
@@ -180,6 +182,7 @@ def test_fastapi_http_endpoints():
     assert auth_data["guardrailed"] is False
     assert auth_data["user_role"] == "student"
     assert len(auth_data["reply"]) > 10
+    print("   ✓ Authenticated student query answered with student context")
     # 4. Test X-Parent-Id spoofing resistance (privilege escalation defense)
     spoof_res = client.post(
         "/neo/chat",

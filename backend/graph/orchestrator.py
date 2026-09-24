@@ -13,7 +13,7 @@ from langgraph.graph import StateGraph, END, START
 from agents.tutor_agent import run_tutor_agent
 from bkt.tracker import update_mastery
 from db.supabase_client import get_supabase
-from evaluators.math_evaluator import evaluate_student_solution
+from evaluators.math_evaluator import evaluate_student_solution, extract_expected_answer
 from session_manager import resolve_student_misconceptions_for_skill
 from safety import (
     SOCRATIC_BOUNDARY_RESPONSE,
@@ -152,7 +152,8 @@ async def tutor_node(state: TutorState) -> dict:
                 is_final_attempt = True
 
     # Secondary safety check: Prevent accidental final answer disclosure
-    prob_ans = current_prob.get("answer") or ""
+    canonical_ans, _ = extract_expected_answer(current_prob) if current_prob else (None, "none")
+    prob_ans = current_prob.get("answer") or canonical_ans or ""
     if prob_ans and is_answer_leaked(response, str(prob_ans)):
         response = (
             "That's a great direction! Let's pause right before the final calculation: "
@@ -212,8 +213,10 @@ async def tutor_node(state: TutorState) -> dict:
             await asyncio.to_thread(resolve_student_misconceptions_for_skill, student_id, curr_skill)
 
         if not credited:
+            raw_curr = mastery_state.get(curr_skill)
+            cur_val = float(raw_curr) if raw_curr is not None else 0.3
             new_m = update_mastery(
-                current_mastery=mastery_state.get(curr_skill, 0.3),
+                current_mastery=cur_val,
                 is_correct=True,
                 skill_id=curr_skill,
                 attempt_type=attempt_type,

@@ -181,8 +181,16 @@ def sanitize_input(text: str, max_length: int = 1500) -> str:
     # Truncate
     trimmed = text[:max_length]
 
-    # Strip dangerous/invisible unicode control characters (except newline & tab)
-    cleaned = "".join(ch for ch in trimmed if ch == "\n" or ch == "\t" or not (0 <= ord(ch) <= 31 or 127 <= ord(ch) <= 159))
+    # Strip dangerous/invisible unicode control characters and zero-width bypass sequences
+    zero_width_and_bidi = {
+        '\u200b', '\u200c', '\u200d', '\u200e', '\u200f',
+        '\u202a', '\u202b', '\u202c', '\u202d', '\u202e',
+        '\u2060', '\ufeff',
+    }
+    cleaned = "".join(
+        ch for ch in trimmed
+        if ch not in zero_width_and_bidi and (ch == "\n" or ch == "\t" or not (0 <= ord(ch) <= 31 or 127 <= ord(ch) <= 159))
+    )
 
     # Escape HTML tags to prevent injection while preserving math inequalities
     escaped = escape_html_tags(cleaned)

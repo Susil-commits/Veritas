@@ -145,7 +145,12 @@ export const DigitalCanvas = forwardRef<DigitalCanvasRef, DigitalCanvasProps>(fu
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+        const target = e.target as HTMLElement | null
+        if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
+          return
+        }
         if (!e.shiftKey) {
+          e.preventDefault()
           handleUndo()
         }
       }

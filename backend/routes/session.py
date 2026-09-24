@@ -985,10 +985,12 @@ async def upload_work(
                     yield f"data: {json.dumps({'type': 'thinking', 'content': 'Picking your next practice problem...'})}\n\n"
                     next_skill = get_next_skill(current_state["mastery_state"])
                     misconception_desc = diagnosis.get("description") or diagnosis.get("misconception_type")
+                    raw_next_m = current_state["mastery_state"].get(next_skill)
+                    next_m_val = float(raw_next_m) if raw_next_m is not None else 0.3
                     next_problem = await asyncio.to_thread(
                         get_next_problem,
                         skill_id=next_skill,
-                        mastery_prob=current_state["mastery_state"].get(next_skill, 0.3),
+                        mastery_prob=next_m_val,
                         student_id=current_state["student_id"],
                         exclude_problem_ids=current_state.get("problems_attempted", []),
                         misconception_text=misconception_desc,

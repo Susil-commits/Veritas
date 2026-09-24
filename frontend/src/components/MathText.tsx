@@ -76,8 +76,8 @@ export const MathText = memo(function MathText({ content, className = '', inline
   return (
     <span className={`math-text-container ${className}`}>
       {lines.map((line, lineIdx) => {
-        // Match $$...$$, $...$, \[...\], \(...\), and bare \frac{a}{b}
-        const regex = /(\$\$[\s\S]+?\$\$|\$[^$\n]+?\$|\\\[[\s\S]+?\\\]|\\\([^\n]+?\\\)|\\[f]rac\{[^{}]+\}\{[^{}]+\})/g
+        // Match $$...$$, $...$, \[...\], \(...\), bare \frac{a}{b}, and bare \sqrt{x}
+        const regex = /(\$\$[\s\S]+?\$\$|\$[^$\n]+?\$|\\\[[\s\S]+?\\\]|\\\([^\n]+?\\\)|\\[f]rac\{[^{}]+\}\{[^{}]+\}|\\[s]qrt\{[^{}]+\})/g
         const segments = line.split(regex)
 
         const renderedLine = segments.map((seg, segIdx) => {
@@ -133,7 +133,7 @@ export const MathText = memo(function MathText({ content, className = '', inline
             )
           }
 
-          if (seg.startsWith('\\frac{') && seg.includes('}{')) {
+          if ((seg.startsWith('\\frac{') && seg.includes('}{')) || seg.startsWith('\\sqrt{')) {
             const html = renderTeX(seg, false)
             return (
               <span
