@@ -22,17 +22,59 @@ function renderTeX(tex: string, displayMode: boolean): string {
   }
 }
 
+/**
+ * Normalizes over-escaped strings common in LLM JSON outputs and API serialization:
+ * 1. Unescapes HTML entities (&amp;, &lt;, &gt;, &quot;, &#39;)
+ * 2. Unescapes JSON-escaped quotes (\" -> ", \' -> ')
+ * 3. Normalizes literal escaped newlines (\\n) when not part of TeX commands
+ * 4. Normalizes multi-backslash sequences (\\\\ -> \) before LaTeX commands and delimiters
+ */
+function normalizeContent(raw: string): string {
+  if (!raw) return ''
+  let text = raw
+
+  // 1. Unescape HTML entities
+  text = text
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&apos;/g, "'")
+
+  // 2. Unescape escaped quotes from JSON strings
+  text = text.replace(/\\"/g, '"').replace(/\\'/g, "'")
+
+  // 3. Normalize literal escaped newlines (e.g. "\\n" -> "\n")
+  text = text.replace(/\\\\n/g, '\n')
+  text = text.replace(/(?<!\\)\\n/g, (match, offset, str) => {
+    // Preserve TeX commands starting with \n like \neq, \notin, \nabla, \natural, \ne
+    const nextChars = str.slice(offset + 2, offset + 6)
+    if (/^(eq|otin|abla|atural|e\b)/.test(nextChars)) {
+      return match
+    }
+    return '\n'
+  })
+
+  // 4. Normalize multi-backslashes (2 or more) before TeX delimiters and commands:
+  // e.g. \\( -> \(, \\) -> \), \\[ -> \[, \\] -> \], \\frac -> \frac, \\times -> \times
+  text = text.replace(/\\{2,}([a-zA-Z()[\]{}])/g, '\\$1')
+
+  return text
+}
+
 function cleanLatexSymbols(s: string): string {
   return s
-    .replace(/\\times\b/g, '×')
-    .replace(/\\div\b/g, '÷')
-    .replace(/\\cdot\b/g, '·')
-    .replace(/\\pm\b/g, '±')
-    .replace(/\\neq\b/g, '≠')
-    .replace(/\\approx\b/g, '≈')
-    .replace(/\\le(?:q)?\b/g, '≤')
-    .replace(/\\ge(?:q)?\b/g, '≥')
-    .replace(/\\degree(?:s)?\b/g, '°')
+    .replace(/\\*times\b/g, '×')
+    .replace(/\\*div\b/g, '÷')
+    .replace(/\\*cdot\b/g, '·')
+    .replace(/\\*pm\b/g, '±')
+    .replace(/\\*neq\b/g, '≠')
+    .replace(/\\*approx\b/g, '≈')
+    .replace(/\\*le(?:q)?\b/g, '≤')
+    .replace(/\\*ge(?:q)?\b/g, '≥')
+    .replace(/\\*degree(?:s)?\b/g, '°')
+    .replace(/\\*circ\b/g, '°')
 }
 
 /**
@@ -66,100 +108,119 @@ function renderMarkdownSegment(text: string, keyPrefix: string): React.ReactNode
 }
 
 /**
+ * Render inline text with inline math expressions ($...$, \(...\), \frac{...}{...}, \sqrt{...}).
+ */
+function renderInlineTextWithMath(line: string, lineKey: string): React.ReactNode {
+  // Matches inline math: $...$, \(...\), \frac{...}{...}, \sqrt{...}
+  const inlineRegex = /(\$[^$\n]+?\$|\\\([^\n]+?\\\)|\\[f]rac\{[^{}]+\}\{[^{}]+\}|\\[s]qrt\{[^{}]+\})/g
+  const parts = line.split(inlineRegex)
+
+  return parts.map((seg, idx) => {
+    const key = `${lineKey}-p-${idx}`
+
+    if (seg.startsWith('$') && seg.endsWith('$') && seg.length > 2) {
+      const math = seg.slice(1, -1).trim()
+      const html = renderTeX(math, false)
+      return (
+        <span
+          key={key}
+          className="math-inline"
+          dangerouslySetInnerHTML={{ __html: html }}
+        />
+      )
+    }
+
+    if (seg.startsWith('\\(') && seg.endsWith('\\)')) {
+      const math = seg.slice(2, -2).trim()
+      const html = renderTeX(math, false)
+      return (
+        <span
+          key={key}
+          className="math-inline"
+          dangerouslySetInnerHTML={{ __html: html }}
+        />
+      )
+    }
+
+    if ((seg.startsWith('\\frac{') && seg.includes('}{')) || seg.startsWith('\\sqrt{')) {
+      const html = renderTeX(seg, false)
+      return (
+        <span
+          key={key}
+          className="math-inline"
+          dangerouslySetInnerHTML={{ __html: html }}
+        />
+      )
+    }
+
+    return renderMarkdownSegment(seg, key)
+  })
+}
+
+/**
  * MathText Component
  * Intelligently extracts mathematical expressions delimited by:
- * - $$ ... $$ (display math)
+ * - $$ ... $$ (display math, including multiline)
+ * - \[ ... \] (display math, including multiline)
  * - $ ... $ (inline math)
- * - \( ... \) or \[ ... \]
- * - Common fraction notations like \frac{a}{b}
+ * - \( ... \) (inline math)
+ * - Common fraction/radical notations like \frac{a}{b} and \sqrt{x}
  *
- * And preserves standard markdown formatting and line breaks.
+ * Robustly normalizes over-escaping from LLM JSON responses and preserves markdown line breaks.
  */
 export const MathText = memo(function MathText({ content, className = '', inline = false }: MathTextProps) {
   if (!content) return null
 
-  // Split lines first to preserve line breaks
-  const lines = content.split('\n')
+  // 1. Normalize over-escaping and HTML entities
+  const normalized = normalizeContent(content)
+
+  // 2. Extract block math ($$ ... $$ and \[ ... \]) first so multiline formulas are preserved
+  const blockRegex = /(\$\$[\s\S]+?\$\$|\\\[[\s\S]+?\\\])/g
+  const blockSegments = normalized.split(blockRegex)
 
   return (
     <span className={`math-text-container ${className}`}>
-      {lines.map((line, lineIdx) => {
-        // Match $$...$$, $...$, \[...\], \(...\), bare \frac{a}{b}, and bare \sqrt{x}
-        const regex = /(\$\$[\s\S]+?\$\$|\$[^$\n]+?\$|\\\[[\s\S]+?\\\]|\\\([^\n]+?\\\)|\\[f]rac\{[^{}]+\}\{[^{}]+\}|\\[s]qrt\{[^{}]+\})/g
-        const segments = line.split(regex)
+      {blockSegments.map((blockSeg, bIdx) => {
+        const blockKey = `block-${bIdx}`
 
-        const renderedLine = segments.map((seg, segIdx) => {
-          const key = `line-${lineIdx}-seg-${segIdx}`
+        // Display Math: $$ ... $$
+        if (blockSeg.startsWith('$$') && blockSeg.endsWith('$$')) {
+          const math = blockSeg.slice(2, -2).trim()
+          const html = renderTeX(math, true)
+          return (
+            <span
+              key={blockKey}
+              className="math-display-block"
+              style={{ display: 'block', margin: '0.5em 0', textAlign: 'center' }}
+              dangerouslySetInnerHTML={{ __html: html }}
+            />
+          )
+        }
 
-          if (seg.startsWith('$$') && seg.endsWith('$$')) {
-            const math = seg.slice(2, -2).trim()
-            const html = renderTeX(math, true)
-            return (
-              <span
-                key={key}
-                className="math-display-block"
-                style={{ display: 'block', margin: '0.4em 0', textAlign: 'center' }}
-                dangerouslySetInnerHTML={{ __html: html }}
-              />
-            )
-          }
+        // Display Math: \[ ... \]
+        if (blockSeg.startsWith('\\[') && blockSeg.endsWith('\\]')) {
+          const math = blockSeg.slice(2, -2).trim()
+          const html = renderTeX(math, true)
+          return (
+            <span
+              key={blockKey}
+              className="math-display-block"
+              style={{ display: 'block', margin: '0.5em 0', textAlign: 'center' }}
+              dangerouslySetInnerHTML={{ __html: html }}
+            />
+          )
+        }
 
-          if (seg.startsWith('\\[') && seg.endsWith('\\]')) {
-            const math = seg.slice(2, -2).trim()
-            const html = renderTeX(math, true)
-            return (
-              <span
-                key={key}
-                className="math-display-block"
-                style={{ display: 'block', margin: '0.4em 0', textAlign: 'center' }}
-                dangerouslySetInnerHTML={{ __html: html }}
-              />
-            )
-          }
-
-          if (seg.startsWith('$') && seg.endsWith('$') && seg.length > 2) {
-            const math = seg.slice(1, -1).trim()
-            const html = renderTeX(math, false)
-            return (
-              <span
-                key={key}
-                className="math-inline"
-                dangerouslySetInnerHTML={{ __html: html }}
-              />
-            )
-          }
-
-          if (seg.startsWith('\\(') && seg.endsWith('\\)')) {
-            const math = seg.slice(2, -2).trim()
-            const html = renderTeX(math, false)
-            return (
-              <span
-                key={key}
-                className="math-inline"
-                dangerouslySetInnerHTML={{ __html: html }}
-              />
-            )
-          }
-
-          if ((seg.startsWith('\\frac{') && seg.includes('}{')) || seg.startsWith('\\sqrt{')) {
-            const html = renderTeX(seg, false)
-            return (
-              <span
-                key={key}
-                className="math-inline"
-                dangerouslySetInnerHTML={{ __html: html }}
-              />
-            )
-          }
-
-          // Plain text with markdown formatting
-          return renderMarkdownSegment(seg, key)
-        })
-
+        // Non-block segment: split by line breaks to preserve formatting and handle inline math
+        const lines = blockSeg.split('\n')
         return (
-          <React.Fragment key={`line-${lineIdx}`}>
-            {renderedLine}
-            {!inline && lineIdx < lines.length - 1 && <br />}
+          <React.Fragment key={blockKey}>
+            {lines.map((line, lineIdx) => (
+              <React.Fragment key={`${blockKey}-l-${lineIdx}`}>
+                {renderInlineTextWithMath(line, `${blockKey}-l-${lineIdx}`)}
+                {!inline && lineIdx < lines.length - 1 && <br />}
+              </React.Fragment>
+            ))}
           </React.Fragment>
         )
       })}

@@ -10,7 +10,9 @@ from typing import Any, Tuple
 
 def parse_fraction_or_num(raw: str) -> Fraction | None:
     """Parse integer, decimal, mixed fraction, simple fraction, or currency amount into a Fraction object."""
-    s = raw.strip().replace(",", "").lstrip("$").rstrip("$").strip()
+    # Normalize LaTeX fractions e.g. \frac{3}{4} or \\frac{3}{4} -> 3/4
+    cleaned_raw = re.sub(r"\\*frac\{(-?\d+)\}\{(\d+)\}", r"\1/\2", raw.strip())
+    s = cleaned_raw.replace(",", "").lstrip("$").rstrip("$").strip()
     # Mixed fraction e.g. "1 1/2" or "2 3/4"
     m_mixed = re.match(r"^(\d+)\s+(\d+)/(\d+)$", s)
     if m_mixed:
@@ -108,6 +110,11 @@ def extract_student_candidate(message: str) -> list[Tuple[str, str]]:
     text = message.strip()
     if not text:
         return []
+
+    # Normalize LaTeX fraction formatting e.g. \frac{3}{4} or \\frac{3}{4} -> 3/4
+    text = re.sub(r"\\*frac\{(-?\d+)\}\{(\d+)\}", r"\1/\2", text)
+    # Normalize LaTeX delimiters e.g. \( 4 \) -> 4
+    text = re.sub(r"\\+([()\[\]{}])", r"\1", text)
 
     # 1. Disjunctive alternative questions (e.g. "Is the answer 12 or 15?", "is it 3/4 or 5/8?")
     # These represent undecided student inquiries rather than definite answer commitments.

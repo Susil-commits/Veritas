@@ -1223,6 +1223,7 @@ export default function TutorSession() {
             skills={masterySkills}
             activeSkillId={currentProblem?.skill_id}
             showDecayControls={false}
+            compact={true}
           />
         ) : (
           <MasteryRadar skills={masterySkills} />

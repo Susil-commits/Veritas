@@ -93,21 +93,31 @@ export function cleanTextForSpeech(raw: string): string {
   if (!raw) return ''
   let text = raw
 
-  // Fractions: \frac{a}{b} -> a over b
-  text = text.replace(/\\frac\{([^}]+)\}\{([^}]+)\}/g, '$1 over $2')
+  // 0. Normalize overescaping and HTML entities first
+  text = text.replace(/\\{2,}([a-zA-Z()[\]{}])/g, '\\$1')
+  text = text.replace(/\\"/g, '"').replace(/\\'/g, "'")
+  text = text.replace(/&amp;/g, ' and ').replace(/&lt;/g, ' less than ').replace(/&gt;/g, ' greater than ')
 
-  // LaTeX math blocks and inline math delimiters $...$ or $$...$$
+  // Fractions: \frac{a}{b} -> a over b
+  text = text.replace(/\\*frac\{([^}]+)\}\{([^}]+)\}/g, '$1 over $2')
+
+  // LaTeX math blocks and inline math delimiters $...$ or $$...$$, \(...\), \[...\]
   text = text.replace(/\$\$([\s\S]*?)\$\$/g, '$1')
   text = text.replace(/\$([^$]+)\$/g, '$1')
+  text = text.replace(/\\\[([\s\S]*?)\\\]/g, '$1')
+  text = text.replace(/\\\(([\s\S]*?)\\\)/g, '$1')
+
+  // Strip stray parentheses or brackets from LaTeX delimiters
+  text = text.replace(/\\+[()\[\]]/g, ' ')
 
   // Common math symbols
-  text = text.replace(/\\cdot|\\times/g, ' times ')
-  text = text.replace(/\\div/g, ' divided by ')
-  text = text.replace(/\\leq/g, ' is less than or equal to ')
-  text = text.replace(/\\geq/g, ' is greater than or equal to ')
-  text = text.replace(/\\neq/g, ' is not equal to ')
-  text = text.replace(/\\pm/g, ' plus or minus ')
-  text = text.replace(/\\sqrt\{([^}]+)\}/g, 'square root of $1')
+  text = text.replace(/\\*(?:cdot|times)/g, ' times ')
+  text = text.replace(/\\*div/g, ' divided by ')
+  text = text.replace(/\\*leq?/g, ' is less than or equal to ')
+  text = text.replace(/\\*geq?/g, ' is greater than or equal to ')
+  text = text.replace(/\\*neq/g, ' is not equal to ')
+  text = text.replace(/\\*pm/g, ' plus or minus ')
+  text = text.replace(/\\*sqrt\{([^}]+)\}/g, 'square root of $1')
 
   // Exponents, percentages, and degrees
   text = text.replace(/([a-zA-Z0-9]+)\^2\b/g, '$1 squared')
@@ -118,7 +128,7 @@ export function cleanTextForSpeech(raw: string): string {
   text = text.replace(/(\d+)\s*\*\s*(\d+)/g, '$1 times $2')
 
   // Strip other LaTeX commands: \text{abc} -> abc, \pi -> pi
-  text = text.replace(/\\text\{([^}]+)\}/g, '$1')
+  text = text.replace(/\\*text\{([^}]+)\}/g, '$1')
   text = text.replace(/\\[a-zA-Z]+/g, ' ')
 
   // Strip markdown formatting: bold **text**, italics *text* or _text_
