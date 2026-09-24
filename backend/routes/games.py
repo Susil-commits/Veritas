@@ -22,7 +22,7 @@ GAMES_DATA_DIR.mkdir(parents=True, exist_ok=True)
 GAMES_STORE_PATH = GAMES_DATA_DIR / "games_store.json"
 _games_store_lock = threading.RLock()
 
-GAME_LEVELS_CONFIG = [
+GAME_LEVELS_CONFIG: list[dict[str, Any]] = [
     {
         "id": "multiplier_matrix",
         "level": 1,
@@ -250,9 +250,9 @@ async def _get_student_game_progress(student_id: str) -> dict[str, Any]:
     previous_unlocked = True
 
     for item in GAME_LEVELS_CONFIG:
-        gid = item["id"]
-        req_skill = item["skill_required"]
-        alt_skill = item.get("alt_skill_required")
+        gid = str(item["id"])
+        req_skill = str(item["skill_required"])
+        alt_skill = str(item["alt_skill_required"]) if item.get("alt_skill_required") else None
 
         raw_req = mastery_map.get(req_skill)
         raw_alt = mastery_map.get(alt_skill) if alt_skill else None

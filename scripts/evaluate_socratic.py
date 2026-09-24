@@ -103,7 +103,7 @@ def run_socratic_benchmark() -> dict:
         tutor_reply = str(item.get("reply", ""))
         expected_ans = str(item["expected_answer"]) if item.get("expected_answer") is not None else None
         raw_steps = item.get("expected_steps")
-        expected_steps: list[str] | None = [str(s) for s in raw_steps] if isinstance(raw_steps, list) else None
+        expected_steps: list[str] | None = list(raw_steps) if isinstance(raw_steps, list) else None
         misconception = str(item["misconception"]) if item.get("misconception") is not None else None
 
         eval_res = verify_pedagogical_response(
