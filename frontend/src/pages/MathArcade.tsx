@@ -473,6 +473,7 @@ export default function MathArcade() {
   const [floatingXP, setFloatingXP] = useState<{ id: number; text: string } | null>(null)
   const floatingIdRef = useRef(0)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const isHandlingGameOverRef = useRef(false)
 
   // Reset Score Modal State
   const [showResetModal, setShowResetModal] = useState(false)
@@ -527,6 +528,7 @@ export default function MathArcade() {
 
   const startGame = (game: GameLevel, mode: GameMode = selectedMode) => {
     if (!game.is_unlocked) return
+    isHandlingGameOverRef.current = false
     setSelectedMode(mode)
     setActiveGameId(game.id)
     setGameScore(0)
@@ -543,12 +545,15 @@ export default function MathArcade() {
 
   const exitActiveGame = () => {
     if (timerRef.current) clearInterval(timerRef.current)
+    isHandlingGameOverRef.current = false
     setActiveGameId(null)
     setGameOver(false)
     loadProgress()
   }
 
   const handleGameOver = useCallback(async () => {
+    if (isHandlingGameOverRef.current) return
+    isHandlingGameOverRef.current = true
     setGameOver(true)
     if (timerRef.current) clearInterval(timerRef.current)
     if (!activeGameId) return
@@ -616,7 +621,7 @@ export default function MathArcade() {
     }
   }, [activeGameId, gameOver, selectedMode, gameTimeLeft, handleGameOver])
 
-  const handleOptionSelect = (selected: number | string) => {
+  const handleOptionSelect = useCallback((selected: number | string) => {
     if (!currentQuestion || gameOver || questionFeedback) return
 
     // Normalize comparison for number or string matches
@@ -659,7 +664,33 @@ export default function MathArcade() {
         if (activeGameId) nextQuestionForGame(activeGameId)
       }, 500)
     }
-  }
+  }, [currentQuestion, gameOver, questionFeedback, gameStreak, activeGameId, nextQuestionForGame])
+
+  // Global Keyboard Shortcuts (Keys 1-4 for answers, Escape to exit)
+  useEffect(() => {
+    if (!activeGameId || gameOver || !currentQuestion || questionFeedback) return
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        exitActiveGame()
+        return
+      }
+
+      const keyMap: Record<string, number> = {
+        '1': 0, '2': 1, '3': 2, '4': 3,
+        'Numpad1': 0, 'Numpad2': 1, 'Numpad3': 2, 'Numpad4': 3,
+      }
+
+      const optionIndex = keyMap[e.key] !== undefined ? keyMap[e.key] : keyMap[e.code]
+      if (optionIndex !== undefined && currentQuestion.options[optionIndex] !== undefined) {
+        e.preventDefault()
+        handleOptionSelect(currentQuestion.options[optionIndex])
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [activeGameId, gameOver, currentQuestion, questionFeedback, handleOptionSelect])
 
   const handleConfirmReset = async () => {
     try {
@@ -687,10 +718,18 @@ export default function MathArcade() {
           <button
             type="button"
             className="arcade-back-btn"
-            onClick={() => navigate('/student-session')}
-            title="Return to Socratic practice workspace"
+            onClick={() => navigate('/')}
+            title="Return to Home Landing Page"
           >
-            ← Back to Practice
+            ← Home
+          </button>
+          <button
+            type="button"
+            className="arcade-back-btn practice-link"
+            onClick={() => navigate('/session')}
+            title="Go to Socratic Practice Workspace"
+          >
+            ✏️ Practice
           </button>
           <div className="arcade-brand">
             <span className="arcade-brand-icon">🎮</span>
@@ -959,7 +998,7 @@ export default function MathArcade() {
                             <button
                               type="button"
                               className="btn-practice-unlock"
-                              onClick={() => navigate('/student-session')}
+                              onClick={() => navigate('/session')}
                               title="Go to tutoring session to solve problems and unlock this game!"
                             >
                               Practice to Unlock ✏️
@@ -1075,6 +1114,7 @@ export default function MathArcade() {
                     onClick={() => handleOptionSelect(opt)}
                     disabled={Boolean(questionFeedback)}
                   >
+                    <span className="bubble-key-hint">{i + 1}</span>
                     <span className="bubble-val">
                       <MathText content={String(opt)} inline />
                     </span>

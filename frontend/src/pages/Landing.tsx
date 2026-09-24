@@ -43,6 +43,11 @@ const FEATURES = [
     desc: 'Watches how you grow across every math topic so you always practice problems that are just the right challenge.',
     tag: 'Adaptive Mastery',
   },
+  {
+    title: '7-Tier Math Arcade',
+    desc: 'Master Common Core topics to unlock fast-paced speed blitz games. Earn stars, build combos, and conquer mental math challenges.',
+    tag: 'Speed Challenges',
+  },
 ]
 
 const MATH_TOPICS = [
@@ -831,6 +836,17 @@ export default function Landing() {
             >
               Math Topics
             </a>
+            <a
+              href="/arcade"
+              className="nav-link nav-link-arcade"
+              onClick={(e) => {
+                e.preventDefault()
+                navigate('/arcade')
+              }}
+              title="Play Veritas Math Arcade speed challenges"
+            >
+              🎮 Math Arcade
+            </a>
           </nav>
 
           <div className="navbar-actions">
@@ -850,6 +866,14 @@ export default function Landing() {
             <ThemeToggle />
             {user && (
               <div className="navbar-user-group">
+                <button
+                  type="button"
+                  className="btn btn-sm btn-arcade-nav"
+                  onClick={() => navigate('/arcade')}
+                  title="Play Math Arcade games"
+                >
+                  🎮 Arcade
+                </button>
                 <button
                   type="button"
                   className="btn btn-sm btn-violet"
@@ -942,15 +966,25 @@ export default function Landing() {
                       </div>
                     </div>
                 <div className="logged-in-actions">
-                <button
-                  type="button"
-                  className="btn btn-violet btn-lg logged-in-primary-cta"
-                  onClick={handleEnterSession}
-                  title="Move to your learning space"
-                >
-                  {role === 'parent' ? 'Enter Parent Dashboard →' : 'Enter Learning Space →'}
-                </button>
-                <div className="logged-in-sub-actions">
+                  <div className="logged-in-cta-row">
+                    <button
+                      type="button"
+                      className="btn btn-violet btn-lg logged-in-primary-cta"
+                      onClick={handleEnterSession}
+                      title="Move to your learning space"
+                    >
+                      {role === 'parent' ? 'Enter Parent Dashboard →' : 'Enter Learning Space →'}
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-lg logged-in-arcade-cta"
+                      onClick={() => navigate('/arcade')}
+                      title="Jump straight into 7-tier Math Arcade games, speed challenges, and stars"
+                    >
+                      🎮 Launch Math Arcade →
+                    </button>
+                  </div>
+                  <div className="logged-in-sub-actions">
                   <button
                     type="button"
                     className="btn btn-ghost btn-sm"

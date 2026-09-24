@@ -54,6 +54,18 @@
   transform: translateX(-2px);
 }
 
+.arcade-back-btn.practice-link {
+  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(16, 185, 129, 0.35);
+  color: #34D399;
+}
+
+.arcade-back-btn.practice-link:hover {
+  background: rgba(16, 185, 129, 0.24);
+  border-color: #10B981;
+  color: #6EE7B7;
+}
+
 .arcade-brand {
   display: flex;
   align-items: center;
@@ -799,6 +811,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  position: relative;
   cursor: pointer;
   box-shadow: 0 8px 25px rgba(0, 0, 0, 0.35);
   transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
@@ -813,6 +826,29 @@
 
 .plasma-bubble-btn:active:not(:disabled) {
   transform: scale(0.97);
+}
+
+.bubble-key-hint {
+  position: absolute;
+  top: 9px;
+  left: 12px;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 4px;
+  padding: 2px 6px;
+  pointer-events: none;
+  line-height: 1;
+  transition: all 0.2s ease;
+}
+
+.plasma-bubble-btn:hover:not(:disabled) .bubble-key-hint {
+  color: #FFFFFF;
+  border-color: var(--violet-light);
+  background: rgba(124, 93, 250, 0.3);
 }
 
 .bubble-val {
@@ -1529,6 +1565,17 @@
   border-color: #5B21B6;
 }
 
+[data-theme="light"] .arcade-back-btn.practice-link {
+  color: #047857;
+  background: rgba(16, 185, 129, 0.10);
+  border-color: rgba(16, 185, 129, 0.3);
+}
+[data-theme="light"] .arcade-back-btn.practice-link:hover {
+  background: rgba(16, 185, 129, 0.18);
+  border-color: #059669;
+  color: #065F46;
+}
+
 [data-theme="light"] .arcade-stat-pill {
   background: #FFFFFF;
   border-color: rgba(0, 0, 0, 0.08);
@@ -1655,6 +1702,16 @@
   background: #F5F3FF;
   border-color: #6B4EE6;
   box-shadow: 0 8px 24px rgba(107, 78, 230, 0.18);
+}
+[data-theme="light"] .bubble-key-hint {
+  color: #64748B;
+  background: rgba(0, 0, 0, 0.05);
+  border-color: rgba(0, 0, 0, 0.12);
+}
+[data-theme="light"] .plasma-bubble-btn:hover:not(:disabled) .bubble-key-hint {
+  color: #5B21B6;
+  border-color: #6B4EE6;
+  background: rgba(107, 78, 230, 0.14);
 }
 [data-theme="light"] .bubble-val {
   color: #1E1B4B;

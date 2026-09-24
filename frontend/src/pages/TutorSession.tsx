@@ -627,26 +627,6 @@ export default function TutorSession() {
             <button
               type="button"
               className="btn btn-ghost"
-              style={{
-                padding: '5px 8px',
-                fontSize: '0.74rem',
-                background: 'rgba(124, 93, 250, 0.15)',
-                border: '1px solid rgba(124, 93, 250, 0.35)',
-                color: 'var(--violet-light, #A78BFA)',
-                fontWeight: 700,
-              }}
-              disabled={isStreaming}
-              onClick={() => {
-                stop()
-                navigate('/arcade')
-              }}
-              title="Open Math Arcade games"
-            >
-              🎮 Arcade
-            </button>
-            <button
-              type="button"
-              className="btn btn-ghost"
               style={{ padding: '5px 8px', fontSize: '0.74rem', color: '#F87171' }}
               disabled={isStreaming}
               onClick={() => setShowResetModal(true)}
@@ -814,26 +794,6 @@ export default function TutorSession() {
               title="Return to Home Landing Page"
             >
               ← Home
-            </button>
-            <button
-              type="button"
-              className="btn btn-ghost"
-              style={{
-                padding: '5px 10px',
-                fontSize: '0.78rem',
-                background: 'rgba(124, 93, 250, 0.15)',
-                border: '1px solid rgba(124, 93, 250, 0.35)',
-                color: 'var(--violet-light, #A78BFA)',
-                fontWeight: 700,
-              }}
-              disabled={isStreaming}
-              onClick={() => {
-                stop()
-                navigate('/arcade')
-              }}
-              title="Open Math Arcade games"
-            >
-              🎮 Math Arcade
             </button>
             <button
               type="button"
