@@ -2704,3 +2704,12 @@
   border-top-color: rgba(0, 0, 0, 0.08);
 }
 
+[data-theme="light"] .agent-feature {
+  background: #F8FAFC;
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .agent-feature span {
+  color: #B45309;
+}
+

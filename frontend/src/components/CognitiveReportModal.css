@@ -220,6 +220,19 @@
   color: #38BDF8;
 }
 
+.report-kpi-pill-val--success {
+  color: #10B981;
+}
+
+.report-kpi-pill-val--warning {
+  color: #F59E0B;
+}
+
+.report-kpi-pill-val--indigo {
+  color: #818CF8;
+}
+
+
 .report-kpi-pill-lbl {
   font-size: 0.72rem;
   color: var(--text-muted);
@@ -612,6 +625,16 @@
 [data-theme="light"] .report-kpi-pill-val {
   color: #4338CA;
 }
+[data-theme="light"] .report-kpi-pill-val--success {
+  color: #059669;
+}
+[data-theme="light"] .report-kpi-pill-val--warning {
+  color: #B45309;
+}
+[data-theme="light"] .report-kpi-pill-val--indigo {
+  color: #4F46E5;
+}
+
 
 [data-theme="light"] .report-section-title {
   color: #0F172A;

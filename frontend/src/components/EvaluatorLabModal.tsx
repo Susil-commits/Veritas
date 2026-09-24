@@ -364,7 +364,7 @@ export const EvaluatorLabModal: React.FC<EvaluatorLabModalProps> = ({
                     >
                       <div className="eval-candidate-meta">
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#A78BFA' }}>
+                          <span className="eval-candidate-code">
                             {problem.code}
                           </span>
                           <h6 className="eval-candidate-title">{problem.title}</h6>
@@ -385,9 +385,9 @@ export const EvaluatorLabModal: React.FC<EvaluatorLabModalProps> = ({
                         {isMatched ? (
                           <span className="eval-match-tag">🎯 OPTIMAL ZPD MATCH</span>
                         ) : problem.difficulty > studentMastery + 0.3 ? (
-                          <span style={{ fontSize: '0.72rem', color: '#F87171' }}>Too Advanced</span>
+                          <span className="eval-candidate-diff-adv">Too Advanced</span>
                         ) : (
-                          <span style={{ fontSize: '0.72rem', color: '#94A3B8' }}>Mastered (Review)</span>
+                          <span className="eval-candidate-diff-rev">Mastered (Review)</span>
                         )}
                       </div>
                     </div>

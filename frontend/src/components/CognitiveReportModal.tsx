@@ -304,19 +304,19 @@ export const CognitiveReportModal: React.FC<CognitiveReportModalProps> = ({
                 <div className="report-kpi-pill-lbl">Curriculum Mastery</div>
               </div>
               <div className="report-kpi-pill">
-                <div className="report-kpi-pill-val" style={{ color: '#10B981' }}>
+                <div className="report-kpi-pill-val report-kpi-pill-val--success">
                   {proficientCount} / {totalSkills}
                 </div>
                 <div className="report-kpi-pill-lbl">Proficient Skills</div>
               </div>
               <div className="report-kpi-pill">
-                <div className="report-kpi-pill-val" style={{ color: '#F59E0B' }}>
+                <div className="report-kpi-pill-val report-kpi-pill-val--warning">
                   {activitySummary?.accuracy_percent ?? 78}%
                 </div>
                 <div className="report-kpi-pill-lbl">Live Accuracy</div>
               </div>
               <div className="report-kpi-pill">
-                <div className="report-kpi-pill-val" style={{ color: '#818CF8' }}>
+                <div className="report-kpi-pill-val report-kpi-pill-val--indigo">
                   {activitySummary?.total_time_spent_minutes ?? 45}m
                 </div>
                 <div className="report-kpi-pill-lbl">Practice Time</div>

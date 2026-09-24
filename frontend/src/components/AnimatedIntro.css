@@ -373,3 +373,53 @@
     display: none;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   LIGHT MODE — Animated Intro Overrides
+   ═══════════════════════════════════════════════════════════════════ */
+[data-theme="light"] .intro-portal {
+  background: radial-gradient(circle at 50% 45%, #FFFFFF 0%, #F5F4F0 70%, #E8E5DF 100%);
+}
+
+[data-theme="light"] .intro-math-glyph {
+  color: rgba(107, 78, 230, 0.15);
+  text-shadow: none;
+}
+
+[data-theme="light"] .ring-outer {
+  border-color: rgba(107, 78, 230, 0.25);
+}
+[data-theme="light"] .ring-middle {
+  border-color: rgba(232, 146, 10, 0.25);
+}
+[data-theme="light"] .ring-inner {
+  border-color: rgba(107, 78, 230, 0.35);
+  box-shadow: 0 0 24px rgba(107, 78, 230, 0.15);
+}
+
+[data-theme="light"] .intro-badge {
+  color: #5B21B6;
+  background: rgba(107, 78, 230, 0.10);
+  border-color: rgba(107, 78, 230, 0.25);
+}
+
+[data-theme="light"] .intro-title {
+  color: #0F172A;
+}
+
+[data-theme="light"] .intro-gradient-text {
+  background: linear-gradient(135deg, #6B4EE6 0%, #D97706 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+[data-theme="light"] .intro-subtitle {
+  color: #475569;
+}
+
+[data-theme="light"] .intro-key-hint kbd {
+  background: #F1F5F9;
+  border-color: #CBD5E1;
+  color: #334155;
+}

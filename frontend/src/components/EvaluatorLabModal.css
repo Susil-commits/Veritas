@@ -447,6 +447,22 @@
   color: #FFFFFF;
 }
 
+.eval-candidate-code {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #A78BFA;
+}
+
+.eval-candidate-diff-adv {
+  font-size: 0.72rem;
+  color: #F87171;
+}
+
+.eval-candidate-diff-rev {
+  font-size: 0.72rem;
+  color: #94A3B8;
+}
+
 /* Light Mode Overrides */
 [data-theme="light"] .eval-modal-container {
   background: #FFFFFF;
@@ -530,6 +546,20 @@
 
 [data-theme="light"] .eval-candidate-title {
   color: #0F172A;
+}
+
+[data-theme="light"] .eval-candidate-code {
+  color: #6D28D9;
+}
+
+[data-theme="light"] .eval-candidate-diff-adv {
+  color: #DC2626;
+  font-weight: 600;
+}
+
+[data-theme="light"] .eval-candidate-diff-rev {
+  color: #475569;
+  font-weight: 500;
 }
 
 [data-theme="light"] .eval-preset-pill {

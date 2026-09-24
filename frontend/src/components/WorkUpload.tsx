@@ -411,7 +411,7 @@ async function compressImageFile(f: File, maxDimension = 1600, quality = 0.85): 
       />
 
       {uploadError && (
-        <div style={{ color: '#FCA5A5', fontSize: '0.8rem', padding: '8px 12px', background: 'rgba(239, 68, 68, 0.12)', borderRadius: '8px', border: '1px solid rgba(239, 68, 68, 0.3)', margin: '8px 0' }}>
+        <div className="upload-error-banner" role="alert">
           ⚠️ {uploadError}
         </div>
       )}
