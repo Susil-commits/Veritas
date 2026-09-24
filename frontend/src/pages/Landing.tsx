@@ -874,31 +874,6 @@ export default function Landing() {
           An encouraging math tutor that spots where you get stuck — asking helpful questions so you learn the concepts and solve problems on your own.
         </p>
 
-        {/* Evaluator Showcase Lab Banner */}
-        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1.25rem' }}>
-          <button
-            type="button"
-            className="btn btn-outline-violet"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '8px',
-              padding: '8px 18px',
-              borderRadius: '24px',
-              background: 'rgba(124, 93, 250, 0.12)',
-              border: '1px solid rgba(124, 93, 250, 0.35)',
-              color: '#FFFFFF',
-              fontWeight: 700,
-              fontSize: '0.88rem',
-              cursor: 'pointer',
-              boxShadow: '0 4px 15px rgba(124, 93, 250, 0.2)',
-              transition: 'all 0.2s ease',
-            }}
-            onClick={() => setShowEvaluatorModal(true)}
-          >
-            <span>⚡</span> <strong>Interactive AI &amp; Learning Showcase Lab:</strong> Socratic Guardrails, Visual Problem Solving &amp; Adaptive Skill Tracing →
-          </button>
-        </div>
 
         {/* Server Connection Status - shows connecting, then 'Connected to learning space', then smoothly disappears */}
         {connVisible && (
