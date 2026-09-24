@@ -419,40 +419,69 @@ async def get_parent_children(
         sessions_available = True
         mastery_available = True
         events_available = True
-        try:
-            sess_res = await db_exec(
-                supabase.table("sessions")
-                .select("started_at")
-                .eq("student_id", student_id)
-                .order("started_at", desc=True)
-                .limit(1)
-            )
-            if sess_res.data:
-                latest_session_time = sess_res.data[0].get("started_at")
 
-            count_res = await db_exec(
-                supabase.table("sessions")
-                .select("id", count=CountMethod.exact)
-                .eq("student_id", student_id)
-            )
-            session_count = count_res.count or len(count_res.data or [])
-        except Exception:
+        # Fetch sessions, count, mastery, events, and misconceptions concurrently
+        sess_future = db_exec(
+            supabase.table("sessions")
+            .select("started_at")
+            .eq("student_id", student_id)
+            .order("started_at", desc=True)
+            .limit(1)
+        )
+        count_future = db_exec(
+            supabase.table("sessions")
+            .select("id", count=CountMethod.exact)
+            .eq("student_id", student_id)
+        )
+        mastery_future = db_exec(
+            supabase.table("student_skill_mastery")
+            .select("skill_id, mastery_prob")
+            .eq("student_id", student_id)
+        )
+        events_future = db_exec(
+            supabase.table("session_events")
+            .select("is_correct, created_at, problem_id")
+            .eq("student_id", student_id)
+            .order("created_at", desc=True)
+            .limit(6)
+        )
+        misc_future = asyncio.to_thread(get_student_misconceptions, student_id)
+
+        (
+            sess_res,
+            count_res,
+            m_res,
+            recent_res,
+            active_misc_res,
+        ) = await asyncio.gather(
+            sess_future,
+            count_future,
+            mastery_future,
+            events_future,
+            misc_future,
+            return_exceptions=True,
+        )
+
+        # 1. Process latest session & count
+        if isinstance(sess_res, Exception) or not hasattr(sess_res, "data"):
             sessions_available = False
+        elif sess_res.data:
+            latest_session_time = sess_res.data[0].get("started_at")
 
-        # Check skill mastery & activity
+        if isinstance(count_res, Exception) or not hasattr(count_res, "data"):
+            sessions_available = False
+        else:
+            session_count = count_res.count or len(count_res.data or [])
+
+        # 2. Process skill mastery
         all_mastery_map: dict[str, float] = {}
-        try:
-            m_res = await db_exec(
-                supabase.table("student_skill_mastery")
-                .select("skill_id, mastery_prob")
-                .eq("student_id", student_id)
-            )
-            if m_res.data:
-                for r in m_res.data:
-                    all_mastery_map[r["skill_id"]] = float(r["mastery_prob"])
-        except Exception:
+        if isinstance(m_res, Exception) or not hasattr(m_res, "data"):
             mastery_available = False
+        elif m_res.data:
+            for r in m_res.data:
+                all_mastery_map[r["skill_id"]] = float(r["mastery_prob"])
 
+        # 3. Process recency
         days_since = 0
         if latest_session_time:
             try:
@@ -464,21 +493,15 @@ async def get_parent_children(
             except Exception:
                 sessions_available = False
 
-        # Load longitudinal student misconceptions
-        active_misc = await asyncio.to_thread(get_student_misconceptions, student_id)
+        # 4. Process misconceptions
+        active_misc = active_misc_res if not isinstance(active_misc_res, Exception) and isinstance(active_misc_res, dict) else {}
 
+        # 5. Process recent events
         recent_events: list[dict] = []
-        try:
-            recent_res = await db_exec(
-                supabase.table("session_events")
-                .select("is_correct, created_at, problem_id")
-                .eq("student_id", student_id)
-                .order("created_at", desc=True)
-                .limit(6)
-            )
-            recent_events = recent_res.data or []
-        except Exception:
+        if isinstance(recent_res, Exception) or not hasattr(recent_res, "data"):
             events_available = False
+        else:
+            recent_events = recent_res.data or []
 
         # Generate learner-aware alerts across all CCSS skills
         if sessions_available and mastery_available and events_available:

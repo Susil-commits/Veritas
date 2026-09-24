@@ -55,14 +55,14 @@ export const SocraticVoiceCompanion: React.FC<SocraticVoiceCompanionProps> = ({
 
   // When tutor finishes speaking and autoListen is on, automatically engage microphone
   useEffect(() => {
-    if (!isOpen || !autoListen) return;
+    if (!isOpen || !autoListen || !isSupported) return;
     if (!isSpeaking && !isStreaming && !isListening) {
       const timer = setTimeout(() => {
         startListening();
       }, 400);
       return () => clearTimeout(timer);
     }
-  }, [isOpen, isSpeaking, isStreaming, isListening, autoListen, startListening]);
+  }, [isOpen, isSpeaking, isStreaming, isListening, autoListen, isSupported, startListening]);
 
   // Handle safe exit
   const handleExit = useCallback(() => {
@@ -73,6 +73,7 @@ export const SocraticVoiceCompanion: React.FC<SocraticVoiceCompanionProps> = ({
 
   // Handle manual mic toggle
   const toggleListening = () => {
+    if (!isSupported) return;
     if (isListening) {
       stopListening();
       setAutoListen(false);

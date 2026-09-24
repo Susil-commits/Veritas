@@ -4,7 +4,7 @@ import Landing from './pages/Landing'
 import ShiningDots from './components/ShiningDots'
 import NeoChat from './components/NeoChat'
 import ProtectedRoute from './components/ProtectedRoute'
-import { AuthProvider } from './context/AuthContext'
+import { AuthProvider, useAuth } from './context/AuthContext'
 import { ThemeProvider } from './context/ThemeContext'
 import { isLocalhostInProduction } from './lib/api'
 import './index.css'
@@ -93,6 +93,24 @@ function PageFallback() {
   )
 }
 
+function DashboardRedirect() {
+  const { user } = useAuth()
+  let studentId = user?.id
+  if (!studentId) {
+    try {
+      const raw = sessionStorage.getItem('session')
+      if (raw) {
+        const parsed = JSON.parse(raw)
+        if (parsed.student_id) studentId = parsed.student_id
+      }
+    } catch {}
+  }
+  if (!studentId) {
+    studentId = '24e836e3-3b42-41a0-8a27-222f883eaa10'
+  }
+  return <Navigate to={`/dashboard/${studentId}`} replace />
+}
+
 export default function App() {
   return (
     <ThemeProvider>
@@ -142,6 +160,14 @@ export default function App() {
                 }
               />
               <Route path="/games" element={<Navigate to="/arcade" replace />} />
+              <Route
+                path="/dashboard"
+                element={
+                  <ProtectedRoute>
+                    <DashboardRedirect />
+                  </ProtectedRoute>
+                }
+              />
               <Route
                 path="/dashboard/:studentId"
                 element={
