@@ -17,7 +17,6 @@ import InteractivePipeline from '../components/InteractivePipeline'
 import ThemeToggle from '../components/ThemeToggle'
 import UserAvatar from '../components/UserAvatar'
 import AvatarModal from '../components/AvatarModal'
-import { EvaluatorLabModal } from '../components/EvaluatorLabModal'
 import './Landing.css'
 
 const STATS = [
@@ -192,7 +191,6 @@ export default function Landing() {
   const [fullName, setFullName] = useState('')
   const [roleMismatchNotice, setRoleMismatchNotice] = useState<string | null>(null)
   const [showAvatarModal, setShowAvatarModal] = useState(false)
-  const [showEvaluatorModal, setShowEvaluatorModal] = useState(false)
   const [isRegistrationAvatarStep, setIsRegistrationAvatarStep] = useState(false)
   const [copiedStudentId, setCopiedStudentId] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -911,19 +909,6 @@ export default function Landing() {
             </nav>
 
             <div className="navbar-actions">
-              {!user && (
-                <button
-                  type="button"
-                  className="btn btn-sm btn-outline-violet eval-lab-btn"
-                  style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700 }}
-                  onClick={() => setShowEvaluatorModal(true)}
-                  title="Open Reviewer & Evaluator Interactive Demo Lab"
-                >
-                  <span>⚡</span>
-                  <span className="eval-btn-text">Evaluator Lab</span>
-                  <span className="eval-btn-text-short">Lab</span>
-                </button>
-              )}
               <ThemeToggle />
 
               {/* Hamburger Button for Mobile */}
@@ -1002,22 +987,6 @@ export default function Landing() {
                 <span className="mobile-nav-icon">📚</span>
                 <span>Math Topics</span>
               </a>
-
-              {!user && (
-                <div className="mobile-menu-action">
-                  <button
-                    type="button"
-                    className="btn btn-sm btn-outline-violet mobile-eval-btn"
-                    onClick={() => {
-                      setMobileMenuOpen(false)
-                      setShowEvaluatorModal(true)
-                    }}
-                  >
-                    <span>⚡</span>
-                    <span>Open Evaluator Lab</span>
-                  </button>
-                </div>
-              )}
             </nav>
           </div>
         </div>
@@ -2000,14 +1969,6 @@ export default function Landing() {
         setShowAvatarModal(false)
       }}
     />
-
-    {/* Reviewer & Evaluator Interactive Demo Lab (Guest Mode Only) */}
-    {!user && (
-      <EvaluatorLabModal
-        isOpen={showEvaluatorModal}
-        onClose={() => setShowEvaluatorModal(false)}
-      />
-    )}
     </>
   )
 }

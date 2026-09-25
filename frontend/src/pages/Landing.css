@@ -307,23 +307,6 @@
     flex-shrink: 0;
   }
 
-  .mobile-menu-action {
-    margin-top: 0.5rem;
-    padding-top: 0.75rem;
-    border-top: 1px dashed rgba(255, 255, 255, 0.08);
-  }
-
-  .mobile-eval-btn {
-    width: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    padding: 0.65rem 1rem;
-    font-weight: 700;
-    border-radius: 10px;
-  }
-
   .landing {
     padding: 1rem 1rem 3rem;
     gap: 3.5rem;
@@ -341,22 +324,11 @@
     padding: 0.6rem 0.85rem;
   }
 
-  /* In very small screens, the Evaluator Lab button is cleanly accessible inside the hamburger menu */
-  .navbar-actions .eval-lab-btn {
-    display: none;
-  }
-
   .brand-name {
     font-size: 1.15rem;
   }
 
   .brand-tag {
-    display: none;
-  }
-}
-
-@media (min-width: 521px) {
-  .eval-btn-text-short {
     display: none;
   }
 }
@@ -2738,9 +2710,6 @@
   color: var(--violet);
 }
 
-[data-theme="light"] .mobile-menu-action {
-  border-top-color: rgba(0, 0, 0, 0.08);
-}
 
 [data-theme="light"] .brand-tag {
   background: rgba(107, 78, 230, 0.10);
