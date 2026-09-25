@@ -42,7 +42,7 @@
 
 .scratchpad-back-btn:hover {
   color: var(--text-primary, #FFFFFF);
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--bg-elevated);
   border-color: var(--border-accent, rgba(124, 93, 250, 0.4));
 }
 
@@ -87,7 +87,7 @@
   gap: 7px;
   font-size: 0.84rem;
   color: var(--text-secondary, #CBD5E1);
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--bg-elevated);
   padding: 4px 12px;
   border-radius: 20px;
   border: 1px solid var(--border, rgba(255, 255, 255, 0.08));
@@ -112,7 +112,7 @@
   align-items: center;
   gap: 8px;
   padding: 4px 10px 4px 6px;
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--bg-elevated);
   border-radius: 20px;
   border: 1px solid var(--border, rgba(255, 255, 255, 0.08));
 }
@@ -477,6 +477,14 @@
 [data-theme="light"] .scratchpad-topic-pill {
   background: #F1F5F9;
   border-color: #E2E8F0;
+  color: #334155;
+}
+
+[data-theme="light"] .scratchpad-user-pill {
+  background: #F1F5F9;
+  border-color: #E2E8F0;
+}
+[data-theme="light"] .scratchpad-user-pill .user-name {
   color: #334155;
 }
 

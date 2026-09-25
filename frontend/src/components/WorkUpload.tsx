@@ -219,33 +219,41 @@ async function compressImageFile(f: File, maxDimension = 1600, quality = 0.85): 
       <div className="upload-header">
         <h3 className="upload-title">Show Your Work</h3>
         {!preview && !cameraOpen && (
-          <div className="work-mode-tabs">
+          <div className="work-mode-tabs" role="tablist" aria-label="Work Submission Method">
             <button
               type="button"
+              role="tab"
+              aria-selected={false}
               className="mode-tab-btn"
               onClick={() => navigate('/scratchpad')}
               disabled={disabled || uploading}
               title="Open full-screen digital scratchpad workspace"
             >
-              <PenTool size={13} />
-              <span>Scratchpad ↗</span>
+              <PenTool size={12} className="tab-icon" />
+              <span>Scratchpad</span>
             </button>
             <button
               type="button"
+              role="tab"
+              aria-selected={mode === 'upload'}
               className={`mode-tab-btn ${mode === 'upload' ? 'active' : ''}`}
               onClick={() => setMode('upload')}
               disabled={disabled || uploading}
+              title="Upload photo of handwritten work"
             >
-              <Upload size={13} />
+              <Upload size={12} className="tab-icon" />
               <span>Upload</span>
             </button>
             <button
               type="button"
+              role="tab"
+              aria-selected={mode === 'camera'}
               className={`mode-tab-btn ${mode === 'camera' ? 'active' : ''}`}
               onClick={openCamera}
               disabled={disabled || uploading}
+              title="Capture handwritten work using camera"
             >
-              <Camera size={13} />
+              <Camera size={12} className="tab-icon" />
               <span>Camera</span>
             </button>
           </div>

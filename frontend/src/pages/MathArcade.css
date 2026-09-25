@@ -426,8 +426,8 @@
   font-size: 0.72rem;
   font-weight: 700;
   color: var(--text-muted);
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
   padding: 0.3rem 0.75rem;
   border-radius: 20px;
 }
@@ -579,8 +579,8 @@
 }
 
 .btn-practice-unlock {
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
   color: var(--text-secondary);
   padding: 0.65rem 1.25rem;
   border-radius: var(--radius-md);
@@ -591,9 +591,9 @@
 }
 
 .btn-practice-unlock:hover {
-  background: rgba(255, 255, 255, 0.12);
+  background: var(--bg-elevated);
   color: #fff;
-  border-color: rgba(255, 255, 255, 0.3);
+  border-color: rgba(124, 93, 250, 0.4);
 }
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -1028,14 +1028,15 @@
 }
 
 .modal-actions .btn-secondary {
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
   color: var(--text-secondary);
 }
 
 .modal-actions .btn-secondary:hover {
-  background: rgba(255, 255, 255, 0.12);
-  color: #fff;
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  border-color: rgba(124, 93, 250, 0.4);
 }
 
 /* ── Reset Scores Button & Mode Selectors ─────────────────────────── */

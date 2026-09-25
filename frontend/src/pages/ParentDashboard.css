@@ -967,8 +967,8 @@
 }
 
 .history-tab-btn {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
   border-radius: 10px;
   padding: 7px 14px;
   font-size: 0.82rem;
@@ -982,15 +982,16 @@
 }
 
 .history-tab-btn:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: #FFFFFF;
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  border-color: rgba(124, 93, 250, 0.35);
 }
 
 .history-tab-btn--active {
-  background: rgba(124, 93, 250, 0.18);
-  border-color: rgba(124, 93, 250, 0.45);
+  background: var(--violet);
+  border-color: var(--violet);
   color: #FFFFFF;
-  box-shadow: 0 0 12px rgba(124, 93, 250, 0.2);
+  box-shadow: 0 0 12px rgba(124, 93, 250, 0.3);
 }
 
 .history-tab-pane {
@@ -1008,19 +1009,20 @@
 }
 
 .session-detail-card {
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
   border-radius: 14px;
   padding: 1.15rem 1.35rem;
   display: flex;
   flex-direction: column;
   gap: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
   transition: background 0.2s ease, border-color 0.2s ease;
 }
 
 .session-detail-card:hover {
-  background: rgba(255, 255, 255, 0.04);
-  border-color: rgba(124, 93, 250, 0.3);
+  background: var(--bg-elevated);
+  border-color: rgba(124, 93, 250, 0.35);
 }
 
 .session-card-top {
@@ -1113,8 +1115,8 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  background: rgba(255, 255, 255, 0.015);
-  border: 1px solid rgba(255, 255, 255, 0.03);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
   padding: 8px 12px;
   border-radius: 10px;
 }
@@ -1182,19 +1184,21 @@
 }
 
 .arcade-game-card {
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
   border-radius: 14px;
   padding: 1.15rem 1.25rem;
   display: flex;
   flex-direction: column;
   gap: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
   transition: transform 0.2s ease, border-color 0.2s ease;
 }
 
 .arcade-game-card:hover {
-  transform: translateY(-2px);
+  background: var(--bg-elevated);
   border-color: rgba(124, 93, 250, 0.35);
+  transform: translateY(-2px);
 }
 
 .arcade-game-card--locked {
@@ -1345,8 +1349,8 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
   border-radius: 10px;
   padding: 0.75rem 1rem;
 }
@@ -1383,16 +1387,16 @@
   display: flex;
   align-items: flex-start;
   gap: 12px;
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
   border-radius: 12px;
   padding: 0.85rem 1rem;
   transition: background 0.2s ease, border-color 0.2s ease;
 }
 
 .event-history-item:hover {
-  background: rgba(255, 255, 255, 0.04);
-  border-color: rgba(255, 255, 255, 0.1);
+  background: var(--bg-elevated);
+  border-color: rgba(124, 93, 250, 0.35);
 }
 
 .event-status {
