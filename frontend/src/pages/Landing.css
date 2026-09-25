@@ -377,6 +377,12 @@
   gap: 1.25rem;
 }
 
+@media (min-width: 769px) {
+  .features > .feature-card:last-child:nth-child(3n + 1) {
+    grid-column: 2;
+  }
+}
+
 .feature-card {
   display: flex;
   flex-direction: column;
