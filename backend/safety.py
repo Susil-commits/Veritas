@@ -70,7 +70,11 @@ PROMPT_INJECTION_PATTERNS = [
     r"output the final answer in bold",
     r"print result:\s*final answer",
     r"just answer it, do not guide me",
-    r"\b(tell me|give me)\b.*?\bthe answer\b",
+    r"\b(tell me|give me)\s+(?:the\s+)?(?:final\s+|correct\s+|exact\s+|direct\s+)?(answer|solution)\b",
+    r"\b(?:what(?:'s|\s+is|\s+are)|what\s+was)\s+(?:the\s+)?(?:final\s+|correct\s+|exact\s+)?(?:answer|solution|result)\b",
+    r"\b(?:can\s+you\s+)?(?:solve\s+(?:it|this|the\s+problem)\s+for\s+me)\b",
+    r"\b(?:just\s+)?(?:do|finish)\s+(?:it|the\s+math|the\s+problem)\s+for\s+me\b",
+    r"\bi\s+don'?t\s+know,?\s*(?:just\s+)?(?:tell|give)\s+me\b",
     r"\bwhat is the answer to problem\b",
     r"\bwhat was the expected answer\b",
     r"\b(whisper the answer|basically the answer|answer in pig latin)\b",
@@ -206,12 +210,27 @@ def check_prompt_injection(text: str) -> Tuple[bool, Optional[str]]:
     """
     Scans student input for prompt injection, jailbreak attempts, or direct answer demands.
     Returns (is_violation, explanation).
+    Exempts legitimate Socratic requests (e.g. asking for hints 'without telling me the answer').
     """
     if not text:
         return False, None
 
+    # Socratic exemption: students explicitly asking for guidance without being told the answer
+    is_socratic_hint_request = bool(
+        re.search(
+            r"\b(without|don't|do not)\s+(?:tell(?:ing)?|giv(?:e|ing)|reveal(?:ing)?)\s+(?:me\s+)?(?:the\s+)?answer\b",
+            text,
+            re.IGNORECASE,
+        )
+    )
+
     for pattern in COMPILED_PROMPT_INJECTION_PATTERNS:
         if pattern.search(text):
+            if is_socratic_hint_request:
+                # If student explicitly asked for hints without the answer, only flag hard system prompt / jailbreak attacks
+                pat_str = pattern.pattern.lower()
+                if not any(k in pat_str for k in ["system", "developer", "unrestricted", "dan", "jailbreak", "ignore", "forget", "disregard"]):
+                    continue
             return True, f"Matched injection pattern: {pattern.pattern}"
 
     return False, None
@@ -260,10 +279,40 @@ def check_neo_domain_scope(text: str) -> Tuple[bool, Optional[str]]:
     return True, None
 
 
+def _extract_answer_candidates(expected_answer: Optional[str]) -> list[str]:
+    """
+    Extract normalized candidate strings from the expected answer
+    (handling currency symbols, LaTeX fractions, equations, and 'Answer:' prefixes).
+    """
+    if not expected_answer:
+        return []
+    raw = str(expected_answer).strip()
+    clean = re.sub(r"^(?:answer|solution):\s*", "", raw, flags=re.IGNORECASE).strip()
+    clean_no_latex = re.sub(r"\\frac\{([^}]+)\}\{([^}]+)\}", r"\1/\2", clean)
+    clean_no_latex = re.sub(r"[\$£€]", "", clean_no_latex).strip()
+    candidates: set[str] = {raw.lower(), clean.lower(), clean_no_latex.lower()}
+
+    # Algebraic equation check: "x = 5" -> also include "5"
+    eq_match = re.search(r"\b[a-zA-Z]\s*=\s*(.+)$", clean_no_latex)
+    if eq_match:
+        candidates.add(eq_match.group(1).strip().lower())
+
+    # Mixed fraction: "1 1/2" -> also include normalized spacing
+    mixed_match = re.search(r"\b(\d+)\s+(\d+/\d+)\b", clean_no_latex)
+    if mixed_match:
+        candidates.add(f"{mixed_match.group(1)} {mixed_match.group(2)}".lower())
+
+    return [c for c in candidates if c]
+
+
 def _normalize_for_leak_check(text: str) -> str:
-    """Normalize answer text for leak detection: strip LaTeX, punctuation, and whitespace."""
-    # Remove LaTeX delimiters and common math formatting
-    text = re.sub(r"[\$\\{}()\.\,\;\:\!\?\[\]]", " ", text)
+    """Normalize answer text for leak detection: strip LaTeX, currency, punctuation, and whitespace."""
+    if not text:
+        return ""
+    text = re.sub(r"^(?:answer|solution):\s*", "", text.strip(), flags=re.IGNORECASE)
+    text = re.sub(r"\\frac\{([^}]+)\}\{([^}]+)\}", r"\1/\2", text)
+    # Remove LaTeX delimiters, currency symbols, and common math punctuation
+    text = re.sub(r"[\$\\{}()\.\,\;\:\!\?\[\]£€]", " ", text)
     # Collapse whitespace
     text = re.sub(r"\s+", " ", text).strip().lower()
     return text
@@ -276,31 +325,49 @@ def is_answer_leaked(tutor_reply: str, expected_answer: Optional[str]) -> bool:
     Normalizes punctuation, whitespace, and LaTeX delimiters before comparison
     so equivalent answers expressed differently are still caught.
     """
-    if not expected_answer or len(expected_answer.strip()) < 1:
+    if not expected_answer or len(str(expected_answer).strip()) < 1:
         return False
 
-    clean_ans = expected_answer.strip().lower()
-    norm_ans = _normalize_for_leak_check(expected_answer)
+    candidates = _extract_answer_candidates(expected_answer)
+    if not candidates:
+        return False
+
     reply_lower = tutor_reply.lower()
     norm_reply = _normalize_for_leak_check(tutor_reply)
 
-    # Pattern 1: "the answer is X" or "the solution is X" (exact and normalized)
-    leak_patterns = [
-        rf"\b(the answer is|the correct answer is|the solution is)\s*[:=]?\s*{re.escape(clean_ans)}\b",
-        rf"\b{re.escape(clean_ans)}\s+is the (answer|correct answer|final result)\b",
-    ]
-    for p in leak_patterns:
-        if re.search(p, reply_lower):
+    for cand in candidates:
+        if not cand or len(cand) < 1:
+            continue
+        # Pattern 1A: Lead-in followed by candidate e.g. "The answer is 42"
+        leak_p1a = (
+            rf"(?:\b(?:the\s+)?(?:final\s+|correct\s+|exact\s+)?(?:answer|solution|result)\s+is|"
+            rf"\bequals\b|\bis\s+equal\s+to\b|"
+            rf"\bgives\s+(?:us\s+|an\s+answer\s+of\s+))\s*[:=]?\s*[\$£€]?\s*{re.escape(cand)}(?!\w)"
+        )
+        if re.search(leak_p1a, reply_lower):
             return True
 
-    # Pattern 2: Normalized comparison (catches LaTeX/punctuation variants)
-    if norm_ans and len(norm_ans) >= 1:
-        norm_leak_patterns = [
-            rf"(the answer is|the correct answer is|the solution is)\s*{re.escape(norm_ans)}",
-            rf"{re.escape(norm_ans)}\s+is the (answer|correct answer|final result)",
-        ]
-        for p in norm_leak_patterns:
-            if re.search(p, norm_reply):
+        # Pattern 1B: Candidate followed by declaration e.g. "42 is the answer"
+        leak_p1b = (
+            rf"(?<!\w)[\$£€]?\s*{re.escape(cand)}\s+(?:is\s+the\s+(?:final\s+|correct\s+)?(?:answer|solution|result))\b"
+        )
+        if re.search(leak_p1b, reply_lower):
+            return True
+
+        # Pattern 2: Normalized comparison (catches LaTeX, currency, & punctuation variants)
+        norm_cand = _normalize_for_leak_check(cand)
+        if norm_cand and len(norm_cand) >= 1:
+            leak_p2a = (
+                rf"(?:the\s+(?:final\s+|correct\s+|exact\s+)?(?:answer|solution|result)\s+is|"
+                rf"equals|is\s+equal\s+to|"
+                rf"gives\s+(?:us\s+|an\s+answer\s+of\s+))\s*{re.escape(norm_cand)}(?!\w)"
+            )
+            if re.search(leak_p2a, norm_reply):
+                return True
+            leak_p2b = (
+                rf"{re.escape(norm_cand)}\s+is\s+the\s+(?:final\s+|correct\s+)?(?:answer|solution|result)\b"
+            )
+            if re.search(leak_p2b, norm_reply):
                 return True
 
     return False
@@ -332,7 +399,7 @@ def verify_pedagogical_response(
     # 2. Step Revelation Check (prematurely revealing expected steps or intermediate directives)
     if expected_steps:
         for i, step in enumerate(expected_steps):
-            clean_step = step.strip().lower()
+            clean_step = str(step).strip().lower() if step is not None else ""
             clean_step_body = re.sub(r"^\d+\.\s*(?:identify|set up|solve|answer)?[:\s]*", "", clean_step)
             clauses = [clean_step_body] + [c.strip() for c in re.split(r"[:;]", clean_step_body) if len(c.strip()) > 10]
             for c in clauses:
@@ -412,7 +479,7 @@ def validate_image_upload(
         is_valid_magic = True
     elif file_bytes.startswith(b"RIFF") and b"WEBP" in file_bytes[:16]:
         is_valid_magic = True
-    elif b"ftyp" in file_bytes[:32] and clean_mime in {"image/heic", "image/heif"}:
+    elif b"ftyp" in file_bytes[:32] and (clean_mime in {"image/heic", "image/heif"} or any(b in file_bytes[:32] for b in [b"heic", b"mif1", b"msf1", b"heix", b"hevc"])):
         is_valid_magic = True
 
     if not is_valid_magic:

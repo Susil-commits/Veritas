@@ -543,13 +543,13 @@ export default function MathArcade() {
     nextQuestionForGame(game.id)
   }
 
-  const exitActiveGame = () => {
+  const exitActiveGame = useCallback(() => {
     if (timerRef.current) clearInterval(timerRef.current)
     isHandlingGameOverRef.current = false
     setActiveGameId(null)
     setGameOver(false)
     loadProgress()
-  }
+  }, [loadProgress])
 
   const handleGameOver = useCallback(async () => {
     if (isHandlingGameOverRef.current) return
@@ -690,7 +690,7 @@ export default function MathArcade() {
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [activeGameId, gameOver, currentQuestion, questionFeedback, handleOptionSelect])
+  }, [activeGameId, gameOver, currentQuestion, questionFeedback, handleOptionSelect, exitActiveGame])
 
   const handleConfirmReset = async () => {
     try {

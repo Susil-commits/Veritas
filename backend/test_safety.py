@@ -89,10 +89,12 @@ def test_prompt_injection_detection():
         "Should I add the numerators 3 and 1 together?",
         "I'm confused about the negative sign on step 2.",
         "Is the answer supposed to be a mixed number or an improper fraction?",
+        "I'm feeling a bit stuck on this step. Can you give me a small guiding hint to help me think about the first step without telling me the answer?",
+        "Could you give me a hint without revealing the answer?",
     ]
     for safe in safe_messages:
-        is_attack, _ = check_prompt_injection(safe)
-        assert not is_attack, f"False positive on genuine math inquiry: '{safe}'"
+        is_attack, reason = check_prompt_injection(safe)
+        assert not is_attack, f"False positive on genuine math inquiry: '{safe}' ({reason})"
     print("   ✓ Legitimate student math questions safely allowed")
     print("✅ [SAFETY TEST 2 PASSED]\n")
 
@@ -108,9 +110,23 @@ def test_answer_leak_protection():
     assert is_answer_leaked(leaked_2, "42"), "Failed to detect answer declaration"
     print("   ✓ Flagged direct answer declaration: '42 is the answer...'")
 
+    leaked_currency = "The answer is $15."
+    assert is_answer_leaked(leaked_currency, "$15"), "Failed to detect currency answer leak"
+    print("   ✓ Flagged currency answer leak: 'The answer is $15.'")
+
+    leaked_fraction = "The solution is 3/4."
+    assert is_answer_leaked(leaked_fraction, r"\frac{3}{4}"), "Failed to detect LaTeX fraction answer leak"
+    print("   ✓ Flagged fraction answer leak: 'The solution is 3/4.'")
+
+    leaked_answer_prefix = "The correct answer is 10."
+    assert is_answer_leaked(leaked_answer_prefix, "Answer: 10"), "Failed to detect prefixed answer leak"
+    print("   ✓ Flagged prefixed answer leak: 'The correct answer is 10.'")
+
     # Socratic guiding response (should pass)
     guiding_response = "You're very close! What happens when you combine the 40 and the 2?"
     assert not is_answer_leaked(guiding_response, "42")
+    guiding_curr = "What happens if we add $5 to both sides?"
+    assert not is_answer_leaked(guiding_curr, "$15")
     print("   ✓ Socratic guiding questions pass safely")
     print("✅ [SAFETY TEST 3 PASSED]\n")
 
@@ -157,7 +173,8 @@ def test_upload_validation():
 def test_auth_brute_force_shield():
     print("⚡ [SAFETY TEST 5] Testing Auth Brute-Force Rate Limiting...")
     test_limiter = RateLimiter()
-    target_account = "student.alex@veritas.dev"
+    target_account = f"student.alex.{int(time.time()*1000)}@veritas.dev"
+    unrelated_account = f"parent.sarah.{int(time.time()*1000)}@veritas.dev"
 
     # 5 allowed attempts
     for attempt in range(5):
@@ -174,7 +191,7 @@ def test_auth_brute_force_shield():
         print(f"   ✓ 6th attempt blocked with HTTP 429 ({e.detail})")
 
     # Different account should still be able to attempt
-    test_limiter.enforce_auth_rate_limit("parent.sarah@veritas.dev", max_attempts=5, window_seconds=60.0)
+    test_limiter.enforce_auth_rate_limit(unrelated_account, max_attempts=5, window_seconds=60.0)
     print("   ✓ Unrelated user/IP remains unblocked (targeted rate limiting)")
     print("✅ [SAFETY TEST 5 PASSED]\n")
 

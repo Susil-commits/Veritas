@@ -95,7 +95,10 @@ async def _update_mastery_for_skill(session_state: dict, skill_id: str, attempt_
         return
 
     raw_old = session_state.get("mastery_state", {}).get(skill_id)
-    old_m = float(raw_old) if raw_old is not None else 0.3
+    try:
+        old_m = float(raw_old) if raw_old is not None else 0.3
+    except (ValueError, TypeError):
+        old_m = 0.3
     new_m = update_mastery(old_m, True, skill_id, attempt_type=attempt_type)
     # Persist to DB BEFORE committing in-memory mutation so we can roll back on failure
     try:
@@ -745,7 +748,7 @@ async def next_problem_endpoint(
         current_prob = session_state.get("current_problem") or {}
         curr_skill = current_prob.get("skill_id") or session_state.get("current_skill_id")
 
-        if req.mark_previous_correct and curr_skill and curr_skill in session_state.get("mastery_state", {}):
+        if req.mark_previous_correct and curr_skill:
             if not session_state.get("current_problem_credited", False):
                 await _update_mastery_for_skill(session_state, curr_skill)
 
@@ -773,7 +776,7 @@ async def next_problem_endpoint(
         if not next_prob:
             raise HTTPException(status_code=503, detail="No further practice problems found in problem bank.")
 
-        session_state["current_problem"] = next_prob
+        session_state["current_problem"] = _public_problem(next_prob)
         session_state["current_problem_evaluation"] = next_prob
         session_state["current_problem_credited"] = False
         session_state["current_skill_id"] = next_skill
@@ -984,7 +987,6 @@ async def upload_work(
 
                     yield f"data: {json.dumps({'type': 'thinking', 'content': 'Picking your next practice problem...'})}\n\n"
                     next_skill = get_next_skill(current_state["mastery_state"])
-                    misconception_desc = diagnosis.get("description") or diagnosis.get("misconception_type")
                     raw_next_m = current_state["mastery_state"].get(next_skill)
                     next_m_val = float(raw_next_m) if raw_next_m is not None else 0.3
                     next_problem = await asyncio.to_thread(
@@ -993,10 +995,10 @@ async def upload_work(
                         mastery_prob=next_m_val,
                         student_id=current_state["student_id"],
                         exclude_problem_ids=current_state.get("problems_attempted", []),
-                        misconception_text=misconception_desc,
+                        misconception_text=None,
                     )
                     if next_problem:
-                        current_state["current_problem"] = next_problem
+                        current_state["current_problem"] = _public_problem(next_problem)
                         current_state["current_problem_evaluation"] = next_problem
                         current_state["current_problem_credited"] = False
                         current_state["current_skill_id"] = next_skill

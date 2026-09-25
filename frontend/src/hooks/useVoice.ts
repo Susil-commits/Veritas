@@ -108,7 +108,7 @@ export function cleanTextForSpeech(raw: string): string {
   text = text.replace(/\\\(([\s\S]*?)\\\)/g, '$1')
 
   // Strip stray parentheses or brackets from LaTeX delimiters
-  text = text.replace(/\\+[()\[\]]/g, ' ')
+  text = text.replace(/\\+[()[\]]/g, ' ')
 
   // Common math symbols
   text = text.replace(/\\*(?:cdot|times)/g, ' times ')

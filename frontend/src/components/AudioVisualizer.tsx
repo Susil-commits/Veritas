@@ -23,7 +23,12 @@ export const AudioVisualizer = memo(function AudioVisualizer({
   const displayLabel = label || defaultLabel
 
   return (
-    <div className={`audio-visualizer-container ${mode} animate-fadein`}>
+    <div
+      className={`audio-visualizer-container ${mode} animate-fadein`}
+      role="status"
+      aria-live="polite"
+      title={displayLabel}
+    >
       <div className="audio-visualizer-icon">
         {isSpeaking && <Volume2 size={16} className="pulse-icon" />}
         {isListening && <Mic size={16} className="mic-pulse-icon" />}

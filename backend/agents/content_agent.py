@@ -8,6 +8,7 @@ import os
 import re
 import json
 import uuid
+import time
 from pathlib import Path
 from pydantic import SecretStr
 from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI
@@ -24,6 +25,9 @@ EMBEDDING_MODEL_NAME: str = EMBEDDING_MODEL
 # In-memory FIFO embedding cache to prevent rate-limit spikes (e.g. 100 RPM quota).
 # Evicts the oldest-inserted entry when the 200-item limit is reached.
 _EMBEDDING_CACHE: dict[str, list[float]] = {}
+
+# Circuit breaker to prevent burning API calls when quota is temporarily exhausted
+_EMBEDDING_CIRCUIT_OPEN_UNTIL: float = 0.0
 
 # Singleton Gemini embedding client — constructed once at first use, reused for all subsequent
 # cache misses. Avoids repeated gRPC channel/HTTP client setup overhead per embed_text() call.
@@ -82,6 +86,12 @@ def embed_text(text: str) -> list[float]:
         _EMBEDDING_CACHE[cache_key] = res
         return res
 
+    global _EMBEDDING_CIRCUIT_OPEN_UNTIL
+    if time.time() < _EMBEDDING_CIRCUIT_OPEN_UNTIL:
+        res = _deterministic_mock_embedding(bounded_text)
+        _EMBEDDING_CACHE[cache_key] = res
+        return res
+
     api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY", "")
     if not api_key:
         res = _deterministic_mock_embedding(bounded_text)
@@ -92,6 +102,9 @@ def embed_text(text: str) -> list[float]:
         client = _get_embedding_client()
         res = client.embed_query(bounded_text, output_dimensionality=EMBEDDING_DIMENSION)
     except Exception as e:
+        err_msg = str(e).lower()
+        if "quota" in err_msg or "429" in err_msg or "resource_exhausted" in err_msg:
+            _EMBEDDING_CIRCUIT_OPEN_UNTIL = time.time() + 60.0
         print(f"[WARN] Gemini embedding API call failed ({e}); using zero-credit deterministic vector.")
         res = _deterministic_mock_embedding(bounded_text)
 
@@ -230,7 +243,18 @@ def score_candidate_adaptive(
     3. Misconception targeting bonus (exact misconception_type or keyword matching)
     4. Mastery-derived pedagogical difficulty target (heuristic mapping: d*(P(L)) = 1.0 + 4.0 * mastery_prob)
     """
-    diff = candidate.get("difficulty", 1)
+    try:
+        m_prob_clean = float(mastery_prob) if mastery_prob is not None else 0.5
+    except (ValueError, TypeError):
+        m_prob_clean = 0.5
+    m_prob_clean = min(max(m_prob_clean, 0.0), 1.0)
+
+    raw_diff = candidate.get("difficulty", 1)
+    try:
+        diff = float(raw_diff) if raw_diff is not None else 1.0
+    except (ValueError, TypeError):
+        diff = 1.0
+
     target_center = (target_min_diff + target_max_diff) / 2.0
     # Difficulty fit: 1.0 if at target center, decays smoothly with distance
     diff_dist = abs(diff - target_center)
@@ -276,7 +300,7 @@ def score_candidate_adaptive(
     # Maps student mastery [0.0, 1.0] onto pedagogical difficulty scale [1.0, 5.0].
     # Low-mastery students are matched to foundational problems (avoid cognitive overload);
     # high-mastery students are matched to challenging problems (avoid boredom).
-    target_continuous_diff = 1.0 + (mastery_prob * 4.0)
+    target_continuous_diff = 1.0 + (m_prob_clean * 4.0)
     mastery_alignment = max(0.0, 1.0 - (abs(diff - target_continuous_diff) / 3.0))
 
     # Composite weighted utility: 0.35 semantic/lexical sim, 0.25 misconception, 0.20 ZPD fit, 0.20 mastery alignment
@@ -411,7 +435,7 @@ def get_candidate_problems(
 
     if result_data:
         scored_sql = [
-            (score_candidate_adaptive(p, min_diff, max_diff, mastery_prob, misconception_text, i, query_text=query_text, keywords=keywords), p)
+            (score_candidate_adaptive(p, min_diff, max_diff, m_prob, misconception_text, i, query_text=query_text, keywords=keywords), p)
             for i, p in enumerate(result_data)
         ]
         scored_sql.sort(key=lambda x: x[0], reverse=True)
@@ -427,7 +451,7 @@ def get_candidate_problems(
         local_candidates = problems
 
     scored_local = [
-        (score_candidate_adaptive(p, min_diff, max_diff, mastery_prob, misconception_text, i, query_text=query_text, keywords=keywords), p)
+        (score_candidate_adaptive(p, min_diff, max_diff, m_prob, misconception_text, i, query_text=query_text, keywords=keywords), p)
         for i, p in enumerate(local_candidates)
     ]
     scored_local.sort(key=lambda x: x[0], reverse=True)
@@ -549,4 +573,36 @@ Keep it under 150 words total. Warm, specific, actionable."""
         except Exception as e:
             print(f"[WARN] Failed to generate LLM summary on '{m_name}': {e}")
 
-    return f"{student_name} completed an active practice session today. The tutor tracked student engagement across core math concepts. Continued practice with targeted guidance is recommended to solidify problem-solving fluency."
+    # Dynamic deterministic fallback when LLM models fail or quota is exhausted
+    practiced_titles = []
+    for p in problems_attempted[-4:]:
+        t = p.get("problem_title") or p.get("title") or (p.get("problems", {}).get("title") if isinstance(p.get("problems"), dict) else None)
+        if t:
+            clean_t = re.sub(r"^GSM8K:\s*", "", str(t), flags=re.IGNORECASE).strip()
+            if clean_t and clean_t not in practiced_titles:
+                practiced_titles.append(clean_t)
+
+    solved_count = sum(1 for p in problems_attempted if p.get("is_correct"))
+    total_count = len(problems_attempted)
+    topic_str = f"on topics including {', '.join(practiced_titles[:2])}" if practiced_titles else "across core math concepts"
+
+    developing_skills = []
+    strong_skills = []
+    for s_id, s_prob in mastery_state.items():
+        s_name = skill_lookup.get(s_id, s_id)
+        try:
+            val = float(s_prob)
+        except (ValueError, TypeError):
+            val = 0.3
+        if val >= 0.7:
+            strong_skills.append(s_name)
+        elif val < 0.45:
+            developing_skills.append(s_name)
+
+    strength_clause = f" Demonstrated growing fluency in {strong_skills[0]}." if strong_skills else ""
+    focus_clause = f" Continuing targeted practice in {developing_skills[0]} will build long-term confidence." if developing_skills else " Continued daily practice is recommended to maintain momentum."
+
+    return (
+        f"{student_name} completed an active math practice session today, attempting {total_count} challenge problems {topic_str} "
+        f"with {solved_count} successfully solved.{strength_clause}{focus_clause}"
+    )

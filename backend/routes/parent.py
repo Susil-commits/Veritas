@@ -30,7 +30,7 @@ from session_manager import (
     evict_session,
     evict_student_sessions,
 )
-from auth import verify_parent_access, verify_parent_caller
+from auth import verify_parent_access, verify_parent_caller, revoke_session_token
 from bkt.tracker import get_all_skills
 from db.supabase_client import get_supabase
 from rate_limiter import limiter
@@ -169,7 +169,11 @@ def generate_student_alerts(
     lowest_skill = None
     min_prob = 1.0
     for sid, name in skill_name_map.items():
-        prob = all_mastery_map.get(sid, 0.30)
+        raw_prob = all_mastery_map.get(sid, 0.30)
+        try:
+            prob = float(raw_prob) if raw_prob is not None else 0.30
+        except (ValueError, TypeError):
+            prob = 0.30
         if prob < min_prob:
             min_prob = prob
             lowest_skill = (sid, name)
@@ -224,7 +228,13 @@ def generate_student_alerts(
             })
 
     # Fraction mastery calculation (CCSS fraction cluster)
-    frac_scores = [all_mastery_map[s] for s in ("4.NF.B.3", "4.NF.A.1", "4.NF.B.4", "5.NF.B.7") if s in all_mastery_map]
+    frac_scores: list[float] = []
+    for s in ("4.NF.B.3", "4.NF.A.1", "4.NF.B.4", "5.NF.B.7"):
+        if s in all_mastery_map:
+            try:
+                frac_scores.append(float(all_mastery_map[s]))
+            except (ValueError, TypeError):
+                pass
     fraction_mastery = sum(frac_scores) / len(frac_scores) if frac_scores else 0.35
 
     # Fraction alert message (backward compatibility)
@@ -657,7 +667,7 @@ async def get_child_details(
             try:
                 t1 = datetime.datetime.fromisoformat(started.replace("Z", "+00:00"))
                 t2 = datetime.datetime.fromisoformat(ended.replace("Z", "+00:00"))
-                duration_mins = max(1, int((t2 - t1).total_seconds() / 60))
+                duration_mins = max(1, min(int((t2 - t1).total_seconds() / 60), 480))
             except Exception:
                 pass
 
@@ -668,7 +678,7 @@ async def get_child_details(
                     if ev_times:
                         t_min = min(ev_times)
                         t_max = max(ev_times)
-                        duration_mins = max(1, int((t_max - t_min).total_seconds() / 60) + 1)
+                        duration_mins = max(1, min(int((t_max - t_min).total_seconds() / 60) + 1, 480))
                 except Exception:
                     pass
         safe_duration_mins: int = duration_mins if duration_mins is not None else 0
@@ -792,6 +802,10 @@ async def delete_parent_data(
                     if s_id:
                         session_id_list.append(s_id)
                         evict_session(s_id)
+                        try:
+                            await asyncio.to_thread(revoke_session_token, s_id)
+                        except Exception:
+                            pass
             except Exception as e:
                 logger.warning("Could not evict all student sessions before deletion: %s", e)
 

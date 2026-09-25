@@ -201,6 +201,12 @@ async function compressImageFile(f: File, maxDimension = 1600, quality = 0.85): 
           setUploadError('Image exceeds 10MB limit. Please upload a smaller photo.')
         } else if (errMsg.includes('Rate limit') || errMsg.includes('429')) {
           setUploadError('Tutor is catching its breath. Please wait a few seconds before uploading again.')
+        } else if (errMsg.includes('401') || errMsg.includes('403')) {
+          setUploadError('Your practice session has expired or requires renewal. Please refresh the page.')
+        } else if (errMsg.includes('415')) {
+          setUploadError('Unsupported image format. Please upload a PNG, JPEG, or WebP photo.')
+        } else if (errMsg.includes('400')) {
+          setUploadError('Could not read this image file. Please upload a clearer photo of your math work.')
         } else {
           setUploadError('Could not analyze handwritten work. Please try again.')
         }
@@ -297,7 +303,7 @@ async function compressImageFile(f: File, maxDimension = 1600, quality = 0.85): 
                 <div className="box-reticle-corner bottom-left" />
                 <div className="box-reticle-corner bottom-right" />
                 <div className="box-badge">
-                  <span>Step {diagnosis.step_number}: {diagnosis.misconception_type.replace(/_/g, ' ')}</span>
+                  <span>Step {diagnosis.step_number || 1}: {(diagnosis.misconception_type || 'error').replace(/_/g, ' ')}</span>
                 </div>
               </div>
             )
@@ -328,8 +334,8 @@ async function compressImageFile(f: File, maxDimension = 1600, quality = 0.85): 
               ) : (
                 <div className="diagnosis-result incorrect">
                   <div>
-                    <strong>{diagnosis.misconception_type.replace(/_/g, ' ')}</strong>
-                    <p>at Step {diagnosis.step_number}</p>
+                    <strong>{(diagnosis.misconception_type || 'Error Detected').replace(/_/g, ' ')}</strong>
+                    <p>at Step {diagnosis.step_number || 1}</p>
                   </div>
                 </div>
               )}
@@ -399,8 +405,18 @@ async function compressImageFile(f: File, maxDimension = 1600, quality = 0.85): 
       />
 
       {uploadError && (
-        <div className="upload-error-banner" role="alert">
-          ⚠️ {uploadError}
+        <div className="upload-error-banner" role="alert" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+          <span>⚠️ {uploadError}</span>
+          {file && !uploading && (
+            <button
+              type="button"
+              className="btn btn-sm btn-ghost"
+              style={{ flexShrink: 0, textDecoration: 'underline', fontSize: '0.8rem', padding: '2px 8px', cursor: 'pointer' }}
+              onClick={() => file && analyzeFile(file)}
+            >
+              Retry
+            </button>
+          )}
         </div>
       )}
 
