@@ -252,12 +252,20 @@ export default function Landing() {
     }
   }, [authScreen, resendTimer])
 
-  // Animated intro portal control (bypassed if arriving directly with a section anchor like #demo)
+  // Navigation redirect notice for unauthenticated visitors browsing protected features
+  const [redirectNotice, setRedirectNotice] = useState<string | null>(null)
+
+  // Animated intro portal control (bypassed if arriving directly with a section anchor like #demo, or redirected from a protected route)
   const [showIntro, setShowIntro] = useState(() => {
     try {
       // Clear legacy storage keys that suppressed the welcome screen across visits
       localStorage.removeItem('veritas_intro_seen')
       sessionStorage.removeItem('veritas_intro_seen')
+
+      // If redirected from an in-app navigation guard (surfing protected routes), bypass intro
+      if (location.state && (location.state as any).from) {
+        return false
+      }
 
       // If arriving with direct anchor link (e.g. #demo, #how-it-works, #pipeline), bypass intro to jump to section
       if (window.location.hash && !window.location.hash.includes('access_token')) {
@@ -274,6 +282,33 @@ export default function Landing() {
       return true
     }
   })
+
+  // Handle smooth landing and guidance if user arrived via redirect from protected route
+  useEffect(() => {
+    const fromLocation = (location.state as any)?.from
+    if (fromLocation?.pathname) {
+      const path = fromLocation.pathname as string
+      const featureName =
+        path.includes('arcade') ? 'Math Arcade' :
+        path.includes('parent') ? 'Parent & Guardian Portal' :
+        path.includes('scratchpad') ? 'Handwriting Scratchpad' :
+        path.includes('session') ? 'Socratic Tutoring Session' :
+        path.includes('dashboard') ? 'Mastery Dashboard' : 'this learning feature'
+
+      if (path.includes('parent')) {
+        setRole('parent')
+      } else {
+        setRole('student')
+      }
+
+      setRedirectNotice(`Please sign in or launch an instant demo below to access the ${featureName}.`)
+      setShowIntro(false)
+      const el = document.getElementById('demo') || document.getElementById('auth-card')
+      if (el) {
+        setTimeout(() => el.scrollIntoView({ behavior: 'smooth' }), 100)
+      }
+    }
+  }, [location.state, setRole])
 
   // Simple server & database connection status
   const [connStatus, setConnStatus] = useState<ConnStatus>('checking')
@@ -888,6 +923,35 @@ export default function Landing() {
 
         {/* Modern Standout Split-Card Auth */}
         <div className="auth-card-container" id="auth-card">
+          {redirectNotice && (
+            <div
+              className="auth-info-banner animate-fadein"
+              style={{
+                marginBottom: '1rem',
+                background: 'rgba(124, 58, 237, 0.12)',
+                border: '1px solid rgba(124, 58, 237, 0.35)',
+                color: 'var(--text-primary)',
+                borderRadius: '12px',
+                padding: '12px 18px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                fontSize: '0.92rem',
+                fontWeight: 500,
+              }}
+            >
+              <span className="info-banner-icon" style={{ fontSize: '1.2rem' }}>✨</span>
+              <span className="info-banner-text" style={{ flex: 1 }}>{redirectNotice}</span>
+              <button
+                type="button"
+                onClick={() => handleDemoLogin(role)}
+                className="btn btn-violet btn-sm"
+                style={{ whiteSpace: 'nowrap' }}
+              >
+                Launch Instant Demo
+              </button>
+            </div>
+          )}
           {user ? (
             <>
               {roleMismatchNotice && (

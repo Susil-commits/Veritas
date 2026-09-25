@@ -18,7 +18,7 @@ EMBEDDING_DIMENSION: int = int(os.getenv("EMBEDDING_DIMENSION", "768"))
 
 # Cascade fallback models for chat — override via .env if needed
 # Priority: GEMINI_MODEL → GEMINI_MODEL_FALLBACK_1 → GEMINI_MODEL_FALLBACK_2
-_CHAT_FALLBACK_1: str = os.getenv("GEMINI_MODEL_FALLBACK_1", "gemini-3.1-flash-lite")
+_CHAT_FALLBACK_1: str = os.getenv("GEMINI_MODEL_FALLBACK_1", "gemini-3.8-flash")
 _CHAT_FALLBACK_2: str = os.getenv("GEMINI_MODEL_FALLBACK_2", "gemini-flash-lite-latest")
 
 # dict.fromkeys preserves order and deduplicates (e.g. if primary == fallback_1)
@@ -28,7 +28,7 @@ CHAT_MODEL_CASCADE: list[str] = list(dict.fromkeys(
 
 # Cascade fallback models for vision/OCR — override via .env if needed
 # Priority: GEMINI_VISION_MODEL → GEMINI_VISION_MODEL_FALLBACK_1 → GEMINI_VISION_MODEL_FALLBACK_2
-_VISION_FALLBACK_1: str = os.getenv("GEMINI_VISION_MODEL_FALLBACK_1", "gemini-3.1-flash-lite")
+_VISION_FALLBACK_1: str = os.getenv("GEMINI_VISION_MODEL_FALLBACK_1", "gemini-3.8-flash")
 _VISION_FALLBACK_2: str = os.getenv("GEMINI_VISION_MODEL_FALLBACK_2", "gemini-flash-lite-latest")
 
 VISION_MODEL_CASCADE: list[str] = list(dict.fromkeys(

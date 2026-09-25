@@ -9,6 +9,7 @@ Provides endpoints and logic for:
 """
 
 import asyncio
+from collections import defaultdict
 import datetime
 import json
 import logging
@@ -451,78 +452,97 @@ async def get_parent_children(
         children_map[demo_child["student_id"]] = demo_child
         await asyncio.to_thread(_save_fallback_child, demo_child)
 
-    results = []
+    # 2. Extract unique student IDs and handle demo parent bounds
+    student_ids = list(children_map.keys())
+    if not student_ids:
+        return {"children": []}
+
+    # For demo parent, deduplicate and ensure demo student Alex Jenkins is present
+    if parent_id == "99999999-8888-7777-6666-555555555555":
+        demo_sid = "24e836e3-3b42-41a0-8a27-222f883eaa10"
+        # Prioritize demo_sid plus up to 10 most recent linked test students
+        ordered_sids = [demo_sid] if demo_sid in children_map else []
+        for sid in student_ids:
+            if sid != demo_sid and len(ordered_sids) < 12:
+                ordered_sids.append(sid)
+        student_ids = ordered_sids
+        children_map = {sid: children_map[sid] for sid in student_ids if sid in children_map}
+
     now = time.time()
 
-    for student_id, child in children_map.items():
-        latest_session_time = None
-        session_count = 0
-        sessions_available = True
-        mastery_available = True
-        events_available = True
-
-        # Fetch sessions, count, mastery, events, and misconceptions concurrently
-        sess_future = db_exec(
-            supabase.table("sessions")
-            .select("started_at")
-            .eq("student_id", student_id)
-            .order("started_at", desc=True)
-            .limit(1)
-        )
-        count_future = db_exec(
-            supabase.table("sessions")
-            .select("id", count=CountMethod.exact)
-            .eq("student_id", student_id)
-        )
-        mastery_future = db_exec(
+    # 3. Batch DB Queries (3 consolidated queries across ALL children instead of 4N queries)
+    # Batch 1: Mastery for all children
+    mastery_by_student: dict[str, dict[str, float]] = {sid: {} for sid in student_ids}
+    mastery_available = True
+    try:
+        m_res = await db_exec(
             supabase.table("student_skill_mastery")
-            .select("skill_id, mastery_prob")
-            .eq("student_id", student_id)
+            .select("student_id, skill_id, mastery_prob")
+            .in_("student_id", student_ids)
         )
-        events_future = db_exec(
-            supabase.table("session_events")
-            .select("is_correct, created_at, problem_id")
-            .eq("student_id", student_id)
-            .order("created_at", desc=True)
-            .limit(6)
-        )
-        misc_future = asyncio.to_thread(get_student_misconceptions, student_id)
-
-        (
-            sess_res,
-            count_res,
-            m_res,
-            recent_res,
-            active_misc_res,
-        ) = await asyncio.gather(
-            sess_future,
-            count_future,
-            mastery_future,
-            events_future,
-            misc_future,
-            return_exceptions=True,
-        )
-
-        # 1. Process latest session & count
-        if isinstance(sess_res, BaseException) or not hasattr(sess_res, "data"):
-            sessions_available = False
-        elif sess_res.data:
-            latest_session_time = sess_res.data[0].get("started_at")
-
-        if isinstance(count_res, BaseException) or not hasattr(count_res, "data"):
-            sessions_available = False
-        else:
-            session_count = getattr(count_res, "count", None) or len(getattr(count_res, "data", None) or [])
-
-        # 2. Process skill mastery
-        all_mastery_map: dict[str, float] = {}
-        if isinstance(m_res, BaseException) or not hasattr(m_res, "data"):
-            mastery_available = False
-        elif m_res.data:
+        if m_res.data:
             for r in m_res.data:
-                all_mastery_map[r["skill_id"]] = float(r["mastery_prob"])
+                sid = r.get("student_id")
+                if sid in mastery_by_student:
+                    try:
+                        mastery_by_student[sid][r["skill_id"]] = float(r["mastery_prob"])
+                    except (ValueError, TypeError):
+                        pass
+    except Exception as e:
+        logger.warning("Batch student mastery fetch fallback: %s", e)
+        mastery_available = False
 
-        # 3. Process recency
+    # Batch 2: Sessions for all children
+    latest_session_by_student: dict[str, str | None] = {sid: None for sid in student_ids}
+    session_count_by_student: dict[str, int] = {sid: 0 for sid in student_ids}
+    sessions_available = True
+    try:
+        s_res = await db_exec(
+            supabase.table("sessions")
+            .select("student_id, started_at, id")
+            .in_("student_id", student_ids)
+            .order("started_at", desc=True)
+        )
+        if s_res.data:
+            for r in s_res.data:
+                sid = r.get("student_id")
+                if sid in session_count_by_student:
+                    session_count_by_student[sid] += 1
+                    if latest_session_by_student[sid] is None:
+                        latest_session_by_student[sid] = r.get("started_at")
+    except Exception as e:
+        logger.warning("Batch sessions fetch fallback: %s", e)
+        sessions_available = False
+
+    # Batch 3: Recent events for all children
+    events_by_student: dict[str, list[dict]] = {sid: [] for sid in student_ids}
+    events_available = True
+    try:
+        ev_res = await db_exec(
+            supabase.table("session_events")
+            .select("student_id, is_correct, created_at, problem_id")
+            .in_("student_id", student_ids)
+            .order("created_at", desc=True)
+        )
+        if ev_res.data:
+            for r in ev_res.data:
+                sid = r.get("student_id")
+                if sid in events_by_student and len(events_by_student[sid]) < 6:
+                    events_by_student[sid].append(r)
+    except Exception as e:
+        logger.warning("Batch session events fetch fallback: %s", e)
+        events_available = False
+
+    results = []
+    for student_id in student_ids:
+        child = children_map.get(student_id, {})
+        latest_session_time = latest_session_by_student.get(student_id)
+        session_count = session_count_by_student.get(student_id, 0)
+        all_mastery_map = mastery_by_student.get(student_id, {})
+        recent_events = events_by_student.get(student_id, [])
+        active_misc = get_student_misconceptions(student_id)
+
+        # Process recency
         days_since = 0
         if latest_session_time:
             try:
@@ -532,17 +552,7 @@ async def get_parent_children(
                 diff_seconds = now - ts.timestamp()
                 days_since = max(0, int(diff_seconds // 86400))
             except Exception:
-                sessions_available = False
-
-        # 4. Process misconceptions
-        active_misc = active_misc_res if not isinstance(active_misc_res, Exception) and isinstance(active_misc_res, dict) else {}
-
-        # 5. Process recent events
-        recent_events: list[dict] = []
-        if isinstance(recent_res, BaseException) or not hasattr(recent_res, "data"):
-            events_available = False
-        else:
-            recent_events = recent_res.data or []
+                pass
 
         # Generate learner-aware alerts across all CCSS skills
         if sessions_available and mastery_available and events_available:

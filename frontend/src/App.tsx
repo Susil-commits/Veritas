@@ -95,7 +95,10 @@ function PageFallback() {
 }
 
 function DashboardRedirect() {
-  const { user } = useAuth()
+  const { user, role } = useAuth()
+  if (role === 'parent' || user?.user_metadata?.user_role === 'parent') {
+    return <Navigate to="/parent-dashboard" replace />
+  }
   let studentId = user?.id
   if (!studentId) {
     try {

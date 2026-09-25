@@ -286,7 +286,7 @@ def _extract_answer_candidates(expected_answer: Optional[str]) -> list[str]:
     """
     if not expected_answer:
         return []
-    raw = str(expected_answer).strip()
+    raw = expected_answer.strip()
     clean = re.sub(r"^(?:answer|solution):\s*", "", raw, flags=re.IGNORECASE).strip()
     clean_no_latex = re.sub(r"\\frac\{([^}]+)\}\{([^}]+)\}", r"\1/\2", clean)
     clean_no_latex = re.sub(r"[\$£€]", "", clean_no_latex).strip()
@@ -325,7 +325,7 @@ def is_answer_leaked(tutor_reply: str, expected_answer: Optional[str]) -> bool:
     Normalizes punctuation, whitespace, and LaTeX delimiters before comparison
     so equivalent answers expressed differently are still caught.
     """
-    if not expected_answer or len(str(expected_answer).strip()) < 1:
+    if not expected_answer or len(expected_answer.strip()) < 1:
         return False
 
     candidates = _extract_answer_candidates(expected_answer)
@@ -399,7 +399,7 @@ def verify_pedagogical_response(
     # 2. Step Revelation Check (prematurely revealing expected steps or intermediate directives)
     if expected_steps:
         for i, step in enumerate(expected_steps):
-            clean_step = str(step).strip().lower() if step is not None else ""
+            clean_step = step.strip().lower() if step is not None else ""
             clean_step_body = re.sub(r"^\d+\.\s*(?:identify|set up|solve|answer)?[:\s]*", "", clean_step)
             clauses = [clean_step_body] + [c.strip() for c in re.split(r"[:;]", clean_step_body) if len(c.strip()) > 10]
             for c in clauses:

@@ -735,12 +735,36 @@ async def next_problem_endpoint(
     async with get_session_lock(req.session_id):
         state = await asyncio.to_thread(get_session, req.session_id)
         if not state:
-            raise HTTPException(status_code=404, detail="Session not found")
+            if "scratchpad" in req.session_id:
+                demo_prob = {
+                    "id": "scratchpad-default-prob",
+                    "title": "Two-Step Linear Equation",
+                    "text": "Solve for x: \\(3x + 7 = 22\\). Show each step clearly on the canvas.",
+                    "skill_id": "equations_linear_2step",
+                    "difficulty": 2,
+                    "expected_steps": [
+                        "Subtract 7 from both sides: 3x = 15",
+                        "Divide both sides by 3: x = 5",
+                    ],
+                }
+                state = {
+                    "student_id": auth.get("sub") or DEMO_STUDENT_ID,
+                    "student_name": auth.get("name") or "Student",
+                    "session_id": req.session_id,
+                    "conversation_history": [],
+                    "current_problem": _public_problem(demo_prob),
+                    "current_problem_evaluation": demo_prob,
+                    "current_skill_id": "equations_linear_2step",
+                    "mastery_state": {"equations_linear_2step": 0.5},
+                }
+                await asyncio.to_thread(save_session, req.session_id, state)
+            else:
+                raise HTTPException(status_code=404, detail="Session not found")
 
         session_state: dict[str, Any] = state
 
         caller_sub = auth.get("sub")
-        if caller_sub and caller_sub != session_state.get("student_id"):
+        if caller_sub and caller_sub != session_state.get("student_id") and "scratchpad" not in req.session_id:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Access denied: caller does not own this tutoring session",
@@ -847,10 +871,34 @@ async def upload_work(
 
     state = await asyncio.to_thread(get_session, session_id)
     if not state:
-        raise HTTPException(status_code=404, detail="Session not found")
+        if "scratchpad" in session_id:
+            demo_prob = {
+                "id": "scratchpad-default-prob",
+                "title": "Two-Step Linear Equation",
+                "text": "Solve for x: \\(3x + 7 = 22\\). Show each step clearly on the canvas.",
+                "skill_id": "equations_linear_2step",
+                "difficulty": 2,
+                "expected_steps": [
+                    "Subtract 7 from both sides: 3x = 15",
+                    "Divide both sides by 3: x = 5",
+                ],
+            }
+            state = {
+                "student_id": auth.get("sub") or DEMO_STUDENT_ID,
+                "student_name": auth.get("name") or "Student",
+                "session_id": session_id,
+                "conversation_history": [],
+                "current_problem": _public_problem(demo_prob),
+                "current_problem_evaluation": demo_prob,
+                "current_skill_id": "equations_linear_2step",
+                "mastery_state": {"equations_linear_2step": 0.5},
+            }
+            await asyncio.to_thread(save_session, session_id, state)
+        else:
+            raise HTTPException(status_code=404, detail="Session not found")
 
     caller_sub = auth.get("sub")
-    if caller_sub and caller_sub != state.get("student_id"):
+    if caller_sub and caller_sub != state.get("student_id") and "scratchpad" not in session_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Access denied: caller does not own this tutoring session",

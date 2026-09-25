@@ -5,7 +5,7 @@ import DigitalCanvas, { type DigitalCanvasRef } from '../components/DigitalCanva
 import MathText from '../components/MathText'
 import ThemeToggle from '../components/ThemeToggle'
 import UserAvatar from '../components/UserAvatar'
-import { streamDiagnosis } from '../lib/api'
+import { streamDiagnosis, startSession } from '../lib/api'
 import type { Diagnosis, Problem, SessionData } from '../lib/api'
 import { getSkillMeta } from '../lib/skillsData'
 import {
@@ -52,7 +52,7 @@ export default function Scratchpad() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [hasStroke, setHasStroke] = useState(false)
 
-  // Load existing session and current problem from sessionStorage
+  // Load existing session and current problem from sessionStorage, or initialize on-demand
   useEffect(() => {
     try {
       const raw = sessionStorage.getItem('session')
@@ -62,11 +62,34 @@ export default function Scratchpad() {
         if (parsed.current_problem) {
           setCurrentProblem(parsed.current_problem)
         }
+        return
       }
     } catch (e) {
       console.error('Error loading session from storage in Scratchpad:', e)
     }
-  }, [])
+
+    let isMounted = true
+    const initScratchpadSession = async () => {
+      try {
+        const studentName = (user?.user_metadata?.name || user?.user_metadata?.full_name || 'Student').trim()
+        const studentId = user?.id || '24e836e3-3b42-41a0-8a27-222f883eaa10'
+        const fresh = await startSession(studentName, studentId, user?.email || undefined)
+        if (isMounted && fresh) {
+          setSession(fresh)
+          if (fresh.current_problem) {
+            setCurrentProblem(fresh.current_problem)
+          }
+          sessionStorage.setItem('session', JSON.stringify(sanitizeSessionForStorage(fresh)))
+        }
+      } catch (err) {
+        console.warn('Could not auto-start practice session for Scratchpad:', err)
+      }
+    }
+    initScratchpadSession()
+    return () => {
+      isMounted = false
+    }
+  }, [user])
 
   const skillMeta = getSkillMeta(currentProblem.skill_id)
 
