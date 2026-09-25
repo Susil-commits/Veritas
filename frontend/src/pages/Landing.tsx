@@ -195,6 +195,8 @@ export default function Landing() {
   const [showEvaluatorModal, setShowEvaluatorModal] = useState(false)
   const [isRegistrationAvatarStep, setIsRegistrationAvatarStep] = useState(false)
   const [copiedStudentId, setCopiedStudentId] = useState(false)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const navRef = useRef<HTMLElement>(null)
 
   const userDisplayName = useMemo(() => {
     const raw = (user?.user_metadata?.name || user?.user_metadata?.full_name || rememberedProfile?.name || fullName || '').trim()
@@ -442,6 +444,39 @@ export default function Landing() {
     window.addEventListener('hashchange', handleHashChange)
     return () => window.removeEventListener('hashchange', handleHashChange)
   }, [scrollToSection])
+
+  // Close mobile navigation menu on click outside or escape key
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent | TouchEvent) => {
+      if (mobileMenuOpen && navRef.current && !navRef.current.contains(e.target as Node)) {
+        setMobileMenuOpen(false)
+      }
+    }
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && mobileMenuOpen) {
+        setMobileMenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleOutsideClick)
+    document.addEventListener('touchstart', handleOutsideClick)
+    document.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick)
+      document.removeEventListener('touchstart', handleOutsideClick)
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [mobileMenuOpen])
+
+  // Close mobile navigation menu on desktop viewport resize
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth > 768) {
+        setMobileMenuOpen(false)
+      }
+    }
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
 
   // On verified login (Magic Link callback in URL hash/query), redirect to role destination
   useEffect(() => {
@@ -810,84 +845,180 @@ export default function Landing() {
         />
       )}
 
-      {/* Top Glassmorphic Navigation Bar */}
-      <header className="landing-navbar">
-        <div className="navbar-container">
-          <a
-            href="/"
-            className="navbar-brand"
-            onClick={(e) => {
-              e.preventDefault()
-              window.scrollTo({ top: 0, behavior: 'smooth' })
-              window.history.replaceState(null, '', window.location.pathname + window.location.search)
-            }}
-          >
-            <span className="brand-icon">✨</span>
-            <span className="brand-name">Veritas<span className="brand-dot">.</span></span>
-          </a>
+      {/* Top Floating Glassmorphic Navigation Bar */}
+      <header className="landing-navbar-wrapper" ref={navRef}>
+        <div className={`landing-navbar ${mobileMenuOpen ? 'landing-navbar--open' : ''}`}>
+          <div className="navbar-container">
+            <a
+              href="/"
+              className="navbar-brand"
+              onClick={(e) => {
+                e.preventDefault()
+                setMobileMenuOpen(false)
+                window.scrollTo({ top: 0, behavior: 'smooth' })
+                window.history.replaceState(null, '', window.location.pathname + window.location.search)
+              }}
+            >
+              <span className="brand-icon">✨</span>
+              <span className="brand-name">Veritas<span className="brand-dot">.</span></span>
+            </a>
 
-          <nav className="navbar-links">
-            <a
-              href="#demo"
-              className="nav-link"
-              onClick={(e) => {
-                e.preventDefault()
-                scrollToSection('demo', true)
-                window.history.pushState(null, '', '#demo')
-              }}
-            >
-              Interactive Demo
-            </a>
-            <a
-              href="#how-it-works"
-              className="nav-link"
-              onClick={(e) => {
-                e.preventDefault()
-                scrollToSection('how-it-works', true)
-                window.history.pushState(null, '', '#how-it-works')
-              }}
-            >
-              How It Works
-            </a>
-            <a
-              href="#pipeline"
-              className="nav-link"
-              onClick={(e) => {
-                e.preventDefault()
-                scrollToSection('pipeline', true)
-                window.history.pushState(null, '', '#pipeline')
-              }}
-            >
-              Live Pipeline
-            </a>
-            <a
-              href="#topics"
-              className="nav-link"
-              onClick={(e) => {
-                e.preventDefault()
-                scrollToSection('topics', true)
-                window.history.pushState(null, '', '#topics')
-              }}
-            >
-              Math Topics
-            </a>
-          </nav>
+            <nav className="navbar-links" aria-label="Main Navigation">
+              <a
+                href="#demo"
+                className="nav-link"
+                onClick={(e) => {
+                  e.preventDefault()
+                  scrollToSection('demo', true)
+                  window.history.pushState(null, '', '#demo')
+                }}
+              >
+                Interactive Demo
+              </a>
+              <a
+                href="#how-it-works"
+                className="nav-link"
+                onClick={(e) => {
+                  e.preventDefault()
+                  scrollToSection('how-it-works', true)
+                  window.history.pushState(null, '', '#how-it-works')
+                }}
+              >
+                How It Works
+              </a>
+              <a
+                href="#pipeline"
+                className="nav-link"
+                onClick={(e) => {
+                  e.preventDefault()
+                  scrollToSection('pipeline', true)
+                  window.history.pushState(null, '', '#pipeline')
+                }}
+              >
+                Live Pipeline
+              </a>
+              <a
+                href="#topics"
+                className="nav-link"
+                onClick={(e) => {
+                  e.preventDefault()
+                  scrollToSection('topics', true)
+                  window.history.pushState(null, '', '#topics')
+                }}
+              >
+                Math Topics
+              </a>
+            </nav>
 
-          <div className="navbar-actions">
-            {!user && (
+            <div className="navbar-actions">
+              {!user && (
+                <button
+                  type="button"
+                  className="btn btn-sm btn-outline-violet eval-lab-btn"
+                  style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700 }}
+                  onClick={() => setShowEvaluatorModal(true)}
+                  title="Open Reviewer & Evaluator Interactive Demo Lab"
+                >
+                  <span>⚡</span>
+                  <span className="eval-btn-text">Evaluator Lab</span>
+                  <span className="eval-btn-text-short">Lab</span>
+                </button>
+              )}
+              <ThemeToggle />
+
+              {/* Hamburger Button for Mobile */}
               <button
                 type="button"
-                className="btn btn-sm btn-outline-violet"
-                style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700 }}
-                onClick={() => setShowEvaluatorModal(true)}
-                title="Open Reviewer & Evaluator Interactive Demo Lab"
+                className={`navbar-hamburger ${mobileMenuOpen ? 'is-active' : ''}`}
+                onClick={() => setMobileMenuOpen(prev => !prev)}
+                aria-label={mobileMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
+                aria-expanded={mobileMenuOpen}
+                aria-controls="navbar-mobile-menu"
               >
-                <span>⚡</span>
-                <span className="eval-btn-text">Evaluator Lab</span>
-                <span className="eval-btn-text-short">Lab</span>
+                <span className="hamburger-box">
+                  <span className="hamburger-line line-1" />
+                  <span className="hamburger-line line-2" />
+                  <span className="hamburger-line line-3" />
+                </span>
               </button>
-            )}
-            <ThemeToggle />
+            </div>
+          </div>
+
+          {/* Mobile Menu Dropdown Panel */}
+          <div
+            id="navbar-mobile-menu"
+            className={`navbar-mobile-menu ${mobileMenuOpen ? 'is-open' : ''}`}
+          >
+            <nav className="mobile-nav-links" aria-label="Mobile Navigation">
+              <a
+                href="#demo"
+                className="mobile-nav-link"
+                onClick={(e) => {
+                  e.preventDefault()
+                  setMobileMenuOpen(false)
+                  scrollToSection('demo', true)
+                  window.history.pushState(null, '', '#demo')
+                }}
+              >
+                <span className="mobile-nav-icon">🎯</span>
+                <span>Interactive Demo</span>
+              </a>
+              <a
+                href="#how-it-works"
+                className="mobile-nav-link"
+                onClick={(e) => {
+                  e.preventDefault()
+                  setMobileMenuOpen(false)
+                  scrollToSection('how-it-works', true)
+                  window.history.pushState(null, '', '#how-it-works')
+                }}
+              >
+                <span className="mobile-nav-icon">💡</span>
+                <span>How It Works</span>
+              </a>
+              <a
+                href="#pipeline"
+                className="mobile-nav-link"
+                onClick={(e) => {
+                  e.preventDefault()
+                  setMobileMenuOpen(false)
+                  scrollToSection('pipeline', true)
+                  window.history.pushState(null, '', '#pipeline')
+                }}
+              >
+                <span className="mobile-nav-icon">⚡</span>
+                <span>Live Pipeline</span>
+              </a>
+              <a
+                href="#topics"
+                className="mobile-nav-link"
+                onClick={(e) => {
+                  e.preventDefault()
+                  setMobileMenuOpen(false)
+                  scrollToSection('topics', true)
+                  window.history.pushState(null, '', '#topics')
+                }}
+              >
+                <span className="mobile-nav-icon">📚</span>
+                <span>Math Topics</span>
+              </a>
+
+              {!user && (
+                <div className="mobile-menu-action">
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-outline-violet mobile-eval-btn"
+                    onClick={() => {
+                      setMobileMenuOpen(false)
+                      setShowEvaluatorModal(true)
+                    }}
+                  >
+                    <span>⚡</span>
+                    <span>Open Evaluator Lab</span>
+                  </button>
+                </div>
+              )}
+            </nav>
           </div>
         </div>
       </header>
