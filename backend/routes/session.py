@@ -869,10 +869,10 @@ async def upload_work(
         max_per_minute=10,
     )
 
-    state = await asyncio.to_thread(get_session, session_id)
-    if not state:
+    raw_state = await asyncio.to_thread(get_session, session_id)
+    if not raw_state:
         if "scratchpad" in session_id:
-            demo_prob = {
+            demo_prob: dict[str, Any] = {
                 "id": "scratchpad-default-prob",
                 "title": "Two-Step Linear Equation",
                 "text": "Solve for x: \\(3x + 7 = 22\\). Show each step clearly on the canvas.",
@@ -883,7 +883,7 @@ async def upload_work(
                     "Divide both sides by 3: x = 5",
                 ],
             }
-            state = {
+            initial_state: dict[str, Any] = {
                 "student_id": auth.get("sub") or DEMO_STUDENT_ID,
                 "student_name": auth.get("name") or "Student",
                 "session_id": session_id,
@@ -893,12 +893,15 @@ async def upload_work(
                 "current_skill_id": "equations_linear_2step",
                 "mastery_state": {"equations_linear_2step": 0.5},
             }
-            await asyncio.to_thread(save_session, session_id, state)
+            await asyncio.to_thread(save_session, session_id, initial_state)
+            session_state: dict[str, Any] = initial_state
         else:
             raise HTTPException(status_code=404, detail="Session not found")
+    else:
+        session_state = raw_state
 
     caller_sub = auth.get("sub")
-    if caller_sub and caller_sub != state.get("student_id") and "scratchpad" not in session_id:
+    if caller_sub and caller_sub != session_state.get("student_id") and "scratchpad" not in session_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Access denied: caller does not own this tutoring session",
@@ -927,17 +930,19 @@ async def upload_work(
                 await asyncio.sleep(0.1)
 
                 fresh_state = await asyncio.to_thread(get_session, session_id)
-                current_state = fresh_state or state
-                current_problem = current_state.get("current_problem") or {}
-                evaluation_problem = current_state.get("current_problem_evaluation") or current_problem
+                current_state: dict[str, Any] = fresh_state if fresh_state is not None else session_state
+                curr_prob_raw = current_state.get("current_problem")
+                current_problem: dict[str, Any] = curr_prob_raw if isinstance(curr_prob_raw, dict) else {}
+                eval_prob_raw = current_state.get("current_problem_evaluation")
+                evaluation_problem: dict[str, Any] = eval_prob_raw if isinstance(eval_prob_raw, dict) else current_problem
                 yield f"data: {json.dumps({'type': 'thinking', 'content': 'Checking your steps...'})}\n\n"
 
-                diagnosis = await asyncio.to_thread(
+                diagnosis: dict[str, Any] = await asyncio.to_thread(
                     run_diagnostic_agent,
                     image_bytes=image_bytes,
                     expected_steps=evaluation_problem.get("expected_steps", []),
-                    problem_text=current_problem.get("text", ""),
-                    skill_id=current_state.get("current_skill_id", ""),
+                    problem_text=str(current_problem.get("text", "")),
+                    skill_id=str(current_state.get("current_skill_id") or ""),
                 )
 
                 try:
@@ -945,33 +950,42 @@ async def upload_work(
                         cloudinary_service.upload_student_work,
                         image_bytes,
                         session_id,
-                        current_state.get("student_id"),
+                        str(current_state.get("student_id") or ""),
                     )
                 except Exception as c_err:
                     print(f"[WARN] Cloudinary student work upload skipped/failed: {c_err}")
 
-                misconception = diagnosis.get('misconception_type', 'unknown')
+                misconception = str(diagnosis.get('misconception_type', 'unknown'))
                 friendly_misc = misconception.replace('_', ' ')
                 yield f"data: {json.dumps({'type': 'thinking', 'content': 'Checking step: ' + friendly_misc})}\n\n"
 
-                curr_skill = current_problem.get("skill_id") or current_state.get("current_skill_id")
-                is_correct = diagnosis.get("is_correct", False)
+                curr_skill_val = current_problem.get("skill_id") or current_state.get("current_skill_id")
+                curr_skill = str(curr_skill_val) if curr_skill_val else ""
+                is_correct = bool(diagnosis.get("is_correct", False))
+
+                raw_mastery_dict = current_state.get("mastery_state")
+                mastery_state: dict[str, float] = (
+                    dict(raw_mastery_dict)
+                    if isinstance(raw_mastery_dict, dict)
+                    else {}
+                )
+                current_state["mastery_state"] = mastery_state
 
                 if not is_correct and curr_skill:
-                    raw_curr = current_state["mastery_state"].get(curr_skill)
+                    raw_curr = mastery_state.get(curr_skill)
                     cur_val = float(raw_curr) if raw_curr is not None else 0.3
                     new_mastery = update_mastery(
                         current_mastery=cur_val,
                         is_correct=False,
                         skill_id=curr_skill,
                     )
-                    current_state["mastery_state"][curr_skill] = round(new_mastery, 4)
+                    mastery_state[curr_skill] = round(new_mastery, 4)
                     mastery_pct = f"{new_mastery*100:.0f}%"
                     yield f"data: {json.dumps({'type': 'thinking', 'content': 'Updating skill progress: ' + mastery_pct})}\n\n"
                     try:
                         supabase = get_supabase()
                         await db_exec(supabase.table("student_skill_mastery").upsert({
-                            "student_id": current_state["student_id"],
+                            "student_id": current_state.get("student_id"),
                             "skill_id": curr_skill,
                             "mastery_prob": new_mastery,
                         }, on_conflict="student_id,skill_id"))
@@ -979,37 +993,41 @@ async def upload_work(
                         print(f"[WARN] Supabase write failed: {e}")
 
                     if misconception and misconception not in ("unknown", "temporary_system_pause"):
-                        now_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
-                        active_map = current_state.setdefault("active_misconceptions", {})
+                        now_iso = datetime.timezone.utc
+                        now_str = datetime.datetime.now(now_iso).isoformat()
+                        active_map: dict[str, Any] = current_state.setdefault("active_misconceptions", {})
                         entry = active_map.get(misconception, {
                             "count": 0,
-                            "last_seen": now_iso,
+                            "last_seen": now_str,
                             "resolved": False,
                             "skill_id": curr_skill or "",
                         })
                         entry["count"] = entry.get("count", 0) + 1
-                        entry["last_seen"] = now_iso
+                        entry["last_seen"] = now_str
                         entry["resolved"] = False
                         if curr_skill:
                             entry["skill_id"] = curr_skill
                         active_map[misconception] = entry
+                        student_id_str = str(current_state.get("student_id") or "")
                         await asyncio.to_thread(
                             save_student_misconception,
-                            current_state["student_id"],
+                            student_id_str,
                             misconception,
                             curr_skill or "",
                             False,
                         )
 
                 try:
+                    session_id_str = str(current_state.get("session_id") or session_id)
+                    student_id_str = str(current_state.get("student_id") or "")
                     await asyncio.to_thread(
                         record_session_event,
-                        session_id=current_state["session_id"],
-                        student_id=current_state["student_id"],
+                        session_id=session_id_str,
+                        student_id=student_id_str,
                         problem_id=current_problem.get("id"),
-                        attempt_text=diagnosis.get("ocr_text", ""),
+                        attempt_text=str(diagnosis.get("ocr_text", "")),
                         is_correct=is_correct,
-                        agent_response=diagnosis.get("corrective_question", ""),
+                        agent_response=str(diagnosis.get("corrective_question", "")),
                     )
                 except Exception as e:
                     print(f"[WARN] Supabase write failed: {e}")
@@ -1021,28 +1039,32 @@ async def upload_work(
                     if curr_skill:
                         await _update_mastery_for_skill(current_state, curr_skill)
                         active_map = current_state.setdefault("active_misconceptions", {})
-                        now_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
-                        for m_type, m_info in active_map.items():
-                            if m_info.get("skill_id") == curr_skill and not m_info.get("resolved"):
+                        now_str = datetime.datetime.now(datetime.timezone.utc).isoformat()
+                        for m_info in active_map.values():
+                            if isinstance(m_info, dict) and m_info.get("skill_id") == curr_skill and not m_info.get("resolved"):
                                 m_info["resolved"] = True
-                                m_info["resolved_at"] = now_iso
-                        await asyncio.to_thread(resolve_student_misconceptions_for_skill, current_state["student_id"], curr_skill)
+                                m_info["resolved_at"] = now_str
+                        student_id_str = str(current_state.get("student_id") or "")
+                        await asyncio.to_thread(resolve_student_misconceptions_for_skill, student_id_str, curr_skill)
 
-                    raw_cur_m = current_state["mastery_state"].get(curr_skill)
+                    raw_cur_m = mastery_state.get(curr_skill)
                     cur_m = float(raw_cur_m) if raw_cur_m is not None else 0.3
                     mastery_pct = f"{cur_m*100:.0f}%"
                     yield f"data: {json.dumps({'type': 'thinking', 'content': 'Updating skill progress: ' + mastery_pct})}\n\n"
 
                     yield f"data: {json.dumps({'type': 'thinking', 'content': 'Picking your next practice problem...'})}\n\n"
-                    next_skill = get_next_skill(current_state["mastery_state"])
-                    raw_next_m = current_state["mastery_state"].get(next_skill)
+                    next_skill = get_next_skill(mastery_state)
+                    raw_next_m = mastery_state.get(next_skill)
                     next_m_val = float(raw_next_m) if raw_next_m is not None else 0.3
+                    student_id_str = str(current_state.get("student_id") or "")
+                    raw_attempted = current_state.get("problems_attempted", [])
+                    attempted_list: list[str] = list(raw_attempted) if isinstance(raw_attempted, list) else []
                     next_problem = await asyncio.to_thread(
                         get_next_problem,
                         skill_id=next_skill,
                         mastery_prob=next_m_val,
-                        student_id=current_state["student_id"],
-                        exclude_problem_ids=current_state.get("problems_attempted", []),
+                        student_id=student_id_str,
+                        exclude_problem_ids=attempted_list,
                         misconception_text=None,
                     )
                     if next_problem:
@@ -1050,10 +1072,14 @@ async def upload_work(
                         current_state["current_problem_evaluation"] = next_problem
                         current_state["current_problem_credited"] = False
                         current_state["current_skill_id"] = next_skill
-                        current_state["problems_attempted"] = current_state.get("problems_attempted", []) + [next_problem["id"]]
+                        if next_problem.get("id"):
+                            attempted_list.append(str(next_problem["id"]))
+                        current_state["problems_attempted"] = attempted_list
                         await asyncio.to_thread(save_session, session_id, current_state)
 
-                yield f"data: {json.dumps({'type': 'diagnosis', 'diagnosis': diagnosis, 'mastery_state': current_state['mastery_state'], 'active_misconceptions': current_state.get('active_misconceptions', {}), 'next_problem': _public_problem(current_state.get('current_problem'))})}\n\n"
+                curr_p = current_state.get("current_problem")
+                pub_next_prob = _public_problem(curr_p) if isinstance(curr_p, dict) else None
+                yield f"data: {json.dumps({'type': 'diagnosis', 'diagnosis': diagnosis, 'mastery_state': mastery_state, 'active_misconceptions': current_state.get('active_misconceptions', {}), 'next_problem': pub_next_prob})}\n\n"
                 yield f"data: {json.dumps({'type': 'done'})}\n\n"
         except asyncio.CancelledError:
             return
@@ -1066,13 +1092,16 @@ async def upload_work(
                 "step_number": 1,
                 "misconception_type": "temporary_system_pause",
                 "description": "The system encountered a brief delay processing this request.",
-                "skill_gap": state.get("current_skill_id", ""),
+                "skill_gap": str(session_state.get("current_skill_id") or ""),
                 "skill_gap_name": "",
                 "corrective_question": "I had a momentary glitch reading your work. Can you describe what step you took, or try uploading once more?",
                 "bounding_hint": {"x": 10.0, "y": 20.0, "width": 80.0, "height": 22.0},
                 "bounding_box": {"x": 10.0, "y": 20.0, "width": 80.0, "height": 22.0},
             }
-            yield f"data: {json.dumps({'type': 'diagnosis', 'diagnosis': fallback_diag, 'mastery_state': state['mastery_state'], 'next_problem': _public_problem(state.get('current_problem'))})}\n\n"
+            fb_curr_prob = session_state.get("current_problem")
+            fb_pub_prob = _public_problem(fb_curr_prob) if isinstance(fb_curr_prob, dict) else None
+            fb_mastery = session_state.get("mastery_state") if isinstance(session_state.get("mastery_state"), dict) else {}
+            yield f"data: {json.dumps({'type': 'diagnosis', 'diagnosis': fallback_diag, 'mastery_state': fb_mastery, 'next_problem': fb_pub_prob})}\n\n"
             yield f"data: {json.dumps({'type': 'done'})}\n\n"
 
     return StreamingResponse(
