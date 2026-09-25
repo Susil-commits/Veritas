@@ -11,13 +11,19 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1rem 2rem;
+  padding: 0.9rem 2rem;
   border-bottom: 1px solid var(--border);
   background: var(--bg-surface);
   position: sticky;
   top: 0;
   z-index: 50;
-  backdrop-filter: blur(12px);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+}
+
+[data-theme="light"] .dash-header {
+  background: #FFFFFF;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
 }
 
 .dash-header-left {
@@ -52,8 +58,8 @@
 }
 
 .dash-hero-card {
-  background: linear-gradient(135deg, rgba(124, 93, 250, 0.12) 0%, rgba(30, 27, 75, 0.65) 100%);
-  border: 1px solid rgba(124, 93, 250, 0.32);
+  background: linear-gradient(135deg, #131A30 0%, #19223F 100%);
+  border: 1px solid rgba(124, 93, 250, 0.28);
   border-radius: var(--radius-xl, 20px);
   padding: 2rem 2.25rem;
   display: flex;
@@ -61,9 +67,15 @@
   align-items: center;
   gap: 2rem;
   flex-wrap: wrap;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
   position: relative;
   overflow: hidden;
+}
+
+[data-theme="light"] .dash-hero-card {
+  background: #FFFFFF;
+  border: 1px solid rgba(15, 23, 42, 0.09);
+  box-shadow: 0 2px 14px rgba(15, 23, 42, 0.05);
 }
 
 .dash-hero-card::before {
