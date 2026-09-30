@@ -3,6 +3,7 @@ Rate Limiter & Cooldown Manager
 Protects LLM (Gemini) and TTS (ElevenLabs) quotas from accidental multi-clicks,
 rapid automated loops, and stress testing during demos.
 """
+import os
 import time
 import threading
 from collections import defaultdict
@@ -35,8 +36,9 @@ class RateLimiter:
         Enforce both a minimum cooldown between requests and a maximum requests per minute cap.
         Throws HTTP 429 if violated.
         """
-        # 1. Check distributed Redis rate limit outside in-process lock to avoid holding the mutex during network I/O
-        if redis_service.is_connected and cooldown_seconds >= 1.0:
+        # 1. Distributed rate limiting is optional; local in-memory sliding window handles single-process flawlessly without consuming serverless commands
+        distributed_enabled = os.getenv("ENABLE_DISTRIBUTED_RATELIMIT", "false").lower() == "true"
+        if distributed_enabled and redis_service.is_connected and cooldown_seconds >= 1.0:
             allowed, _remaining = redis_service.check_rate_limit(
                 key=f"cooldown:{key}",
                 limit=max_per_minute,
@@ -94,8 +96,9 @@ class RateLimiter:
         from automated brute-force spamming, session flooding, and credential enumeration.
         Allows up to max_attempts within window_seconds. Throws HTTP 429 if exceeded.
         """
-        # Check distributed Redis rate limit outside in-process mutex to avoid holding the lock during network I/O
-        if redis_service.is_connected:
+        # Check distributed Redis rate limit only if explicitly enabled
+        distributed_enabled = os.getenv("ENABLE_DISTRIBUTED_RATELIMIT", "false").lower() == "true"
+        if distributed_enabled and redis_service.is_connected:
             allowed, _remaining = redis_service.check_rate_limit(
                 key=f"auth:{key}",
                 limit=max_attempts,

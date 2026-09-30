@@ -78,26 +78,48 @@ class ResilientRedisService:
             return False
         return True
 
+    _NONE_SENTINEL = "__VERITAS_NONE_SENTINEL__"
+
     def get(self, key: str) -> Optional[str]:
+        now = time.time()
+        # 1. L1 In-Memory Cache Check (0ms, 0 Upstash commands)
+        with self._memory_lock:
+            if key in self._memory_cache:
+                val, expires_at = self._memory_cache[key]
+                if expires_at == 0 or expires_at > now:
+                    if val == self._NONE_SENTINEL:
+                        return None
+                    return str(val)
+                # Expired
+                del self._memory_cache[key]
+
+        # 2. L2 Upstash Redis Check (only on L1 miss)
         if self.is_connected and self._client:
             try:
                 res = self._client.get(key)
                 self._consecutive_errors = 0
+                with self._memory_lock:
+                    if res is not None:
+                        # Cache in L1 for 120s to prevent rapid redundant commands
+                        self._memory_cache[key] = (str(res), now + 120.0)
+                    else:
+                        # Negative caching for 60s (prevents non-existent keys from hammering Redis)
+                        self._memory_cache[key] = (self._NONE_SENTINEL, now + 60.0)
                 return res
             except Exception as e:
                 self._handle_redis_error(e)
 
-        # In-memory fallback
-        with self._memory_lock:
-            if key in self._memory_cache:
-                val, expires_at = self._memory_cache[key]
-                if expires_at == 0 or expires_at > time.time():
-                    return str(val)
-                del self._memory_cache[key]
         return None
 
     def set(self, key: str, value: Any, ex: int = 86400) -> bool:
         str_val = value if isinstance(value, str) else json.dumps(value)
+        now = time.time()
+        # 1. Update L1 In-Memory Cache immediately
+        expires_at = now + ex if ex > 0 else 0
+        with self._memory_lock:
+            self._memory_cache[key] = (str_val, expires_at)
+
+        # 2. Persist to L2 Upstash Redis
         if self.is_connected and self._client:
             try:
                 res = bool(self._client.set(key, str_val, ex=ex))
@@ -106,10 +128,6 @@ class ResilientRedisService:
             except Exception as e:
                 self._handle_redis_error(e)
 
-        # In-memory fallback
-        expires_at = time.time() + ex if ex > 0 else 0
-        with self._memory_lock:
-            self._memory_cache[key] = (str_val, expires_at)
         return True
 
     def get_json(self, key: str) -> Optional[Any]:
@@ -130,6 +148,11 @@ class ResilientRedisService:
             return False
 
     def delete(self, key: str) -> bool:
+        # 1. Evict from L1 In-Memory Cache
+        with self._memory_lock:
+            self._memory_cache.pop(key, None)
+
+        # 2. Evict from L2 Upstash Redis
         if self.is_connected and self._client:
             try:
                 self._client.delete(key)
@@ -137,9 +160,31 @@ class ResilientRedisService:
             except Exception as e:
                 self._handle_redis_error(e)
 
-        with self._memory_lock:
-            self._memory_cache.pop(key, None)
         return True
+
+    def clean_keys(self, pattern: str = "veritas:*") -> int:
+        """Purge keys matching pattern from both L1 memory cache and L2 Redis."""
+        cleaned_count = 0
+        with self._memory_lock:
+            if pattern == "*":
+                cleaned_count += len(self._memory_cache)
+                self._memory_cache.clear()
+            else:
+                prefix = pattern.rstrip("*")
+                matching_mem = [k for k in self._memory_cache if k.startswith(prefix)]
+                cleaned_count += len(matching_mem)
+                for k in matching_mem:
+                    del self._memory_cache[k]
+
+        if self.is_connected and self._client:
+            try:
+                keys = self._client.keys(pattern)
+                if keys:
+                    self._client.delete(*keys)
+                    cleaned_count += len(keys)
+            except Exception as e:
+                self._handle_redis_error(e)
+        return cleaned_count
 
     def check_rate_limit(self, key: str, limit: int = 15, window_seconds: int = 60) -> tuple[bool, int]:
         """
