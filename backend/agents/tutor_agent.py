@@ -155,21 +155,23 @@ def run_tutor_agent(
     conversation_history: list[dict],
     current_problem: dict | None = None,
     active_misconceptions: dict | None = None,
+    diagnosis: dict | None = None,
 ) -> dict:
     """
     Given a student message and conversation history, return a Socratic guiding response.
     conversation_history: list of {"role": "student"|"tutor", "content": str}
     active_misconceptions: optional tracked student misconceptions {m_type: {"count": int, "resolved": bool}}
+    diagnosis: optional diagnostic findings from vision agent for handwritten scratchpad
     """
     clean_msg = student_message.strip()
-    if not clean_msg:
+    if not clean_msg and not diagnosis:
         return {"reply": "I'm listening! What are your thoughts on this problem?", "problem_solved": False, "is_final_attempt": None}
 
     clean_norm = clean_msg.lower().rstrip("!.,?")
 
     # Fast-path 1: Standard student greetings (0 LLM quota consumed)
     GREETINGS_TUTOR = {"hi", "hello", "hey", "howdy", "good morning", "good afternoon", "greetings", "yo"}
-    if clean_norm in GREETINGS_TUTOR:
+    if clean_norm in GREETINGS_TUTOR and not diagnosis:
         if current_problem:
             prob_title = current_problem.get("title", "this problem")
             reply = f"Hello! Great to work with you today. Take a look at {prob_title} — what is the first step you think we should take?"
@@ -178,7 +180,7 @@ def run_tutor_agent(
         return {"reply": reply, "problem_solved": False, "is_final_attempt": None}
 
     # Fast-path 2: Objective correct solution match (0 LLM quota consumed, instant response)
-    if current_problem:
+    if current_problem and clean_msg:
         try:
             from evaluators.math_evaluator import evaluate_student_solution
             eval_res = evaluate_student_solution(clean_msg, current_problem)
@@ -194,7 +196,7 @@ def run_tutor_agent(
             pass
 
     # Fast-path 3: Duplicate submit / rapid double-click defense
-    if conversation_history:
+    if conversation_history and clean_norm:
         last_student_turn = next(
             (m.get("content", "").strip().lower() for m in reversed(conversation_history) if m.get("role") == "student"),
             None
@@ -231,6 +233,21 @@ Expected solution steps (for your reference only — do NOT reveal these):
 {chr(10).join(f"Step {i+1}: {s}" for i, s in enumerate(current_problem.get('expected_steps', [])))}
 """
 
+    if diagnosis:
+        m_type = diagnosis.get("misconception_type")
+        ocr_text = diagnosis.get("ocr_text", "")
+        desc = diagnosis.get("description", "")
+        q = diagnosis.get("corrective_question", "")
+        system_content += f"""
+
+STUDENT HANDWRITTEN WORK DIAGNOSIS:
+OCR of student work: {ocr_text}
+Diagnosed misconception: {m_type}
+Description: {desc}
+Suggested corrective inquiry: {q}
+Guide the student Socratically on the specific step where their handwriting showed this error. Do not give the answer.
+"""
+
     if active_misconceptions:
         unresolved = [
             f"- {m_type.replace('_', ' ').title()}: observed {m_data.get('count', 1)} time(s)"
@@ -260,11 +277,25 @@ Guide the student gently away from these specific traps if you see them recurrin
             messages.append(AIMessage(content=turn["content"]))
 
     # Add current student message
-    messages.append(HumanMessage(content=student_message))
+    msg_to_send = student_message or (f"[Student submitted scratchpad: {diagnosis.get('ocr_text', '')}]" if diagnosis else "")
+    messages.append(HumanMessage(content=msg_to_send))
 
     # Zero-credit test mode bypass (used by automated test suites to consume 0 Gemini API credits)
     is_mocked = hasattr(build_tutor_llm, "mock_calls") or hasattr(build_tutor_llm, "assert_called")
     if not is_mocked and (os.environ.get("VERITAS_TEST_MODE") == "true" or os.environ.get("VERITAS_MOCK_LLM") == "true"):
+        if diagnosis:
+            if diagnosis.get("is_correct"):
+                return {
+                    "reply": "Spot on! Your handwritten work is completely correct step-by-step. Fantastic job working through this problem!",
+                    "problem_solved": True,
+                    "is_final_attempt": True,
+                }
+            corrective = diagnosis.get("corrective_question") or "Let's check that step again. What operation did you use?"
+            return {
+                "reply": corrective,
+                "problem_solved": False,
+                "is_final_attempt": None,
+            }
         fallback_text = _intelligent_socratic_fallback(student_message, current_problem)
         return {"reply": fallback_text, "problem_solved": False, "is_final_attempt": None}
 

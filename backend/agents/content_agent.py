@@ -121,7 +121,24 @@ def embed_text(text: str) -> list[float]:
 
 
 LOCAL_SEED_FILE = Path(__file__).resolve().parent.parent.parent / "data" / "seed_problems.json"
+LOCAL_EMBEDDINGS_FILE = Path(__file__).resolve().parent.parent.parent / "data" / "problem_embeddings.json"
 _LOCAL_PROBLEMS_CACHE: list[dict] | None = None
+_LOCAL_EMBEDDINGS_CACHE: dict[str, list[float]] | None = None
+
+
+def _load_problem_embeddings() -> dict[str, list[float]]:
+    global _LOCAL_EMBEDDINGS_CACHE
+    if _LOCAL_EMBEDDINGS_CACHE is not None:
+        return _LOCAL_EMBEDDINGS_CACHE
+    if not LOCAL_EMBEDDINGS_FILE.exists():
+        return {}
+    try:
+        with open(LOCAL_EMBEDDINGS_FILE, "r", encoding="utf-8") as f:
+            _LOCAL_EMBEDDINGS_CACHE = json.load(f)
+            return _LOCAL_EMBEDDINGS_CACHE
+    except Exception as e:
+        print(f"[WARN] Failed to load local problem embeddings: {e}")
+        return {}
 
 
 def _load_local_problems() -> list[dict]:
@@ -313,6 +330,18 @@ def score_candidate_adaptive(
     return total_score
 
 
+def _vector_cosine_similarity(vec_a: list[float], vec_b: list[float]) -> float:
+    """Compute cosine similarity between two dense embedding vectors."""
+    if not vec_a or not vec_b or len(vec_a) != len(vec_b):
+        return 0.0
+    dot = sum(a * b for a, b in zip(vec_a, vec_b))
+    norm_a = sum(a * a for a in vec_a) ** 0.5
+    norm_b = sum(b * b for b in vec_b) ** 0.5
+    if norm_a == 0.0 or norm_b == 0.0:
+        return 0.0
+    return max(0.0, min(1.0, dot / (norm_a * norm_b)))
+
+
 def get_candidate_problems(
     skill_id: str | None = None,
     mastery_prob: float = 0.5,
@@ -322,6 +351,7 @@ def get_candidate_problems(
     top_k: int = 5,
     unrestricted: bool = False,
     keywords: list[str] | None = None,
+    mode: str = "auto",
 ) -> list[dict]:
     """
     Retrieve an ordered list of candidate problems ranked by multi-factor pedagogical utility,
@@ -330,10 +360,10 @@ def get_candidate_problems(
     If `unrestricted` is True or `skill_id` is None, candidates are retrieved across the entire
     curriculum problem bank rather than pre-filtered to a single skill standard.
 
-    Difficulty selection logic:
-        mastery < 0.4       → difficulty 1-2 (build confidence)
-        0.4 ≤ mastery < 0.7 → difficulty 2-3 (consolidate)
-        mastery ≥ 0.7       → difficulty 3-5 (challenge)
+    mode options:
+        - "auto": Try pgvector RPC, fall back to lexical if unavailable.
+        - "pgvector": Enforce dense vector similarity search (pgvector RPC with dense cosine similarity fallback).
+        - "lexical": Enforce lexical-fallback retrieval using token/BM25 similarity without vector embeddings.
     """
     supabase = get_supabase()
     exclude_ids = set(exclude_problem_ids or [])
@@ -358,36 +388,87 @@ def get_candidate_problems(
         else (f"Introductory practice problem for skill {skill_id} difficulty {min_diff} to {max_diff}" if skill_id else f"Practice math problem difficulty {min_diff} to {max_diff}")
     )
 
-    # ── 1. Vector Search via pgvector match_problems RPC ─────────────────────
-    try:
-        query_embedding = embed_text(query_text)
+    # ── Path A: Pure Lexical Mode (explicitly requested) ─────────────────────
+    if mode == "lexical":
+        problems = _load_local_problems()
+        if effective_skill_filter:
+            pool = [p for p in problems if p.get("skill_id") == effective_skill_filter and str(p.get("id")) not in exclude_ids] or problems
+        else:
+            pool = [p for p in problems if str(p.get("id")) not in exclude_ids] or problems
+        
+        # Ensure candidate similarity is None so score_candidate_adaptive uses lexical matching
+        clean_pool = []
+        for p in pool:
+            cp = dict(p)
+            cp.pop("similarity", None)
+            clean_pool.append(cp)
 
-        rpc_res = supabase.rpc(
-            "match_problems",
-            {
-                "query_embedding": query_embedding,
-                "skill_filter": effective_skill_filter,
-                "match_count": max(12, top_k * 3),
-            },
-        ).execute()
+        scored_local = [
+            (score_candidate_adaptive(p, min_diff, max_diff, m_prob, misconception_text, i, query_text=query_text, keywords=keywords), p)
+            for i, p in enumerate(clean_pool)
+        ]
+        scored_local.sort(key=lambda x: x[0], reverse=True)
+        enriched = [_enrich_problem(p) for _, p in scored_local[:top_k]]
+        return [p for p in enriched if p is not None]
 
-        candidates = rpc_res.data or []
-        fresh_candidates = [p for p in candidates if str(p.get("id")) not in exclude_ids]
+    # ── Path B: pgvector Vector Mode (or auto mode) ──────────────────────────
+    if mode == "auto":
+        try:
+            query_embedding = embed_text(query_text)
 
-        if fresh_candidates:
-            scored_candidates = [
-                (score_candidate_adaptive(p, min_diff, max_diff, m_prob, misconception_text, i, query_text=query_text, keywords=keywords), p)
-                for i, p in enumerate(fresh_candidates)
-            ]
-            scored_candidates.sort(key=lambda x: x[0], reverse=True)
-            enriched = [_enrich_problem(p) for _, p in scored_candidates[:top_k]]
-            return [p for p in enriched if p is not None]
-    except Exception as e:
-        print(f"[WARN] pgvector match_problems RPC skipped/failed ({e}), falling back to direct SQL query.")
+            rpc_res = supabase.rpc(
+                "match_problems",
+                {
+                    "query_embedding": query_embedding,
+                    "skill_filter": effective_skill_filter,
+                    "match_count": max(12, top_k * 3),
+                },
+            ).execute()
 
-    # ── 2. Fallback Candidate Retrieval ──────────────────────────────────────
-    # If unrestricted, evaluate candidate ranking across the complete curriculum problem bank.
-    # If skill-restricted, query Supabase problems filtered by skill_id with local fallback.
+            candidates = rpc_res.data or []
+            fresh_candidates = [p for p in candidates if str(p.get("id")) not in exclude_ids]
+
+            if fresh_candidates:
+                scored_candidates = [
+                    (score_candidate_adaptive(p, min_diff, max_diff, m_prob, misconception_text, i, query_text=query_text, keywords=keywords), p)
+                    for i, p in enumerate(fresh_candidates)
+                ]
+                scored_candidates.sort(key=lambda x: x[0], reverse=True)
+                enriched = [_enrich_problem(p) for _, p in scored_candidates[:top_k]]
+                return [p for p in enriched if p is not None]
+        except Exception as e:
+            print(f"[WARN] pgvector match_problems RPC skipped/failed ({e}), falling back to direct SQL query.")
+
+    if mode == "pgvector":
+        problems = _load_local_problems()
+        cached_vectors = _load_problem_embeddings()
+        if effective_skill_filter:
+            pool = [p for p in problems if p.get("skill_id") == effective_skill_filter and str(p.get("id")) not in exclude_ids] or problems
+        else:
+            pool = [p for p in problems if str(p.get("id")) not in exclude_ids] or problems
+
+        query_vec = embed_text(query_text)
+        vector_pool = []
+        for p in pool:
+            cp = dict(p)
+            p_title = cp.get("title", "").strip()
+            p_vec = cached_vectors.get(p_title)
+            if not p_vec:
+                p_text = f"{cp.get('title', '')} {cp.get('text', '')} {' '.join(cp.get('expected_steps', []))}"
+                p_vec = embed_text(p_text)
+            sim = _vector_cosine_similarity(query_vec, p_vec)
+            cp["similarity"] = sim
+            vector_pool.append(cp)
+
+        scored_vec = [
+            (score_candidate_adaptive(p, min_diff, max_diff, m_prob, misconception_text, i, query_text=query_text, keywords=keywords), p)
+            for i, p in enumerate(vector_pool)
+        ]
+        scored_vec.sort(key=lambda x: x[0], reverse=True)
+        enriched = [_enrich_problem(p) for _, p in scored_vec[:top_k]]
+        return [p for p in enriched if p is not None]
+
+    # ── Path C: Auto Fallback Candidate Retrieval ────────────────────────────
     if unrestricted or not effective_skill_filter:
         problems = _load_local_problems()
         local_candidates = [p for p in problems if str(p.get("id")) not in exclude_ids] or problems

@@ -312,12 +312,17 @@ async def start_session(
         print(f"[WARN] Supabase session insert error: {e}")
 
     current_skill = get_next_skill(mastery_state)
-    problem = await asyncio.to_thread(
-        get_next_problem,
-        skill_id=current_skill,
-        mastery_prob=mastery_state.get(current_skill, 0.3),
-        student_id=student_id,
-    )
+    start_graph_input: TutorState = {
+        "student_id": student_id,
+        "student_name": req.student_name,
+        "session_id": session_id,
+        "mastery_state": mastery_state,
+        "current_skill_id": current_skill,
+        "problems_attempted": [],
+        "next_action": "content",
+    }
+    graph_out = await get_orchestrator_graph().ainvoke(start_graph_input)
+    problem = graph_out.get("next_problem")
 
     if not problem:
         raise HTTPException(status_code=503, detail="No problems available. Please run seed script.")
@@ -504,13 +509,17 @@ async def reset_session_endpoint(
         print(f"[WARN] Error inserting new reset session: {e}")
 
     first_skill = get_next_skill(fresh_mastery)
-    first_prob = await asyncio.to_thread(
-        get_next_problem,
-        skill_id=first_skill,
-        mastery_prob=fresh_mastery.get(first_skill, 0.3),
-        student_id=req.student_id,
-        exclude_problem_ids=[],
-    )
+    reset_graph_input: TutorState = {
+        "student_id": req.student_id,
+        "student_name": student_name,
+        "session_id": new_session_id,
+        "mastery_state": fresh_mastery,
+        "current_skill_id": first_skill,
+        "problems_attempted": [],
+        "next_action": "content",
+    }
+    graph_out = await get_orchestrator_graph().ainvoke(reset_graph_input)
+    first_prob = graph_out.get("next_problem")
     if not first_prob:
         raise HTTPException(503, "No problems available in problem bank.")
 
@@ -776,26 +785,34 @@ async def next_problem_endpoint(
             if not session_state.get("current_problem_credited", False):
                 await _update_mastery_for_skill(session_state, curr_skill)
 
-        next_skill = get_next_skill(session_state.get("mastery_state", {}))
         attempted = list(session_state.get("problems_attempted", []))
         if current_prob.get("id") and current_prob["id"] not in attempted:
             attempted.append(current_prob["id"])
 
-        next_prob = await asyncio.to_thread(
-            get_next_problem,
-            skill_id=next_skill,
-            mastery_prob=session_state.get("mastery_state", {}).get(next_skill, 0.3),
-            student_id=session_state["student_id"],
-            exclude_problem_ids=attempted,
-        )
-        if not next_prob:
-            next_prob = await asyncio.to_thread(
-                get_next_problem,
-                skill_id=next_skill,
-                mastery_prob=session_state.get("mastery_state", {}).get(next_skill, 0.3),
-                student_id=session_state["student_id"],
-                exclude_problem_ids=[],
-            )
+        graph_input: TutorState = {
+            "student_id": session_state["student_id"],
+            "student_name": session_state.get("student_name", "Student"),
+            "session_id": req.session_id,
+            "conversation_history": list(session_state.get("conversation_history") or []),
+            "latest_input": "next problem",
+            "latest_image_bytes": None,
+            "current_problem": current_prob,
+            "current_problem_evaluation": session_state.get("current_problem_evaluation") or current_prob,
+            "current_problem_credited": session_state.get("current_problem_credited", False),
+            "problems_attempted": attempted,
+            "mastery_state": dict(session_state.get("mastery_state") or {}),
+            "current_skill_id": curr_skill or "",
+            "active_misconceptions": dict(session_state.get("active_misconceptions") or {}),
+            "diagnosis": None,
+            "agent_response": "",
+            "thinking_steps": [],
+            "safety_flag": None,
+            "next_action": "content",
+        }
+        graph = get_orchestrator_graph()
+        graph_out = await graph.ainvoke(graph_input)
+        next_prob = graph_out.get("next_problem")
+        next_skill = graph_out.get("current_skill_id") or get_next_skill(session_state.get("mastery_state", {}))
 
         if not next_prob:
             raise HTTPException(status_code=503, detail="No further practice problems found in problem bank.")
@@ -937,13 +954,32 @@ async def upload_work(
                 evaluation_problem: dict[str, Any] = eval_prob_raw if isinstance(eval_prob_raw, dict) else current_problem
                 yield f"data: {json.dumps({'type': 'thinking', 'content': 'Checking your steps...'})}\n\n"
 
-                diagnosis: dict[str, Any] = await asyncio.to_thread(
-                    run_diagnostic_agent,
-                    image_bytes=image_bytes,
-                    expected_steps=evaluation_problem.get("expected_steps", []),
-                    problem_text=str(current_problem.get("text", "")),
-                    skill_id=str(current_state.get("current_skill_id") or ""),
-                )
+                graph_input: TutorState = {
+                    "student_id": str(current_state.get("student_id") or ""),
+                    "student_name": str(current_state.get("student_name") or ""),
+                    "session_id": session_id,
+                    "conversation_history": list(current_state.get("conversation_history") or []),
+                    "latest_input": "",
+                    "latest_image_bytes": image_bytes,
+                    "image_present": True,
+                    "current_problem": current_problem,
+                    "current_problem_evaluation": evaluation_problem,
+                    "current_problem_credited": current_state.get("current_problem_credited", False),
+                    "problems_attempted": list(current_state.get("problems_attempted") or []),
+                    "mastery_state": dict(current_state.get("mastery_state") or {}),
+                    "current_skill_id": str(current_problem.get("skill_id") or current_state.get("current_skill_id") or ""),
+                    "active_misconceptions": dict(current_state.get("active_misconceptions") or {}),
+                    "diagnosis": None,
+                    "agent_response": "",
+                    "thinking_steps": ["Reading your handwritten work...", "Checking your steps..."],
+                    "safety_flag": None,
+                    "next_action": None,
+                }
+
+                graph = get_orchestrator_graph()
+                graph_output = await graph.ainvoke(graph_input)
+
+                diagnosis: dict[str, Any] = graph_output.get("diagnosis") or {}
 
                 try:
                     await asyncio.to_thread(
@@ -963,59 +999,16 @@ async def upload_work(
                 curr_skill = str(curr_skill_val) if curr_skill_val else ""
                 is_correct = bool(diagnosis.get("is_correct", False))
 
-                raw_mastery_dict = current_state.get("mastery_state")
-                mastery_state: dict[str, float] = (
-                    dict(raw_mastery_dict)
-                    if isinstance(raw_mastery_dict, dict)
-                    else {}
-                )
+                mastery_state: dict[str, float] = graph_output.get("mastery_state") or dict(current_state.get("mastery_state") or {})
                 current_state["mastery_state"] = mastery_state
+                current_state["active_misconceptions"] = graph_output.get("active_misconceptions", current_state.get("active_misconceptions", {}))
+                current_state["current_problem_credited"] = graph_output.get("current_problem_credited", current_state.get("current_problem_credited", False))
+                current_state["conversation_history"] = graph_output.get("conversation_history", current_state.get("conversation_history", []))
 
-                if not is_correct and curr_skill:
-                    raw_curr = mastery_state.get(curr_skill)
-                    cur_val = float(raw_curr) if raw_curr is not None else 0.3
-                    new_mastery = update_mastery(
-                        current_mastery=cur_val,
-                        is_correct=False,
-                        skill_id=curr_skill,
-                    )
-                    mastery_state[curr_skill] = round(new_mastery, 4)
-                    mastery_pct = f"{new_mastery*100:.0f}%"
+                if curr_skill and curr_skill in mastery_state:
+                    cur_val = float(mastery_state[curr_skill])
+                    mastery_pct = f"{cur_val*100:.0f}%"
                     yield f"data: {json.dumps({'type': 'thinking', 'content': 'Updating skill progress: ' + mastery_pct})}\n\n"
-                    try:
-                        supabase = get_supabase()
-                        await db_exec(supabase.table("student_skill_mastery").upsert({
-                            "student_id": current_state.get("student_id"),
-                            "skill_id": curr_skill,
-                            "mastery_prob": new_mastery,
-                        }, on_conflict="student_id,skill_id"))
-                    except Exception as e:
-                        print(f"[WARN] Supabase write failed: {e}")
-
-                    if misconception and misconception not in ("unknown", "temporary_system_pause"):
-                        now_iso = datetime.timezone.utc
-                        now_str = datetime.datetime.now(now_iso).isoformat()
-                        active_map: dict[str, Any] = current_state.setdefault("active_misconceptions", {})
-                        entry = active_map.get(misconception, {
-                            "count": 0,
-                            "last_seen": now_str,
-                            "resolved": False,
-                            "skill_id": curr_skill or "",
-                        })
-                        entry["count"] = entry.get("count", 0) + 1
-                        entry["last_seen"] = now_str
-                        entry["resolved"] = False
-                        if curr_skill:
-                            entry["skill_id"] = curr_skill
-                        active_map[misconception] = entry
-                        student_id_str = str(current_state.get("student_id") or "")
-                        await asyncio.to_thread(
-                            save_student_misconception,
-                            student_id_str,
-                            misconception,
-                            curr_skill or "",
-                            False,
-                        )
 
                 try:
                     session_id_str = str(current_state.get("session_id") or session_id)
@@ -1036,45 +1029,14 @@ async def upload_work(
                 await asyncio.to_thread(save_session, session_id, current_state)
 
                 if is_correct:
-                    if curr_skill:
-                        await _update_mastery_for_skill(current_state, curr_skill)
-                        active_map = current_state.setdefault("active_misconceptions", {})
-                        now_str = datetime.datetime.now(datetime.timezone.utc).isoformat()
-                        for m_info in active_map.values():
-                            if isinstance(m_info, dict) and m_info.get("skill_id") == curr_skill and not m_info.get("resolved"):
-                                m_info["resolved"] = True
-                                m_info["resolved_at"] = now_str
-                        student_id_str = str(current_state.get("student_id") or "")
-                        await asyncio.to_thread(resolve_student_misconceptions_for_skill, student_id_str, curr_skill)
-
-                    raw_cur_m = mastery_state.get(curr_skill)
-                    cur_m = float(raw_cur_m) if raw_cur_m is not None else 0.3
-                    mastery_pct = f"{cur_m*100:.0f}%"
-                    yield f"data: {json.dumps({'type': 'thinking', 'content': 'Updating skill progress: ' + mastery_pct})}\n\n"
-
                     yield f"data: {json.dumps({'type': 'thinking', 'content': 'Picking your next practice problem...'})}\n\n"
-                    next_skill = get_next_skill(mastery_state)
-                    raw_next_m = mastery_state.get(next_skill)
-                    next_m_val = float(raw_next_m) if raw_next_m is not None else 0.3
-                    student_id_str = str(current_state.get("student_id") or "")
-                    raw_attempted = current_state.get("problems_attempted", [])
-                    attempted_list: list[str] = list(raw_attempted) if isinstance(raw_attempted, list) else []
-                    next_problem = await asyncio.to_thread(
-                        get_next_problem,
-                        skill_id=next_skill,
-                        mastery_prob=next_m_val,
-                        student_id=student_id_str,
-                        exclude_problem_ids=attempted_list,
-                        misconception_text=None,
-                    )
+                    next_problem = graph_output.get("next_problem")
                     if next_problem:
                         current_state["current_problem"] = _public_problem(next_problem)
                         current_state["current_problem_evaluation"] = next_problem
                         current_state["current_problem_credited"] = False
-                        current_state["current_skill_id"] = next_skill
-                        if next_problem.get("id"):
-                            attempted_list.append(str(next_problem["id"]))
-                        current_state["problems_attempted"] = attempted_list
+                        current_state["current_skill_id"] = graph_output.get("current_skill_id") or current_state.get("current_skill_id")
+                        current_state["problems_attempted"] = graph_output.get("problems_attempted", current_state.get("problems_attempted", []))
                         await asyncio.to_thread(save_session, session_id, current_state)
 
                 curr_p = current_state.get("current_problem")
