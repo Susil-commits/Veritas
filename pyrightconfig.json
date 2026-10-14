@@ -3,7 +3,8 @@
   "venv": "venv",
   "extraPaths": [
     "backend",
-    "backend/venv/Lib/site-packages"
+    "backend/venv/Lib/site-packages",
+    "C:/Users/nayak/AppData/Roaming/Python/Python313/site-packages"
   ],
   "reportMissingImports": "none",
   "reportMissingModuleSource": "none",
@@ -14,7 +15,8 @@
       "root": "backend",
       "extraPaths": [
         "backend",
-        "backend/venv/Lib/site-packages"
+        "backend/venv/Lib/site-packages",
+        "C:/Users/nayak/AppData/Roaming/Python/Python313/site-packages"
       ],
       "reportMissingImports": "none",
       "reportMissingModuleSource": "none",
@@ -24,7 +26,8 @@
       "root": "scripts",
       "extraPaths": [
         "backend",
-        "backend/venv/Lib/site-packages"
+        "backend/venv/Lib/site-packages",
+        "C:/Users/nayak/AppData/Roaming/Python/Python313/site-packages"
       ],
       "reportMissingImports": "none",
       "reportMissingModuleSource": "none",

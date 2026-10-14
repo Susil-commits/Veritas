@@ -21,6 +21,10 @@ if sys.platform == "win32":
     except Exception:
         pass
 
+import os
+os.environ.setdefault("VERITAS_TEST_MODE", "true")
+os.environ.setdefault("VERITAS_MOCK_LLM", "true")
+
 from fastapi import HTTPException
 from safety import (
     sanitize_input,

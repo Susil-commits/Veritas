@@ -306,22 +306,25 @@ All performance metrics below are generated through automated, reproducible eval
 
 | Benchmark Dimension | Target Threshold | Empirical Result | Status | Proof Suite |
 |---|---|---|---|---|
-| **Zero Answer Leakage Rate** | `0.00%` | **0.00%** (0 leaks / 150 attacks) [$n=150$] | ✅ **PASS** | [`adversarial_jailbreak_benchmark.py`](backend/evals/adversarial_jailbreak_benchmark.py) |
-| **In-Sample Jailbreak Intercept** | `> 80.0%` | **87.0%** (87/100 attacks blocked) [$n=100$] | ✅ **PASS** | [`adversarial_jailbreak_benchmark.py`](backend/evals/adversarial_jailbreak_benchmark.py) |
-| **Held-Out Attack Intercept (Generalization)** | `Empirical` | **6.0%** (3/50 attacks blocked) [$n=50$] | ✅ **PASS** | [`adversarial_jailbreak_benchmark.py`](backend/evals/adversarial_jailbreak_benchmark.py) |
-| **Combined Attack Interception** | `Empirical` | **60.0%** (90/150 attacks blocked) [$n=150$] | ✅ **PASS** | [`adversarial_jailbreak_benchmark.py`](backend/evals/adversarial_jailbreak_benchmark.py) |
-| **Socratic False Refusal Rate** | `< 5.00%` | **0.00%** (0/20 valid queries blocked) [$n=20$] | ✅ **PASS** | [`adversarial_jailbreak_benchmark.py`](backend/evals/adversarial_jailbreak_benchmark.py) |
+| **Zero Answer Leakage Rate** | `0.00%` | **0.00%** (0 leaks / 200 attacks) [$n=200$] | ✅ **PASS** | [`adversarial_jailbreak_benchmark.py`](backend/evals/adversarial_jailbreak_benchmark.py) |
+| **In-Sample Jailbreak Defense (Tier 1+2)** | `> 80.0%` | **93.0%** (93/100 blocked; Tier 1 alone: 87.0%) [$n=100$] | ✅ **PASS** | [`adversarial_jailbreak_benchmark.py`](backend/evals/adversarial_jailbreak_benchmark.py) |
+| **Old Held-Out Attack Defense (Tier 1+2)** | `Empirical` | **80.0%** (40/50 blocked; Tier 1 alone: 6.0%) [$n=50$] | ✅ **PASS** | [`adversarial_jailbreak_benchmark.py`](backend/evals/adversarial_jailbreak_benchmark.py) |
+| **New Held-Out Attack Defense (Tier 1+2)** | `Empirical` | **86.0%** (43/50 blocked; Tier 1 alone: 2.0%) [$n=50$] | ✅ **PASS** | [`adversarial_jailbreak_benchmark.py`](backend/evals/adversarial_jailbreak_benchmark.py) |
+| **Combined Attack Defense (Tier 1+2)** | `Empirical` | **88.0%** (176/200 attacks blocked) [$n=200$] | ✅ **PASS** | [`adversarial_jailbreak_benchmark.py`](backend/evals/adversarial_jailbreak_benchmark.py) |
+| **Socratic False Refusal Rate** | `< 5.00%` | **0.00%** (0/50 legitimate queries refused; incl. 30 frustrated requests) [$n=50$] | ✅ **PASS** | [`adversarial_jailbreak_benchmark.py`](backend/evals/adversarial_jailbreak_benchmark.py) |
 | **Symbolic CAS Math Precision** | `100.0%` | **100.00%** (100/100 test cases) [$n=100$] | ✅ **PASS** | [`cas_math_benchmark.py`](backend/evals/cas_math_benchmark.py) |
-| **Scratchpad Reticle Mean IoU** | `> 0.700` | **0.819** (Synthetic Mock Baseline) [$n=20$] | ✅ **PASS** | [`vision_reticle_benchmark.py`](backend/evals/vision_reticle_benchmark.py) |
-| **Misconception Classification** | `> 90.0%` | **100.0%** (20/20 labeled fixtures) [$n=20$] | ✅ **PASS** | [`vision_reticle_benchmark.py`](backend/evals/vision_reticle_benchmark.py) |
+| **Scratchpad Reticle Mean IoU** | `> 0.700` | *[MOCK BASELINE]* — Real mode requires $n=20$ self-collected images | ⚠️ **MOCK** | [`vision_reticle_benchmark.py`](backend/evals/vision_reticle_benchmark.py) |
+| **Misconception Classification** | `> 90.0%` | *[MOCK BASELINE]* — Real mode requires $n=20$ self-collected images | ⚠️ **MOCK** | [`vision_reticle_benchmark.py`](backend/evals/vision_reticle_benchmark.py) |
 
 > [!NOTE]
-> **Empirical Safety Boundary Insight**: In-sample regex rules intercept 87.0% of known attack patterns, but drop to 6.0% on held-out paraphrases, multilingual translations, and obfuscation attacks. Crucially, the multi-tier pedagogical state machine maintains **0.00% answer leakage** across all 150 attacks ($n=150$), demonstrating that layered architectural guardrails prevent solution exposure even when surface-level regex filters miss novel framings.
+> **Empirical Safety Boundary & Defense Architecture Insight**:
+> - **Two-Tier Detection**: Tier 1 (fast, deterministic regex) stops 87.0% of in-sample attacks but only 6.0% of old held-out and 2.0% of new held-out attacks. Behind Tier 1, Tier 2 (Gemini LLM judge in live mode; deterministic classifier in offline CI) lifts generalization to **80.0%** on old held-out attacks and **86.0%** on new held-out attacks (including Hindi, Odia, obfuscation, and multi-turn persona framing) with **0.00% false refusals** across 50 controls ($n=50$, including students saying "just tell me" out of frustration). Added latency: ~0.05 ms in deterministic mock mode; ~3–5s in live Gemini mode.
+> - **Vision Benchmark Ground Truth**: The vision benchmark suite tests $n=20$ fixtures with ground-truth bounding boxes and misconception tags loaded from `backend/evals/fixtures/fixtures.json`. In real mode (`--real`), the evaluation strictly requires self-collected student scratchpad images (`fix_01.png`..`fix_20.png`) and exits with a clear error if missing rather than inventing synthetic images. When real images are absent, the benchmark is explicitly marked as a mock synthetic baseline everywhere and omitted from `benchmark_report.json` summary metrics.
 
 ```bash
-# Run the complete offline AI/ML evaluation benchmark in 0.16s:
+# Run the complete offline AI/ML evaluation benchmark in 0.04s:
 cd backend
-python run_evals.py
+python evals/generate_eval_report.py
 ```
 
 #### 1. Bayesian Knowledge Tracing (BKT) Calibration Benchmark

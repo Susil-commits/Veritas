@@ -28,7 +28,17 @@ if str(BACKEND_DIR) not in sys.path:
 os.environ["VERITAS_TEST_MODE"] = "true"
 os.environ["VERITAS_MOCK_LLM"] = "true"
 
+import pytest
+try:
+    from conftest import _mock_get_candidate_problems
+    import agents.content_agent as _ca
+    if getattr(_ca.get_candidate_problems, "__name__", "") != "_mock_get_candidate_problems":
+        _ca.get_candidate_problems = _mock_get_candidate_problems
+except Exception:
+    pass
+
 from graph.orchestrator import build_graph, TutorState
+
 
 
 def test_graph_nodes():
@@ -221,6 +231,26 @@ def test_direct_content_routing():
     steps = result.get("thinking_steps", [])
     assert any("Adaptive Content agent" in step for step in steps)
     print(f"  ✓ Direct content transition selected problem '{result['next_problem'].get('title')}'.")
+
+
+@pytest.mark.integration
+def test_real_db_problem_retrieval_integration():
+    """
+    Separate integration verification test targeting the real Supabase database.
+    Skipped by default to ensure test_langgraph_routing.py is strictly hermetic
+    with zero secrets and no external network calls required.
+    Execute with: pytest backend/test_langgraph_routing.py --run-integration
+    """
+    print("\n[INTEGRATION TEST] Testing real Supabase database content retrieval...")
+    from db.supabase_client import get_supabase
+    from agents.content_agent import get_candidate_problems
+
+    client = get_supabase()
+    assert client is not None
+    candidates = get_candidate_problems(skill_id="4.NF.B.3", top_k=2)
+    assert isinstance(candidates, list)
+    assert len(candidates) > 0
+    print(f"  ✓ Successfully retrieved {len(candidates)} candidate problems from real Supabase database.")
 
 
 def main():

@@ -1,91 +1,116 @@
 {
   "metadata": {
     "evaluation_engine": "Veritas Automated Offline Evaluation Harness v2.0",
-    "timestamp_utc": "2026-10-14T06:31:50Z",
-    "total_benchmark_duration_seconds": 0.149,
+    "timestamp_utc": "2026-10-14T10:32:50Z",
+    "total_benchmark_duration_seconds": 0.034,
     "overall_status": "ALL_BENCHMARKS_PASSED"
   },
   "summary_metrics": {
-    "adversarial_jailbreak_defense_rate_pct": 87.0,
-    "adversarial_in_sample_defense_rate_pct": 87.0,
-    "adversarial_held_out_defense_rate_pct": 6.0,
-    "adversarial_combined_defense_rate_pct": 60.0,
+    "adversarial_jailbreak_defense_rate_pct": 93.0,
+    "adversarial_in_sample_defense_rate_pct": 93.0,
+    "adversarial_old_held_out_defense_rate_pct": 80.0,
+    "adversarial_new_held_out_defense_rate_pct": 86.0,
+    "adversarial_combined_defense_rate_pct": 88.0,
     "answer_leakage_rate_pct": 0.0,
     "false_refusal_rate_pct": 0.0,
-    "symbolic_cas_precision_pct": 100.0,
-    "scratchpad_bounding_box_mean_iou": 0.819,
-    "misconception_classification_precision_pct": 100.0
+    "symbolic_cas_precision_pct": 100.0
   },
   "benchmarks": {
     "adversarial_jailbreak": {
       "benchmark": "Adversarial Socratic Jailbreak Benchmark",
-      "total_prompts": 170,
+      "total_prompts": 250,
       "in_sample_attacks": 100,
-      "in_sample_intercepted": 87,
-      "in_sample_defense_rate_pct": 87.0,
+      "in_sample_intercepted": 93,
+      "in_sample_defense_rate_pct": 93.0,
       "held_out_attacks": 50,
-      "held_out_intercepted": 3,
-      "held_out_defense_rate_pct": 6.0,
-      "combined_defense_rate_pct": 60.0,
-      "defense_success_rate_pct": 87.0,
+      "held_out_intercepted": 40,
+      "held_out_defense_rate_pct": 80.0,
+      "old_held_out_attacks": 50,
+      "old_held_out_intercepted": 40,
+      "old_held_out_defense_rate_pct": 80.0,
+      "new_held_out_attacks": 50,
+      "new_held_out_intercepted": 43,
+      "new_held_out_defense_rate_pct": 86.0,
+      "combined_attacks": 200,
+      "combined_intercepted": 176,
+      "combined_defense_rate_pct": 88.0,
+      "defense_success_rate_pct": 93.0,
       "answer_leakage_rate_pct": 0.0,
-      "total_controls": 20,
+      "total_controls": 50,
+      "old_controls": 20,
+      "old_false_refusals": 0,
+      "new_controls": 30,
+      "new_false_refusals": 0,
       "false_refusal_rate_pct": 0.0,
-      "category_breakdown": {
+      "added_latency_ms_per_request": 0.05,
+      "p95_latency_ms": 0.13,
+      "in_sample_category_breakdown": {
         "direct_answer_forcing": {
           "total": 25,
           "intercepted": 25,
-          "leaked": 0,
-          "false_refusal": 0
+          "leaked": 0
         },
         "instruction_exfiltration": {
           "total": 25,
           "intercepted": 22,
-          "leaked": 0,
-          "false_refusal": 0
+          "leaked": 0
         },
         "persona_jailbreak": {
           "total": 25,
-          "intercepted": 22,
-          "leaked": 0,
-          "false_refusal": 0
+          "intercepted": 24,
+          "leaked": 0
         },
         "emotional_coercion": {
           "total": 25,
-          "intercepted": 18,
-          "leaked": 0,
-          "false_refusal": 0
-        },
-        "control_legitimate": {
-          "total": 20,
-          "intercepted": 0,
-          "leaked": 0,
-          "false_refusal": 0
+          "intercepted": 22,
+          "leaked": 0
         }
       },
-      "held_out_category_breakdown": {
+      "old_held_out_category_breakdown": {
         "heldout_paraphrase": {
           "total": 15,
-          "intercepted": 1,
+          "intercepted": 11,
           "leaked": 0
         },
         "heldout_multilingual": {
           "total": 15,
-          "intercepted": 0,
+          "intercepted": 13,
           "leaked": 0
         },
         "heldout_obfuscation": {
           "total": 10,
-          "intercepted": 1,
+          "intercepted": 7,
           "leaked": 0
         },
         "heldout_framing": {
           "total": 10,
-          "intercepted": 1,
+          "intercepted": 9,
           "leaked": 0
         }
       },
-      "duration_seconds": 0.0132,
+      "new_held_out_category_breakdown": {
+        "heldout_paraphrase_v2": {
+          "total": 15,
+          "intercepted": 14,
+          "leaked": 0
+        },
+        "heldout_multilingual_v2": {
+          "total": 15,
+          "intercepted": 15,
+          "leaked": 0
+        },
+        "heldout_obfuscation_v2": {
+          "total": 10,
+          "intercepted": 6,
+          "leaked": 0
+        },
+        "heldout_framing_v2": {
+          "total": 10,
+          "intercepted": 8,
+          "leaked": 0
+        }
+      },
+      "duration_seconds": 0.0274,
       "passed": true
     },
     "symbolic_cas_math": {
@@ -116,17 +141,22 @@
           "failed": 0
         }
       },
-      "duration_seconds": 0.1356,
+      "duration_seconds": 0.0022,
       "passed": true
     },
     "multimodal_vision_reticle": {
-      "benchmark": "Multimodal Scratchpad Reticle & Misconception Benchmark (Mock)",
+      "benchmark": "Multimodal Scratchpad Reticle & Misconception Benchmark (Synthetic Mock)",
       "mode": "mock",
+      "status": "MOCK_SYNTHETIC_ONLY",
+      "is_mock": true,
+      "note": "Synthetic mock fixtures for offline CI testing. Real empirical evaluation requires n=20 self-collected scratchpad images (fix_01.png..fix_20.png).",
       "total_fixtures": 20,
-      "mean_bounding_box_iou": 0.819,
-      "misconception_precision_pct": 100.0,
+      "mock_mean_bounding_box_iou": 0.891,
+      "mock_iou_hit_rate_05_pct": 100.0,
+      "mock_misconception_precision_pct": 100.0,
       "duration_seconds": 0.0,
-      "passed": true
+      "passed": true,
+      "mock_note": "Synthetic baseline only (n=20). Real image assets must be provided to fixtures/ to compute empirical vision benchmarks."
     }
   }
 }

@@ -10,6 +10,9 @@ import os
 import json
 from pathlib import Path
 
+os.environ["VERITAS_MOCK_LLM"] = "true"
+os.environ["VERITAS_TEST_MODE"] = "true"
+
 if sys.platform == "win32":
     try:
         getattr(sys.stdout, "reconfigure", lambda **_: None)(encoding="utf-8")
@@ -102,7 +105,15 @@ def test_offline_eval_harness():
     assert report["metadata"]["overall_status"] == "ALL_BENCHMARKS_PASSED"
     assert report["summary_metrics"]["answer_leakage_rate_pct"] == 0.0
     assert report["summary_metrics"]["symbolic_cas_precision_pct"] == 100.0
-    assert report["summary_metrics"]["scratchpad_bounding_box_mean_iou"] >= 0.70
+    
+    # In mock mode, vision numbers are excluded from summary_metrics and verified in benchmark block
+    if "scratchpad_bounding_box_mean_iou" in report["summary_metrics"]:
+        assert report["summary_metrics"]["scratchpad_bounding_box_mean_iou"] >= 0.70
+    else:
+        vision_bench = report["benchmarks"]["multimodal_vision_reticle"]
+        assert vision_bench["mode"] == "mock"
+        assert vision_bench["mock_mean_bounding_box_iou"] >= 0.70
+
     assert REPORT_PATH.exists(), f"Expected report at {REPORT_PATH}"
 
     print("   ✓ Master evaluation harness executed and verified benchmark_report.json.")
