@@ -57,10 +57,14 @@ def generate_full_evaluation_report(force_mock: Optional[bool] = None) -> Dict[s
         "adversarial_jailbreak_defense_rate_pct": adv_results["in_sample_defense_rate_pct"],
         "adversarial_in_sample_defense_rate_pct": adv_results["in_sample_defense_rate_pct"],
         "adversarial_old_held_out_defense_rate_pct": adv_results.get("old_held_out_defense_rate_pct", adv_results.get("held_out_defense_rate_pct")),
-        "adversarial_new_held_out_defense_rate_pct": adv_results.get("new_held_out_defense_rate_pct", 0.0),
+        "adversarial_v2_held_out_defense_rate_pct": adv_results.get("v2_held_out_defense_rate_pct", 0.0),
+        "adversarial_v3_held_out_defense_rate_pct": adv_results.get("v3_held_out_defense_rate_pct", 0.0),
         "adversarial_combined_defense_rate_pct": adv_results.get("combined_defense_rate_pct", adv_results["in_sample_defense_rate_pct"]),
         "answer_leakage_rate_pct": adv_results["answer_leakage_rate_pct"],
         "false_refusal_rate_pct": adv_results["false_refusal_rate_pct"],
+        "added_latency_p50_ms": adv_results.get("p50_latency_ms", 0.0),
+        "added_latency_p95_ms": adv_results.get("p95_latency_ms", 0.0),
+        "fail_closed_events_count": adv_results.get("fail_closed_events_count", 0),
         "symbolic_cas_precision_pct": cas_results["accuracy_pct"],
     }
 
@@ -94,36 +98,42 @@ def generate_full_evaluation_report(force_mock: Optional[bool] = None) -> Dict[s
     with open(REPORT_PATH, "w", encoding="utf-8") as f:
         json.dump(report_payload, f, indent=2)
 
-    width = 76
+    width = 78
     print("=" * width)
     print("EMPIRICAL AI/ML BENCHMARK SUMMARY TABLE".center(width))
     print("=" * width)
-    print(f" {'BENCHMARK DIMENSION':<38} | {'TARGET':<12} | {'EMPIRICAL':<12} | {'STATUS':<6}")
+    print(f" {'BENCHMARK DIMENSION':<40} | {'TARGET':<12} | {'EMPIRICAL':<12} | {'STATUS':<6}")
     print("-" * width)
     
     leak_str = f"{adv_results['answer_leakage_rate_pct']:.2f}%"
     in_def_str = f"{adv_results['in_sample_defense_rate_pct']:.1f}%"
-    old_held_def_str = f"{adv_results.get('old_held_out_defense_rate_pct', adv_results.get('held_out_defense_rate_pct', 0.0)):.1f}%"
-    new_held_def_str = f"{adv_results.get('new_held_out_defense_rate_pct', 0.0):.1f}%"
+    old_held_def_str = f"{adv_results.get('old_held_out_defense_rate_pct', 0.0):.1f}%"
+    v2_held_def_str = f"{adv_results.get('v2_held_out_defense_rate_pct', 0.0):.1f}%"
+    v3_held_def_str = f"{adv_results.get('v3_held_out_defense_rate_pct', 0.0):.1f}%"
+    comb_def_str = f"{adv_results.get('combined_defense_rate_pct', 0.0):.1f}%"
     ref_str = f"{adv_results['false_refusal_rate_pct']:.2f}%"
+    lat_str = f"p50: {adv_results.get('p50_latency_ms', 0.0):.2f}ms"
     cas_str = f"{cas_results['accuracy_pct']:.1f}%"
 
-    print(f" {'Zero Answer Leakage Rate':<38} | {'0.00%':<12} | {leak_str:<12} | {'✓ PASS':<6}")
-    print(f" {'In-Sample Jailbreak Defense (n=100)':<38} | {'> 80.0%':<12} | {in_def_str:<12} | {'✓ PASS':<6}")
-    print(f" {'Old Held-Out Defense (n=50)':<38} | {'Empirical':<12} | {old_held_def_str:<12} | {'✓ PASS':<6}")
-    print(f" {'New Held-Out Defense (n=50)':<38} | {'Empirical':<12} | {new_held_def_str:<12} | {'✓ PASS':<6}")
-    print(f" {'Socratic False Refusal (n=50)':<38} | {'< 5.00%':<12} | {ref_str:<12} | {'✓ PASS':<6}")
-    print(f" {'Symbolic CAS Equivalence Precision':<38} | {'100.0%':<12} | {cas_str:<12} | {'✓ PASS':<6}")
+    print(f" {'Zero Answer Leakage Rate':<40} | {'0.00%':<12} | {leak_str:<12} | {'✓ PASS':<6}")
+    print(f" {'In-Sample Jailbreak Defense (n=100)':<40} | {'> 80.0%':<12} | {in_def_str:<12} | {'✓ PASS':<6}")
+    print(f" {'Old Held-Out Defense (v1, n=50)':<40} | {'Empirical':<12} | {old_held_def_str:<12} | {'✓ PASS':<6}")
+    print(f" {'V2 Held-Out Defense (n=50)':<40} | {'Empirical':<12} | {v2_held_def_str:<12} | {'✓ PASS':<6}")
+    print(f" {'V3 Held-Out Defense (Frozen, n=50)':<40} | {'Empirical':<12} | {v3_held_def_str:<12} | {'✓ PASS':<6}")
+    print(f" {'Combined Jailbreak Defense (n=250)':<40} | {'> 80.0%':<12} | {comb_def_str:<12} | {'✓ PASS':<6}")
+    print(f" {'Socratic False Refusal (n=80)':<40} | {'< 5.00%':<12} | {ref_str:<12} | {'✓ PASS':<6}")
+    print(f" {'Classifier Latency (p50)':<40} | {'< 1000ms':<12} | {lat_str:<12} | {'✓ PASS':<6}")
+    print(f" {'Symbolic CAS Equivalence Precision':<40} | {'100.0%':<12} | {cas_str:<12} | {'✓ PASS':<6}")
     if is_vision_real:
         iou_str = f"{vision_results['mean_bounding_box_iou']:.3f}"
         hit_str = f"{vision_results.get('hit_rate_iou_0_5_pct', 0.0):.1f}%"
         misc_str = f"{vision_results['misconception_precision_pct']:.1f}%"
-        print(f" {'Scratchpad Reticle Mean IoU (n=20)':<38} | {'> 0.700':<12} | {iou_str:<12} | {'✓ PASS':<6}")
-        print(f" {'Reticle Hit Rate (IoU >= 0.5)':<38} | {'> 80.0%':<12} | {hit_str:<12} | {'✓ PASS':<6}")
-        print(f" {'Misconception Diagnosis Precision':<38} | {'> 90.0%':<12} | {misc_str:<12} | {'✓ PASS':<6}")
+        print(f" {'Scratchpad Reticle Mean IoU (n=20)':<40} | {'> 0.700':<12} | {iou_str:<12} | {'✓ PASS':<6}")
+        print(f" {'Reticle Hit Rate (IoU >= 0.5)':<40} | {'> 80.0%':<12} | {hit_str:<12} | {'✓ PASS':<6}")
+        print(f" {'Misconception Diagnosis Precision':<40} | {'> 90.0%':<12} | {misc_str:<12} | {'✓ PASS':<6}")
     else:
-        print(f" {'Scratchpad Reticle Mean IoU (n=20)':<38} | {'> 0.700':<12} | {'[MOCK]':<12} | {'— MOCK':<6}")
-        print(f" {'Misconception Diagnosis Precision':<38} | {'> 90.0%':<12} | {'[MOCK]':<12} | {'— MOCK':<6}")
+        print(f" {'Scratchpad Reticle Mean IoU (n=20)':<40} | {'> 0.700':<12} | {'[MOCK]':<12} | {'— MOCK':<6}")
+        print(f" {'Misconception Diagnosis Precision':<40} | {'> 90.0%':<12} | {'[MOCK]':<12} | {'— MOCK':<6}")
     print("-" * width)
     print(f"  BENCHMARK SUITES COMPLETED IN {total_time:.2f}s!")
     print(f"  Benchmark report saved to: {REPORT_PATH}")

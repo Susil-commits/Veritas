@@ -138,7 +138,7 @@ def hermetic_environment(monkeypatch, request):
     except Exception:
         pass
 
-    # 2. Monkeypatch db.supabase_client.get_supabase to prevent credential crashes
+    # 2. Monkeypatch db.supabase_client._client and get_supabase to prevent credential crashes
     try:
         import db.supabase_client as supabase_client
         mock_client = MagicMock()
@@ -146,11 +146,18 @@ def hermetic_environment(monkeypatch, request):
         mock_table = MagicMock()
         mock_client.table.return_value = mock_table
         mock_table.select.return_value = mock_table
+        mock_table.insert.return_value = mock_table
+        mock_table.update.return_value = mock_table
+        mock_table.delete.return_value = mock_table
+        mock_table.upsert.return_value = mock_table
         mock_table.eq.return_value = mock_table
         mock_table.neq.return_value = mock_table
         mock_table.limit.return_value = mock_table
         mock_table.order.return_value = mock_table
+        mock_table.single.return_value = mock_table
         mock_table.execute.return_value = MagicMock(data=[])
+        monkeypatch.setattr(supabase_client, "_client", mock_client)
         monkeypatch.setattr(supabase_client, "get_supabase", lambda: mock_client)
     except Exception:
         pass
+

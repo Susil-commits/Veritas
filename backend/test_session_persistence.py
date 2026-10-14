@@ -27,9 +27,11 @@ from session_manager import (
     _sessions_cache,
     BoundedSessionCache,
 )
+import pytest
 from db.supabase_client import get_supabase
 
 
+@pytest.mark.integration
 def test_session_persistence_and_recovery():
     print("🔄 [PERSISTENCE TEST 1] Testing Session State Across Server Restarts...")
     supabase = get_supabase()
@@ -123,6 +125,7 @@ def test_session_persistence_and_recovery():
             print(f"[CLEANUP WARN]: {e}")
 
 
+@pytest.mark.integration
 def test_health_check_connectivity():
     print("🩺 [HEALTH TEST 2] Testing Enhanced /health Route...")
     from fastapi.testclient import TestClient
@@ -145,6 +148,7 @@ def test_health_check_connectivity():
     print("✅ [HEALTH TEST 2 PASSED]\n")
 
 
+@pytest.mark.integration
 def test_parent_data_deletion_endpoint():
     print("🗑️ [PRIVACY TEST 3] Testing Data Deletion ('Delete My Data')...")
     supabase = get_supabase()
@@ -204,6 +208,7 @@ def test_parent_data_deletion_endpoint():
     print("✅ [PRIVACY TEST 3 PASSED]\n")
 
 
+@pytest.mark.integration
 def test_bounded_cache_lru_cap():
     print("🧠 [CACHE TEST 4] Testing In-Memory BoundedSessionCache LRU Size Cap...")
     test_cache = BoundedSessionCache(max_size=5)

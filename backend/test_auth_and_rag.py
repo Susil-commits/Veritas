@@ -37,8 +37,10 @@ from auth import (
     verify_parent_caller,
     verify_session_access,
 )
+import pytest
 from rate_limiter import RateLimiter
 
+@pytest.mark.integration
 def test_token_lifecycle():
     print("🔐 [TEST 1] Testing Session Token Lifecycle...")
     student_id = "11111111-2222-3333-4444-555555555555"
@@ -192,6 +194,8 @@ def test_token_lifecycle():
     print("✅ [TEST 1 PASSED] Token lifecycle verification complete!\n")
 
 
+@pytest.mark.integration
+@pytest.mark.anyio
 async def test_student_scoping():
     print("🛡️ [TEST 2] Testing Student Scoping & Route Protection...")
     alice_id = "student-alice-0001"
@@ -257,6 +261,8 @@ async def test_student_scoping():
     print("✅ [TEST 2 PASSED] Student scoping verification complete!\n")
 
 
+@pytest.mark.integration
+@pytest.mark.anyio
 async def test_parent_scoping():
     print("👨‍👩‍👧 [TEST 2B] Testing Parent Scoping, Role Checks & IDOR Protection...")
     parent_a = "parent-uuid-0001"
@@ -329,6 +335,7 @@ async def test_parent_scoping():
     print("✅ [TEST 2B PASSED] Parent scoping verification complete!\n")
 
 
+@pytest.mark.integration
 def test_rate_limiter():
     print("⏱️ [TEST 3] Testing Rate Limiter & Cooldowns...")
     test_limiter = RateLimiter()
@@ -365,6 +372,7 @@ def test_rate_limiter():
     print("✅ [TEST 3 PASSED] Rate limiter verification complete!\n")
 
 
+@pytest.mark.integration
 def test_content_agent_rag():
     print("📚 [TEST 4] Testing Content Agent RAG Semantic Search...")
     # Test problem retrieval with misconception targeting

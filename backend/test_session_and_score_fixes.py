@@ -7,11 +7,13 @@ Unit & Integration tests for:
 5. Parent linking accepting student UUID code as well as email.
 """
 import uuid
+import pytest
 from fastapi.testclient import TestClient
 from main import app
 
 client = TestClient(app)
 
+@pytest.mark.integration
 def test_score_inflation_prevention_and_title_clean():
     print("\n[TEST 1] Testing Next-Problem Score Inflation Prevention & Auth Enforcement...")
     test_student_id = str(uuid.uuid4())
@@ -74,6 +76,7 @@ def test_score_inflation_prevention_and_title_clean():
     print("   [OK] Solved problem correctly credited mastery.")
 
 
+@pytest.mark.integration
 def test_session_resumption_and_reset():
     print("\n[TEST 2] Testing Session Resumption, Student Minting Protection, and Reset IDOR Defense...")
     test_student_id = str(uuid.uuid4())
@@ -155,6 +158,7 @@ def test_session_resumption_and_reset():
     print("   [OK] Session reset succeeded (cleared state & reset mastery to baseline priors).")
 
 
+@pytest.mark.integration
 def test_parent_linking_with_student_code():
     print("\n[TEST 3] Testing Parent Linking via Student Code (UUID)...")
     test_student_id = str(uuid.uuid4())

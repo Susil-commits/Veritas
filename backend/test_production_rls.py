@@ -24,9 +24,11 @@ if sys.platform == "win32":
 from dotenv import load_dotenv
 load_dotenv()
 
+import pytest
 from supabase import create_client
 
 
+@pytest.mark.integration
 def test_public_anon_cannot_read_children():
     print("🛡️ [RLS TEST 1] Verifying Anonymous Client Blocked from Children Table...")
     url = os.environ.get("SUPABASE_URL")
@@ -47,6 +49,7 @@ def test_public_anon_cannot_read_children():
     print("✅ [RLS TEST 1 PASSED]\n")
 
 
+@pytest.mark.integration
 def test_parent_cross_account_isolation():
     print("👨‍👩‍👧 [RLS TEST 2] Verifying Parent A Cannot Access Parent B Child Records...")
     from fastapi.testclient import TestClient
@@ -118,6 +121,7 @@ def test_parent_cross_account_isolation():
     print("✅ [RLS TEST 2 PASSED]\n")
 
 
+@pytest.mark.integration
 def test_key_leak_prevention():
     print("🔒 [RLS TEST 3] Verifying Service Role Key is Never in Frontend Files...")
     service_key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")

@@ -21,6 +21,7 @@ if sys.platform == "win32":
     except Exception:
         pass
 
+import pytest
 from starlette.testclient import TestClient
 from main import app, generate_student_alerts
 from auth import create_session_token
@@ -173,6 +174,7 @@ def test_generic_parent_alerts_generation():
     print("   ✓ Stagnation / practice plateau alert correctly flagged.")
 
 
+@pytest.mark.integration
 def test_api_misconception_and_alerts_integration():
     print("\n[TEST 4] Testing API Endpoints Integration...")
     test_parent_id = str(uuid.uuid4())

@@ -20,12 +20,14 @@ if sys.platform == "win32":
     except Exception:
         pass
 
+import pytest
 from starlette.testclient import TestClient
 from main import app
 from auth import create_session_token
 
 client = TestClient(app)
 
+@pytest.mark.integration
 def test_full_parent_child_flow():
     print("🚀 Running Parent-Child & Auth Flow Test Suite...")
 
