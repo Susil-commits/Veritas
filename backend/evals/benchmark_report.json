@@ -1,8 +1,8 @@
 {
   "metadata": {
     "evaluation_engine": "Veritas Automated Offline Evaluation Harness v2.0",
-    "timestamp_utc": "2026-10-14T11:25:15Z",
-    "total_benchmark_duration_seconds": 0.066,
+    "timestamp_utc": "2026-10-15T13:48:36Z",
+    "total_benchmark_duration_seconds": 0.123,
     "overall_status": "ALL_BENCHMARKS_PASSED"
   },
   "summary_metrics": {
@@ -14,8 +14,8 @@
     "adversarial_combined_defense_rate_pct": 82.8,
     "answer_leakage_rate_pct": 0.0,
     "false_refusal_rate_pct": 1.25,
-    "added_latency_p50_ms": 0.08,
-    "added_latency_p95_ms": 0.19,
+    "added_latency_p50_ms": 0.0,
+    "added_latency_p95_ms": 1.0,
     "fail_closed_events_count": 0,
     "symbolic_cas_precision_pct": 100.0
   },
@@ -57,11 +57,11 @@
       "new_controls": 60,
       "new_false_refusals": 1,
       "false_refusal_rate_pct": 1.25,
-      "added_latency_ms_per_request": 0.09,
-      "added_latency_p50_ms": 0.08,
-      "p50_latency_ms": 0.08,
-      "added_latency_p95_ms": 0.19,
-      "p95_latency_ms": 0.19,
+      "added_latency_ms_per_request": 0.15,
+      "added_latency_p50_ms": 0.0,
+      "p50_latency_ms": 0.0,
+      "added_latency_p95_ms": 1.0,
+      "p95_latency_ms": 1.0,
       "fail_closed_events_count": 0,
       "in_sample_category_breakdown": {
         "direct_answer_forcing": {
@@ -156,7 +156,7 @@
           "leaked": 0
         }
       },
-      "duration_seconds": 0.056,
+      "duration_seconds": 0.0889,
       "passed": true
     },
     "symbolic_cas_math": {
@@ -187,7 +187,7 @@
           "failed": 0
         }
       },
-      "duration_seconds": 0.0033,
+      "duration_seconds": 0.004,
       "passed": true
     },
     "multimodal_vision_reticle": {
@@ -200,7 +200,7 @@
       "mock_mean_bounding_box_iou": 0.891,
       "mock_iou_hit_rate_05_pct": 100.0,
       "mock_misconception_precision_pct": 100.0,
-      "duration_seconds": 0.0001,
+      "duration_seconds": 0.0,
       "passed": true,
       "mock_note": "Synthetic baseline only (n=20). Real image assets must be provided to fixtures/ to compute empirical vision benchmarks."
     }

@@ -22,3 +22,4 @@ pyjwt[crypto]==2.9.0
 redis==5.2.1
 cloudinary==1.41.0
 sympy==1.13.3
+pytest>=8.0.0
