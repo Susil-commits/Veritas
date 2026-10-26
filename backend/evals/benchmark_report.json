@@ -1,8 +1,8 @@
 {
   "metadata": {
     "evaluation_engine": "Veritas Automated Offline Evaluation Harness v2.0",
-    "timestamp_utc": "2026-10-15T13:48:36Z",
-    "total_benchmark_duration_seconds": 0.123,
+    "timestamp_utc": "2026-10-26T14:30:56Z",
+    "total_benchmark_duration_seconds": 0.052,
     "overall_status": "ALL_BENCHMARKS_PASSED"
   },
   "summary_metrics": {
@@ -14,8 +14,8 @@
     "adversarial_combined_defense_rate_pct": 82.8,
     "answer_leakage_rate_pct": 0.0,
     "false_refusal_rate_pct": 1.25,
-    "added_latency_p50_ms": 0.0,
-    "added_latency_p95_ms": 1.0,
+    "added_latency_p50_ms": 0.06,
+    "added_latency_p95_ms": 0.13,
     "fail_closed_events_count": 0,
     "symbolic_cas_precision_pct": 100.0
   },
@@ -57,11 +57,11 @@
       "new_controls": 60,
       "new_false_refusals": 1,
       "false_refusal_rate_pct": 1.25,
-      "added_latency_ms_per_request": 0.15,
-      "added_latency_p50_ms": 0.0,
-      "p50_latency_ms": 0.0,
-      "added_latency_p95_ms": 1.0,
-      "p95_latency_ms": 1.0,
+      "added_latency_ms_per_request": 0.06,
+      "added_latency_p50_ms": 0.06,
+      "p50_latency_ms": 0.06,
+      "added_latency_p95_ms": 0.13,
+      "p95_latency_ms": 0.13,
       "fail_closed_events_count": 0,
       "in_sample_category_breakdown": {
         "direct_answer_forcing": {
@@ -156,7 +156,7 @@
           "leaked": 0
         }
       },
-      "duration_seconds": 0.0889,
+      "duration_seconds": 0.0386,
       "passed": true
     },
     "symbolic_cas_math": {
@@ -187,7 +187,7 @@
           "failed": 0
         }
       },
-      "duration_seconds": 0.004,
+      "duration_seconds": 0.0023,
       "passed": true
     },
     "multimodal_vision_reticle": {

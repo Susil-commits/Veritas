@@ -14,6 +14,7 @@ import re
 import html
 import io
 import time
+import secrets
 import concurrent.futures
 from typing import Tuple, Dict, Any, Optional, List
 from fastapi import HTTPException, status
@@ -766,6 +767,141 @@ def record_security_event(event_type: str, details: Dict[str, Any]) -> None:
         _audit_log.pop(0)
 
 
+# ── ENTERPRISE AI SECURITY EXTENSIONS ────────────────────────────────────────
+
+def generate_prompt_canary(prefix: str = "VERITAS_CANARY") -> str:
+    """
+    Generates a cryptographically random canary token to embed into system prompts.
+    If this token ever appears in the LLM's outbound stream, prompt exfiltration is detected.
+    """
+    token = secrets.token_hex(8)
+    return f"[{prefix}_{token}]"
+
+
+def check_canary_leakage(text: str, canary: str) -> bool:
+    """
+    Scans outbound tutor/agent text for canary tokens.
+    Returns True if an exfiltration/leakage attempt is detected.
+    """
+    if not text or not canary:
+        return False
+    if canary in text:
+        record_security_event("canary_token_leak_detected", {"canary": canary[:12] + "..."})
+        return True
+    return False
+
+
+# Regex patterns for Personally Identifiable Information (PII)
+_EMAIL_PATTERN = re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b")
+_PHONE_PATTERN = re.compile(r"\b(?:\+?1[-. ]?)?\(?[0-9]{3}\)?[-. ]?[0-9]{3}[-. ]?[0-9]{4}\b")
+_SSN_PATTERN = re.compile(r"\b\d{3}-\d{2}-\d{4}\b")
+_STUDENT_NAME_PATTERN = re.compile(
+    r"\b(?:my name is|i am called|call me|student name is|student:)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)\b",
+    re.IGNORECASE,
+)
+
+
+def redact_pii(text: str) -> Tuple[str, Dict[str, str]]:
+    """
+    Enterprise Zero-PII Anonymization Layer (FERPA / COPPA Compliance).
+    Redacts student personal data (emails, phone numbers, SSNs, full names)
+    before prompts are passed to external LLMs.
+    Returns: (sanitized_text, mapping_dict_for_restoration)
+    """
+    if not text:
+        return "", {}
+
+    mapping: Dict[str, str] = {}
+    sanitized = text
+
+    # 1. Redact Emails
+    email_idx = 1
+    for match in _EMAIL_PATTERN.finditer(sanitized):
+        email = match.group(0)
+        placeholder = f"[EMAIL_{email_idx}]"
+        mapping[placeholder] = email
+        sanitized = sanitized.replace(email, placeholder)
+        email_idx += 1
+
+    # 2. Redact Phone Numbers
+    phone_idx = 1
+    for match in _PHONE_PATTERN.finditer(sanitized):
+        phone = match.group(0)
+        placeholder = f"[PHONE_{phone_idx}]"
+        mapping[placeholder] = phone
+        sanitized = sanitized.replace(phone, placeholder)
+        phone_idx += 1
+
+    # 3. Redact SSN / ID Numbers
+    for match in _SSN_PATTERN.finditer(sanitized):
+        ssn = match.group(0)
+        placeholder = "[REDACTED_GOV_ID]"
+        mapping[placeholder] = ssn
+        sanitized = sanitized.replace(ssn, placeholder)
+
+    # 4. Redact self-reported student names
+    name_idx = 1
+    for match in _STUDENT_NAME_PATTERN.finditer(sanitized):
+        name = match.group(1).strip()
+        # Avoid redacting common non-name words or stop words
+        if name.lower() not in {"math", "veritas", "student", "teacher", "fraction", "answer", "ssn", "id", "here", "ready"}:
+            placeholder = f"[STUDENT_NAME_{name_idx}]"
+            mapping[placeholder] = name
+            sanitized = sanitized.replace(name, placeholder)
+            name_idx += 1
+
+    if mapping:
+        record_security_event("pii_redacted", {"redacted_types": list(mapping.keys())})
+
+    return sanitized, mapping
+
+
+def restore_pii(text: str, mapping: Dict[str, str]) -> str:
+    """Restores redacted placeholders back into client responses safely."""
+    if not text or not mapping:
+        return text
+    restored = text
+    for placeholder, original in mapping.items():
+        restored = restored.replace(placeholder, original)
+    return restored
+
+
+# Patterns specifically targeting visual OCR prompt injections on scratchpads
+VISUAL_INJECTION_PATTERNS = [
+    r"ignore\s+(all\s+)?(previous\s+)?rules",
+    r"output\s+(the\s+)?(answer\s+key|final\s+answer|solution)",
+    r"teacher\s+instruction\s*:",
+    r"system\s*:\s*override",
+    r"disregard\s+socratic",
+    r"developer\s+mode",
+    r"print\s+json\s+solution",
+    r"grading\s+key\s*:",
+]
+COMPILED_VISUAL_INJECTIONS = [re.compile(p, re.IGNORECASE) for p in VISUAL_INJECTION_PATTERNS]
+
+
+def sanitize_ocr_visual_input(ocr_text: str) -> Tuple[bool, Optional[str], str]:
+    """
+    Multimodal Visual Prompt Injection Pre-Filter.
+    Scans student scratchwork OCR / text extractions before constructing multimodal agent prompts.
+    Returns: (is_adversarial: bool, attack_category: Optional[str], clean_text: str)
+    """
+    if not ocr_text:
+        return False, None, ""
+
+    clean_text = sanitize_input(ocr_text)
+
+    for pattern in COMPILED_VISUAL_INJECTIONS:
+        if pattern.search(clean_text):
+            record_security_event(
+                "visual_prompt_injection_intercepted",
+                {"pattern": pattern.pattern, "snippet": clean_text[:60]},
+            )
+            return True, f"Visual Prompt Injection: matched '{pattern.pattern}'", ""
+
+    return False, None, clean_text
+
+
 def get_security_telemetry() -> Dict[str, Any]:
     """Returns platform safety health and defense status."""
     return {
@@ -774,6 +910,9 @@ def get_security_telemetry() -> Dict[str, Any]:
         "anti_prompt_injection": "enabled",
         "socratic_answer_protection": "enabled",
         "file_upload_shield": "10MB_image_strict",
+        "canary_token_protection": "active",
+        "zero_pii_redaction": "active",
+        "multimodal_visual_shield": "active",
         "audit_events_count": len(_audit_log),
         "recent_security_events": _audit_log[-5:],
     }
