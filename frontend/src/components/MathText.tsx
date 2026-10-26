@@ -1,5 +1,6 @@
 import React, { memo } from 'react'
 import katex from 'katex'
+import { escapeHtml, sanitizeHtml } from '../utils/sanitizeHtml'
 
 interface MathTextProps {
   content: string
@@ -8,17 +9,19 @@ interface MathTextProps {
 }
 
 /**
- * Render a single TeX string to safe HTML using KaTeX.
+ * Render a single TeX string to safe HTML using KaTeX with strict XSS sanitization.
  */
 function renderTeX(tex: string, displayMode: boolean): string {
   try {
-    return katex.renderToString(tex, {
+    const rawHtml = katex.renderToString(tex, {
       displayMode,
       throwOnError: false,
       strict: false,
+      trust: false, // Disallow arbitrary URLs, scripts, and protocol handlers
     })
+    return sanitizeHtml(rawHtml)
   } catch {
-    return tex
+    return escapeHtml(tex)
   }
 }
 

@@ -30,6 +30,11 @@ from safety import (
     validate_image_upload,
     record_security_event,
     SOCRATIC_BOUNDARY_RESPONSE,
+    generate_prompt_canary,
+    check_canary_leakage,
+    redact_pii,
+    restore_pii,
+    sanitize_ocr_visual_input,
 )
 from session_manager import (
     get_session,
@@ -348,6 +353,7 @@ async def start_session(
         "mastery_state": mastery_state,
         "current_skill_id": current_skill,
         "active_misconceptions": active_misc,
+        "session_canary": generate_prompt_canary(),
         "diagnosis": None,
         "agent_response": "",
         "thinking_steps": [],
@@ -602,6 +608,9 @@ async def send_message(
     if not clean_message:
         raise HTTPException(status_code=400, detail="Message cannot be empty.")
 
+    # Enterprise Zero-PII Redaction (FERPA / COPPA) before LLM prompt assembly
+    clean_message, pii_mapping = redact_pii(clean_message)
+
     is_injection, injection_reason = check_prompt_injection(clean_message)
     is_harmful, harm_category = check_harmful_content(clean_message)
 
@@ -671,6 +680,16 @@ async def send_message(
                 graph_output = await graph.ainvoke(graph_input)
 
                 response = graph_output.get("agent_response", "")
+
+                # Canary token exfiltration verification
+                session_canary = current_state.get("session_canary")
+                if session_canary and check_canary_leakage(response, session_canary):
+                    response = SOCRATIC_BOUNDARY_RESPONSE
+
+                # Safe PII rehydration on client presentation boundary
+                if pii_mapping:
+                    response = restore_pii(response, pii_mapping)
+
                 problem_solved = bool(graph_output.get("problem_solved", False))
                 steps = graph_output.get("thinking_steps") or []
                 for step_content in steps:

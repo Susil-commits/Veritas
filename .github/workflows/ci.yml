@@ -15,7 +15,7 @@ concurrency:
 # ─────────────────────────────────────────────────────────────────────────────
 jobs:
   backend-tests:
-    name: Backend — Full Test Suite & AI Benchmarks (14 suites, mock mode)
+    name: Backend — Full Test Suite, Enterprise Security & AI Benchmarks (17 suites, mock mode)
     runs-on: ubuntu-latest
 
     env:
@@ -51,8 +51,8 @@ jobs:
       - name: Verify dependency resolution integrity
         run: pip check
 
-      # Single step runs all 14 suites via the project's own master test runner.
-      - name: Run all 14 test suites via run_all_tests.py
+      # Single step runs all 17 suites via the project's own master test runner.
+      - name: Run all 17 test suites via run_all_tests.py
         working-directory: backend
         run: python run_all_tests.py
 

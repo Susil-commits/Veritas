@@ -34,6 +34,7 @@ TEST_SCRIPTS = [
     ("test_langgraph_routing.py", "LangGraph Multi-Agent Architecture & Routing Paths"),
     ("test_evals_and_cognitive_dag.py", "Offline Evaluation & Cognitive DAG Benchmark Suite"),
     ("test_enterprise_security_and_resilience.py", "Enterprise AI Security & Resilience Gateway"),
+    ("test_enterprise_routes.py", "Enterprise District & Audit Log API Endpoints"),
 ]
 
 def main():

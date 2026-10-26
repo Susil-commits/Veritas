@@ -47,6 +47,7 @@ from routes.common import (
     get_orchestrator_graph,
     set_orchestrator_graph,
 )
+from routes.enterprise import router as enterprise_router
 from routes.games import GAME_LEVELS_CONFIG, router as games_router
 from routes.health import router as health_router
 from routes.neo import router as neo_router
@@ -141,6 +142,7 @@ app.include_router(session_router)
 app.include_router(student_router)
 app.include_router(parent_router)
 app.include_router(neo_router)
+app.include_router(enterprise_router)
 
 # Re-export backward-compatible legacy symbols for existing tests and scripts
 __all__ = [
