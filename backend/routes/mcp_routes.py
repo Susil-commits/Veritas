@@ -12,7 +12,10 @@ from typing import Any, Dict
 from fastapi import APIRouter, Request, status
 from fastapi.responses import JSONResponse, StreamingResponse
 
-from backend.mcp.server import VeritasMCPServer
+try:
+    from backend.mcp.server import VeritasMCPServer
+except ImportError:
+    from mcp.server import VeritasMCPServer
 from routes.common import SSE_HEADERS
 
 logger = logging.getLogger("veritas-backend.mcp_router")

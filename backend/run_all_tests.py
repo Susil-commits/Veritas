@@ -42,6 +42,8 @@ TEST_SCRIPTS = [
 def main():
     live_llm = "--live-llm" in sys.argv
     test_env = dict(os.environ)
+    existing_pp = test_env.get("PYTHONPATH", "")
+    test_env["PYTHONPATH"] = f"{BACKEND_DIR.parent}{os.pathsep}{BACKEND_DIR}" + (f"{os.pathsep}{existing_pp}" if existing_pp else "")
     if not live_llm:
         test_env["VERITAS_TEST_MODE"] = "true"
         test_env["VERITAS_MOCK_LLM"] = "true"

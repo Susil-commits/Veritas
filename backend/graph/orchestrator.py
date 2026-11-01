@@ -22,7 +22,10 @@ from safety import (
     SAFE_SUPPORT_RESPONSE,
     is_answer_leaked,
 )
-from backend.harness.invariants import PedagogicalInvariantChecker
+try:
+    from backend.harness.invariants import PedagogicalInvariantChecker
+except ImportError:
+    from harness.invariants import PedagogicalInvariantChecker
 
 
 # ── State Schema ────────────────────────────────────────────────────────────

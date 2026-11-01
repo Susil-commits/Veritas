@@ -22,9 +22,14 @@ import json
 import logging
 from typing import Any, Dict, List, Optional
 
-from backend.harness.sandbox import SafeMathEvaluator
-from backend.harness.invariants import PedagogicalInvariantChecker
-from backend.context.cognitive_context import STATIC_SOCRATIC_PREFIX
+try:
+    from backend.harness.sandbox import SafeMathEvaluator
+    from backend.harness.invariants import PedagogicalInvariantChecker
+    from backend.context.cognitive_context import STATIC_SOCRATIC_PREFIX
+except ImportError:
+    from harness.sandbox import SafeMathEvaluator
+    from harness.invariants import PedagogicalInvariantChecker
+    from context.cognitive_context import STATIC_SOCRATIC_PREFIX
 
 logger = logging.getLogger("veritas-backend.mcp")
 
