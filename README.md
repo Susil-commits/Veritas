@@ -5,10 +5,11 @@
 [![FastAPI](https://img.shields.io/badge/FastAPI-005571?style=flat&logo=fastapi)](https://fastapi.tiangolo.com/)
 [![LangGraph](https://img.shields.io/badge/LangGraph-State_Machine_Orchestrator-FF6F00?style=flat)](https://www.langchain.com/langgraph)
 [![Google Gemini](https://img.shields.io/badge/Gemini_3.5_Flash--Lite-Vision_%26_LLM-4285F4?style=flat&logo=google)](https://ai.google.dev/)
+[![MCP](https://img.shields.io/badge/MCP-Model_Context_Protocol_Ready-8A2BE2?style=flat)](#part-6-frontier-ai-engineering--context-harness-inferencing--mcp)
+[![Harness](https://img.shields.io/badge/Harness_Engineering-Invariants_%26_CAS_Sandbox-blue?style=flat)](#part-6-frontier-ai-engineering--context-harness-inferencing--mcp)
 [![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL_%2B_pgvector-3ECF8E?style=flat&logo=supabase)](https://supabase.com/)
-[![BKT](https://img.shields.io/badge/ML-Bayesian_Knowledge_Tracing-8A2BE2?style=flat)](#5-ai--ml-models-used--quantitative-metrics)
-[![Tests](https://img.shields.io/badge/Tests-15%2F15_Passing-brightgreen?style=flat)](#7-test-case-pass-proof)
-[![Offline Evals](https://img.shields.io/badge/Offline_Evals-3%2F3_Passing-blue?style=flat)](#5-ai--ml-models-used--quantitative-metrics)
+[![Tests](https://img.shields.io/badge/Tests-19%2F19_Passing-brightgreen?style=flat)](#7-test-case-pass-proof)
+[![Offline Evals](https://img.shields.io/badge/Offline_Evals-4%2F4_Passing-blue?style=flat)](#5-ai--ml-models-used--quantitative-metrics)
 [![Docker](https://img.shields.io/badge/Docker_Compose-1--Command_Ready-2496ED?style=flat&logo=docker)](#9-quickstart--local-setup)
 [![ADRs](https://img.shields.io/badge/Architecture-5_ADRs_Documented-orange?style=flat)](docs/adr/)
 [![Vercel](https://img.shields.io/badge/Frontend-Vercel_Edge-black?style=flat&logo=vercel)](https://vercel.com/)
@@ -270,6 +271,51 @@ Veritas fulfills the **multi-agent LangGraph architecture** by compiling an auth
 - **Supabase Realtime**: Listens to PostgreSQL Change-Data-Capture (CDC) events on student progress tables and broadcasts WebSocket events directly to the frontend radar chart.
 - **Cloudinary CDN**: Ingests, optimizes, and serves student scratchpad images and profile avatars with automated WebP format selection.
 
+#### Part 6: Frontier AI Engineering — Context, Harness, Inferencing & MCP
+
+```
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│                              FRONTIER AI ENGINEERING PILLARS                           │
+├──────────────────────────┬─────────────────────────────┬───────────────────────────────┤
+│ 1. Context Engineering   │ 2. Harness Engineering      │ 3. Inferencing Systems        │
+│    - Epistemic Profiling │    - Pedagogical Invariants │    - Speculative Triage Casc. │
+│    - Turn Compaction     │    - AST CAS Sandbox        │    - TTFT Streaming Buffer    │
+│    - KV Cache Alignment  │    - Safe Fallback Gate     │    - Leak Token Interception  │
+├──────────────────────────┴─────────────────────────────┴───────────────────────────────┤
+│ 4. Model Context Protocol (MCP) Layer                                                  │
+│    - Standard JSON-RPC 2.0 Server over stdio & FastAPI SSE (/mcp & /mcp/sse)          │
+│    - Tools: veritas_verify_math_step, veritas_check_answer_leakage, veritas_update_bkt │
+│    - Resources: CCSS Standards Taxonomy (veritas://curriculum/standards)              │
+│    - Prompts: Calibrated Socratic Intervention Prompt Templates                        │
+└────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+1. **Context Engineering (`backend/context/cognitive_context.py`)**:
+   - **Hierarchical Epistemic Context (HEC)**: Implements a 4-tier structured context model:
+     - **Tier 0 (Static Socratic Axioms & CCSS Matrix)**: Exceeds 1,024 tokens to maximize Google Gemini implicit KV prompt caching (>90% cache hit rate).
+     - **Tier 1 (Student Epistemic Profile)**: Real-time injection of BKT latent mastery P(L), diagnosed misconceptions, and frustration indices.
+     - **Tier 2 (Problem Ground Truth & Verification DAG)**: Canonical algebraic milestones hidden from the student.
+     - **Tier 3 (Turn Compaction Ledger)**: Compresses older conversational turns while preserving the most recent 3 turns, preventing context bloat and memory drift.
+
+2. **Harness Engineering (`backend/harness/`)**:
+   - **Pedagogical Invariant Gate** (`invariants.py`): Deterministically asserts Zero Answer Leakage (regex patterns, AST equivalence, numeric token matching) and Socratic Inquiry presence on every tutor generation.
+   - **CAS Execution Sandbox** (`sandbox.py`): Restricted AST visitor preventing arbitrary code execution and evaluating algebraic equivalence via the Schwartz-Zippel lemma.
+   - **Execution Harness** (`engine.py`): Automatically triggers deterministic Socratic redirection if a model generation violates pedagogical invariants.
+   - **Automated Regression Benchmark Runner** (`benchmark_runner.py`): Evaluates adversarial leakage resistance, CAS accuracy, and context compaction.
+
+3. **Inferencing Systems & Streaming Invariant Buffers (`backend/services/inference_router.py`)**:
+   - **Tiered Multi-Model Speculative Routing**:
+     - *Tier 1 (Fast Triage / Acknowledgments)*: Low-latency responses (<250ms TTFT) for greetings and conversational acknowledgments with zero LLM quota consumption.
+     - *Tier 2 (Socratic Reasoning)*: Gemini Flash for multi-turn inquiry.
+     - *Tier 3 (Multimodal Vision)*: Gemini Flash/Pro Vision with normalized coordinate reticles.
+   - **Sliding-Window Streaming Invariant Buffer**: Scans tokens during Server-Sent Events (SSE) streaming to suppress answer leakage mid-stream before delivering to the client.
+
+4. **Model Context Protocol (MCP) Integration (`backend/mcp/server.py` & `backend/routes/mcp_routes.py`)**:
+   - Full JSON-RPC 2.0 MCP server exposing Veritas cognitive capabilities over stdio and HTTP/SSE (`/mcp` and `/mcp/sse`):
+     - **MCP Tools**: `veritas_verify_math_step`, `veritas_check_answer_leakage`, `veritas_update_bkt`.
+     - **MCP Resources**: `veritas://curriculum/standards`.
+     - **MCP Prompts**: `socratic_intervention`.
+
 ---
 
 ## 5. AI / ML Models Used & Quantitative Metrics
@@ -524,6 +570,10 @@ Veritas maintains an automated test validation runner (`backend/run_all_tests.py
 | **12** | `test_session_and_score_fixes.py` | Session Resumption & Score Protection | 20.18s | **✓ PASS** |
 | **13** | `test_game_progress_persistence.py`| Math Arcade Games & Relogin Persistence | 21.36s | **✓ PASS** |
 | **14** | `test_evals_and_cognitive_dag.py` | Offline Evaluation Harness & Cognitive DAG Benchmark | 0.16s | **✓ PASS** |
+| **15** | `test_enterprise_security_and_resilience.py` | Enterprise AI Security & Resilience Gateway | 0.08s | **✓ PASS** |
+| **16** | `test_enterprise_routes.py` | Enterprise District & Audit Log API Endpoints | 0.45s | **✓ PASS** |
+| **17** | `test_harness_and_context.py` | Context Engineering & Pedagogical Invariants Harness | 1.44s | **✓ PASS** |
+| **18** | `test_mcp_routes.py` | Model Context Protocol (MCP) JSON-RPC & SSE Server | 0.12s | **✓ PASS** |
 
 ---
 

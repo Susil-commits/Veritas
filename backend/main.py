@@ -54,6 +54,7 @@ from routes.neo import router as neo_router
 from routes.parent import generate_student_alerts, router as parent_router
 from routes.session import router as session_router
 from routes.student import router as student_router
+from routes.mcp_routes import router as mcp_router
 
 logger = logging.getLogger("veritas-backend")
 
@@ -143,6 +144,7 @@ app.include_router(student_router)
 app.include_router(parent_router)
 app.include_router(neo_router)
 app.include_router(enterprise_router)
+app.include_router(mcp_router)
 
 # Re-export backward-compatible legacy symbols for existing tests and scripts
 __all__ = [

@@ -35,6 +35,8 @@ TEST_SCRIPTS = [
     ("test_evals_and_cognitive_dag.py", "Offline Evaluation & Cognitive DAG Benchmark Suite"),
     ("test_enterprise_security_and_resilience.py", "Enterprise AI Security & Resilience Gateway"),
     ("test_enterprise_routes.py", "Enterprise District & Audit Log API Endpoints"),
+    ("test_harness_and_context.py", "Context Engineering & Pedagogical Harness Invariants"),
+    ("test_mcp_routes.py", "Model Context Protocol (MCP) JSON-RPC & SSE Server"),
 ]
 
 def main():

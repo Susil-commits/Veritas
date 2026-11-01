@@ -22,6 +22,7 @@ from safety import (
     SAFE_SUPPORT_RESPONSE,
     is_answer_leaked,
 )
+from backend.harness.invariants import PedagogicalInvariantChecker
 
 
 # ── State Schema ────────────────────────────────────────────────────────────
@@ -271,12 +272,19 @@ async def tutor_node(state: TutorState) -> dict:
     # Secondary safety check: Prevent accidental final answer disclosure during guidance
     canonical_ans, _ = extract_expected_answer(current_prob) if current_prob else (None, "none")
     prob_ans = current_prob.get("answer") or canonical_ans or ""
-    if not problem_solved and prob_ans and is_answer_leaked(response, str(prob_ans)):
-        response = (
-            "That's a great direction! Let's pause right before the final calculation: "
-            "what math property explains why this step works?"
-        )
-        problem_solved = False
+    if not problem_solved and prob_ans:
+        leak_detected = is_answer_leaked(response, str(prob_ans))
+        if not leak_detected:
+            leak_ok, _ = PedagogicalInvariantChecker.check_zero_answer_leakage(response, str(prob_ans))
+            leak_detected = not leak_ok
+
+        if leak_detected:
+            response = (
+                "That's a great direction! Let's pause right before the final calculation: "
+                "what math property explains why this step works?"
+            )
+            problem_solved = False
+            steps.append("Harness: Enforced zero-leakage invariant redirection.")
 
     curr_prob_id = current_prob.get("id")
 
