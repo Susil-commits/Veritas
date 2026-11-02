@@ -108,7 +108,13 @@ async def _update_mastery_for_skill(session_state: dict, skill_id: str, attempt_
     except (ValueError, TypeError):
         old_m = 0.3
     new_m = update_mastery(old_m, True, skill_id, attempt_type=attempt_type)
-    # Persist to DB BEFORE committing in-memory mutation so we can roll back on failure
+    # Commit in-memory session state first so active tutoring & offline/anon-key environments retain mastery
+    session_state["current_problem_credited"] = True
+    session_state.setdefault("mastery_state", {})[skill_id] = round(new_m, 4)
+    # Invalidate stale session summary so the parent dashboard reflects the new mastery
+    _SESSION_SUMMARY_CACHE.pop(session_state.get("session_id", ""), None)
+
+    # Persist to Supabase asynchronously; fallback gracefully if offline or under anon-key RLS policy
     try:
         supabase = get_supabase()
         await asyncio.to_thread(
@@ -118,13 +124,8 @@ async def _update_mastery_for_skill(session_state: dict, skill_id: str, attempt_
                 "mastery_prob": round(new_m, 4),
             }, on_conflict="student_id,skill_id").execute()
         )
-        # Commit in-memory state only after successful DB write
-        session_state["current_problem_credited"] = True
-        session_state.setdefault("mastery_state", {})[skill_id] = round(new_m, 4)
-        # Invalidate stale session summary so the parent dashboard reflects the new mastery
-        _SESSION_SUMMARY_CACHE.pop(session_state.get("session_id", ""), None)
     except Exception as e:
-        logger.warning("Failed to persist updated mastery to Supabase; in-memory state NOT mutated: %s", e)
+        logger.warning("Failed to persist updated mastery to Supabase (in-memory state retained): %s", e)
 
 
 # ── Route Handlers ───────────────────────────────────────────────────────────
@@ -223,6 +224,14 @@ async def start_session(
                 except Exception:
                     pass
 
+            if not is_existing_student:
+                try:
+                    from session_manager import student_has_active_or_persisted_session
+                    if student_has_active_or_persisted_session(clean_req_student_id):
+                        is_existing_student = True
+                except Exception:
+                    pass
+
             if is_existing_student:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
@@ -294,28 +303,35 @@ async def start_session(
                 .order("started_at", desc=True)
                 .limit(1)
             )
-            if recent_sess.data and len(recent_sess.data) > 0:
+            existing_state = None
+            existing_session_id = None
+            if recent_sess and recent_sess.data and len(recent_sess.data) > 0:
                 existing_session_id = recent_sess.data[0]["id"]
                 existing_state = await asyncio.to_thread(get_session, existing_session_id)
-                if existing_state and existing_state.get("current_problem"):
-                    session_token = create_session_token(
-                        student_id=student_id,
-                        session_id=existing_session_id,
-                        student_name=existing_state.get("student_name", req.student_name),
-                    )
-                    prob_title = existing_state["current_problem"].get("title", "your current problem")
-                    active_misc = existing_state.get("active_misconceptions") or await asyncio.to_thread(get_student_misconceptions, student_id)
-                    return {
-                        "session_id": existing_session_id,
-                        "student_id": student_id,
-                        "student_name": existing_state.get("student_name", req.student_name),
-                        "session_token": session_token,
-                        "current_problem": _public_problem(existing_state["current_problem"]),
-                        "mastery_state": existing_state.get("mastery_state", mastery_state),
-                        "active_misconceptions": active_misc,
-                        "welcome_message": f"Welcome back, {req.student_name}! Picking up right where we left off with **{prob_title}**. Let's keep solving!",
-                        "resumed": True,
-                    }
+            if not existing_state:
+                from session_manager import get_recent_session_by_student_id
+                existing_state = await asyncio.to_thread(get_recent_session_by_student_id, student_id)
+                if existing_state:
+                    existing_session_id = existing_state.get("session_id")
+            if existing_state and existing_state.get("current_problem") and existing_session_id:
+                session_token = create_session_token(
+                    student_id=student_id,
+                    session_id=existing_session_id,
+                    student_name=existing_state.get("student_name", req.student_name),
+                )
+                prob_title = existing_state["current_problem"].get("title", "your current problem")
+                active_misc = existing_state.get("active_misconceptions") or await asyncio.to_thread(get_student_misconceptions, student_id)
+                return {
+                    "session_id": existing_session_id,
+                    "student_id": student_id,
+                    "student_name": existing_state.get("student_name", req.student_name),
+                    "session_token": session_token,
+                    "current_problem": _public_problem(existing_state["current_problem"]),
+                    "mastery_state": existing_state.get("mastery_state", mastery_state),
+                    "active_misconceptions": active_misc,
+                    "welcome_message": f"Welcome back, {req.student_name}! Picking up right where we left off with **{prob_title}**. Let's keep solving!",
+                    "resumed": True,
+                }
         except Exception as e:
             print(f"[WARN] Session resume lookup fallback: {e}")
 

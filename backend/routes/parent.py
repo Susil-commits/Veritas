@@ -422,6 +422,19 @@ async def add_child(
     # A student code must already belong to a real student. Never create a
     # new student when a parent enters an unknown UUID.
     if is_uuid and not student_id:
+        target_uuid = req.student_id or (input_identifier if is_uuid else None)
+        try:
+            from session_manager import get_recent_session_by_student_id
+            active_sess = get_recent_session_by_student_id(target_uuid)
+            if active_sess:
+                student_id = target_uuid
+                student_name = active_sess.get("student_name") or student_name
+                email_clean = active_sess.get("student_email") or f"student_{student_id[:8]}@veritas.dev"
+                found_existing_student = True
+        except Exception:
+            pass
+
+    if is_uuid and not student_id:
         raise HTTPException(
             status_code=404,
             detail="Student ID not found. Ask the student to open their account and copy the current Student ID.",

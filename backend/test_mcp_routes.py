@@ -137,4 +137,4 @@ def test_fastapi_mcp_auth_fail_closed_and_constant_time():
 
 if __name__ == "__main__":
     import sys
-    sys.exit(pytest.main([__file__, "-v"]))
+    sys.exit(pytest.main([__file__, "-v", "--disable-warnings", "-p", "no:warnings"]))

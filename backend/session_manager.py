@@ -481,6 +481,48 @@ def evict_session(session_id: str) -> None:
         pass
 
 
+def get_recent_session_by_student_id(student_id: str) -> dict[str, Any] | None:
+    """Find the most recent active or persisted session for a student."""
+    if not student_id:
+        return None
+    try:
+        # 1. Search in-memory sessions cache (most recent is at end of list)
+        for sid in reversed(list(_sessions_cache.keys_list())):
+            sess = _sessions_cache.get(sid)
+            if isinstance(sess, dict) and sess.get("student_id") == student_id and sess.get("current_problem"):
+                return sess
+        # 2. Search disk sessions
+        global _disk_sessions_memory
+        with _disk_lock:
+            if _disk_sessions_memory:
+                for sid, sess in reversed(list(_disk_sessions_memory.items())):
+                    if isinstance(sess, dict) and sess.get("student_id") == student_id and sess.get("current_problem"):
+                        return sess
+    except Exception:
+        pass
+    return None
+
+
+def student_has_active_or_persisted_session(student_id: str) -> bool:
+    """Check if any active in-memory or persisted session belongs to the given student_id."""
+    if not student_id:
+        return False
+    try:
+        for sid in _sessions_cache.keys_list():
+            sess = _sessions_cache.get(sid)
+            if isinstance(sess, dict) and sess.get("student_id") == student_id:
+                return True
+        global _disk_sessions_memory
+        with _disk_lock:
+            if _disk_sessions_memory:
+                for sid, sess in _disk_sessions_memory.items():
+                    if isinstance(sess, dict) and sess.get("student_id") == student_id:
+                        return True
+    except Exception:
+        pass
+    return False
+
+
 def evict_student_sessions(student_id: str) -> None:
     """Evict all cached, disk-persisted, and Redis sessions belonging to a specific student."""
     # 1. Evict from in-memory cache (and Redis via evict_session)
