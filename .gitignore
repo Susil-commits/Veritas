@@ -36,6 +36,7 @@ frontend/.vite/
 # Runtime data stores
 backend/data/*.json
 backend/data/*.tmp
+backend/data/sessions/
 data/children_store.json
 data/*_backup.json
 !backend/data/.gitkeep

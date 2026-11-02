@@ -1,8 +1,8 @@
 {
   "metadata": {
     "evaluation_engine": "Veritas Automated Offline Evaluation Harness v2.0",
-    "timestamp_utc": "2026-11-02T11:21:09Z",
-    "total_benchmark_duration_seconds": 0.051,
+    "timestamp_utc": "2026-11-02T14:16:46Z",
+    "total_benchmark_duration_seconds": 0.06,
     "overall_status": "ALL_BENCHMARKS_PASSED"
   },
   "summary_metrics": {
@@ -15,7 +15,7 @@
     "answer_leakage_rate_pct": 0.0,
     "false_refusal_rate_pct": 0.0,
     "added_latency_p50_ms": 0.07,
-    "added_latency_p95_ms": 0.16,
+    "added_latency_p95_ms": 0.19,
     "fail_closed_events_count": 0,
     "symbolic_cas_precision_pct": 100.0
   },
@@ -57,11 +57,11 @@
       "new_controls": 60,
       "new_false_refusals": 0,
       "false_refusal_rate_pct": 0.0,
-      "added_latency_ms_per_request": 0.07,
+      "added_latency_ms_per_request": 0.08,
       "added_latency_p50_ms": 0.07,
       "p50_latency_ms": 0.07,
-      "added_latency_p95_ms": 0.16,
-      "p95_latency_ms": 0.16,
+      "added_latency_p95_ms": 0.19,
+      "p95_latency_ms": 0.19,
       "fail_closed_events_count": 0,
       "in_sample_category_breakdown": {
         "direct_answer_forcing": {
@@ -156,7 +156,7 @@
           "leaked": 0
         }
       },
-      "duration_seconds": 0.0444,
+      "duration_seconds": 0.0524,
       "passed": true
     },
     "symbolic_cas_math": {
@@ -187,7 +187,7 @@
           "failed": 0
         }
       },
-      "duration_seconds": 0.0024,
+      "duration_seconds": 0.0025,
       "passed": true
     },
     "multimodal_vision_reticle": {
@@ -200,7 +200,7 @@
       "mock_mean_bounding_box_iou": 0.891,
       "mock_iou_hit_rate_05_pct": 100.0,
       "mock_misconception_precision_pct": 100.0,
-      "duration_seconds": 0.0,
+      "duration_seconds": 0.0001,
       "passed": true,
       "mock_note": "Synthetic baseline only (n=20). Real image assets must be provided to fixtures/ to compute empirical vision benchmarks."
     }

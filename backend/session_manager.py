@@ -36,18 +36,32 @@ def _load_sessions_from_disk() -> dict[str, Any]:
     with _disk_lock:
         if _disk_sessions_memory is not None:
             return _disk_sessions_memory
-        if not SESSIONS_STORE_PATH.exists():
-            _disk_sessions_memory = {}
-            return _disk_sessions_memory
-        try:
-            with open(SESSIONS_STORE_PATH, "r", encoding="utf-8") as f:
-                loaded = json.load(f)
-                _disk_sessions_memory = loaded if isinstance(loaded, dict) else {}
-                return _disk_sessions_memory
-        except Exception as e:
-            print(f"[WARN] SessionManager: Failed to read sessions from disk: {e}")
-            _disk_sessions_memory = {}
-            return _disk_sessions_memory
+        loaded_sessions: dict[str, Any] = {}
+        # 1. Load from individual files in sessions directory if present
+        sessions_dir = DATA_DIR / "sessions"
+        if sessions_dir.exists():
+            for p in sessions_dir.glob("*.json"):
+                try:
+                    with open(p, "r", encoding="utf-8") as f:
+                        s_data = json.load(f)
+                        if isinstance(s_data, dict):
+                            s_id = p.stem
+                            loaded_sessions[s_id] = s_data
+                except Exception:
+                    pass
+        # 2. Merge consolidated store file fallback
+        if SESSIONS_STORE_PATH.exists():
+            try:
+                with open(SESSIONS_STORE_PATH, "r", encoding="utf-8") as f:
+                    loaded = json.load(f)
+                    if isinstance(loaded, dict):
+                        for k, v in loaded.items():
+                            if k not in loaded_sessions:
+                                loaded_sessions[k] = v
+            except Exception as e:
+                print(f"[WARN] SessionManager: Failed to read sessions from disk: {e}")
+        _disk_sessions_memory = loaded_sessions
+        return _disk_sessions_memory
 
 
 def _write_session_to_disk(session_id: str, state: dict[str, Any]) -> None:
@@ -55,21 +69,24 @@ def _write_session_to_disk(session_id: str, state: dict[str, Any]) -> None:
     with _disk_lock:
         try:
             if _disk_sessions_memory is None:
-                if SESSIONS_STORE_PATH.exists():
-                    try:
-                        with open(SESSIONS_STORE_PATH, "r", encoding="utf-8") as f:
-                            loaded = json.load(f)
-                            _disk_sessions_memory = loaded if isinstance(loaded, dict) else {}
-                    except Exception:
-                        _disk_sessions_memory = {}
-                else:
-                    _disk_sessions_memory = {}
-            store = _disk_sessions_memory
-            store[session_id] = state
-            # Atomic file write via temp file with fast serialization
+                _load_sessions_from_disk()
+            if _disk_sessions_memory is None:
+                _disk_sessions_memory = {}
+            _disk_sessions_memory[session_id] = state
+
+            # 1. Atomic write to individual session file (isolated, fast, per-session locking)
+            sessions_dir = DATA_DIR / "sessions"
+            sessions_dir.mkdir(parents=True, exist_ok=True)
+            sess_file = sessions_dir / f"{session_id}.json"
+            sess_tmp = sess_file.with_suffix(".tmp")
+            with open(sess_tmp, "w", encoding="utf-8") as f:
+                json.dump(state, f, separators=(",", ":"))
+            sess_tmp.replace(sess_file)
+
+            # 2. Maintain consolidated store file
             temp_path = SESSIONS_STORE_PATH.with_suffix(".tmp")
             with open(temp_path, "w", encoding="utf-8") as f:
-                json.dump(store, f, separators=(",", ":"))
+                json.dump(_disk_sessions_memory, f, separators=(",", ":"))
             temp_path.replace(SESSIONS_STORE_PATH)
         except Exception as e:
             print(f"[WARN] SessionManager: Failed to write session {session_id} to disk: {e}")
@@ -79,22 +96,17 @@ def _remove_session_from_disk(session_id: str) -> None:
     global _disk_sessions_memory
     with _disk_lock:
         try:
-            if _disk_sessions_memory is None:
-                if SESSIONS_STORE_PATH.exists():
-                    try:
-                        with open(SESSIONS_STORE_PATH, "r", encoding="utf-8") as f:
-                            loaded = json.load(f)
-                            _disk_sessions_memory = loaded if isinstance(loaded, dict) else {}
-                    except Exception:
-                        _disk_sessions_memory = {}
-                else:
-                    _disk_sessions_memory = {}
-            store = _disk_sessions_memory
-            if session_id in store:
-                del store[session_id]
+            if _disk_sessions_memory is not None and session_id in _disk_sessions_memory:
+                del _disk_sessions_memory[session_id]
+            # Remove individual session file
+            sess_file = DATA_DIR / "sessions" / f"{session_id}.json"
+            if sess_file.exists():
+                sess_file.unlink(missing_ok=True)
+            # Update consolidated store
+            if _disk_sessions_memory is not None:
                 temp_path = SESSIONS_STORE_PATH.with_suffix(".tmp")
                 with open(temp_path, "w", encoding="utf-8") as f:
-                    json.dump(store, f, separators=(",", ":"))
+                    json.dump(_disk_sessions_memory, f, separators=(",", ":"))
                 temp_path.replace(SESSIONS_STORE_PATH)
         except Exception as e:
             print(f"[WARN] SessionManager: Failed to remove session {session_id} from disk: {e}")

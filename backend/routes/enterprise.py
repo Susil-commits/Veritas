@@ -71,20 +71,33 @@ async def create_district(
 
 @router.get("/districts")
 async def list_districts(
+    limit: int = Query(100, ge=1, le=1000),
+    offset: int = Query(0, ge=0),
     auth: dict = Depends(verify_enterprise_caller),
 ):
-    """Lists districts accessible to the authenticated administrator."""
+    """Lists districts accessible to the authenticated administrator with pagination support."""
     supabase = get_supabase()
     caller_district_id = auth.get("district_id") or auth.get("app_metadata", {}).get("district_id")
     if caller_district_id:
-        res = await db_exec(supabase.table("districts").select("*").eq("id", caller_district_id).order("name"))
+        res = await db_exec(
+            supabase.table("districts")
+            .select("*")
+            .eq("id", caller_district_id)
+            .order("name")
+            .range(offset, offset + limit - 1)
+        )
     else:
         caller_role = auth.get("role")
         is_super = caller_role in ("super_admin", "super-admin") or auth.get("is_super_admin")
         if not is_super:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied: tenant scope claim required")
-        res = await db_exec(supabase.table("districts").select("*").order("name"))
-    return {"status": "ok", "districts": res.data or []}
+        res = await db_exec(
+            supabase.table("districts")
+            .select("*")
+            .order("name")
+            .range(offset, offset + limit - 1)
+        )
+    return {"status": "ok", "districts": res.data or [], "limit": limit, "offset": offset}
 
 
 @router.post("/schools")
@@ -112,16 +125,24 @@ async def create_school(
 @router.get("/districts/{district_id}/schools")
 async def list_district_schools(
     district_id: str,
+    limit: int = Query(100, ge=1, le=1000),
+    offset: int = Query(0, ge=0),
     auth: dict = Depends(verify_enterprise_caller),
 ):
-    """Lists schools within a designated district."""
+    """Lists schools within a designated district with pagination support."""
     caller_district_id = auth.get("district_id") or auth.get("app_metadata", {}).get("district_id")
     if caller_district_id and caller_district_id != district_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied: outside authorized district tenant scope")
 
     supabase = get_supabase()
-    res = await db_exec(supabase.table("schools").select("*").eq("district_id", district_id).order("name"))
-    return {"status": "ok", "schools": res.data or []}
+    res = await db_exec(
+        supabase.table("schools")
+        .select("*")
+        .eq("district_id", district_id)
+        .order("name")
+        .range(offset, offset + limit - 1)
+    )
+    return {"status": "ok", "schools": res.data or [], "limit": limit, "offset": offset}
 
 
 @router.post("/classrooms")
@@ -151,16 +172,24 @@ async def create_classroom(
 @router.get("/schools/{school_id}/classrooms")
 async def list_school_classrooms(
     school_id: str,
+    limit: int = Query(100, ge=1, le=1000),
+    offset: int = Query(0, ge=0),
     auth: dict = Depends(verify_enterprise_caller),
 ):
-    """Lists classrooms within a designated school."""
+    """Lists classrooms within a designated school with pagination support."""
     caller_school_id = auth.get("school_id") or auth.get("app_metadata", {}).get("school_id")
     if caller_school_id and caller_school_id != school_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied: outside authorized school tenant scope")
 
     supabase = get_supabase()
-    res = await db_exec(supabase.table("classrooms").select("*").eq("school_id", school_id).order("name"))
-    return {"status": "ok", "classrooms": res.data or []}
+    res = await db_exec(
+        supabase.table("classrooms")
+        .select("*")
+        .eq("school_id", school_id)
+        .order("name")
+        .range(offset, offset + limit - 1)
+    )
+    return {"status": "ok", "classrooms": res.data or [], "limit": limit, "offset": offset}
 
 
 async def _verify_classroom_tenant_scope(supabase: Any, classroom_id: str, auth: dict) -> dict:
@@ -208,15 +237,19 @@ async def enroll_student_in_classroom(
 @router.get("/classrooms/{classroom_id}/students")
 async def list_classroom_students(
     classroom_id: str,
+    limit: int = Query(100, ge=1, le=1000),
+    offset: int = Query(0, ge=0),
     auth: dict = Depends(verify_enterprise_caller),
 ):
-    """Lists students enrolled in a classroom cohort with FERPA role-based scoping."""
+    """Lists students enrolled in a classroom cohort with FERPA role-based scoping and pagination support."""
     supabase = get_supabase()
     await _verify_classroom_tenant_scope(supabase, classroom_id, auth)
     res = await db_exec(
         supabase.table("classroom_enrollments")
         .select("student_id, enrolled_at, students(id, name, email)")
         .eq("classroom_id", classroom_id)
+        .order("enrolled_at", desc=True)
+        .range(offset, offset + limit - 1)
     )
     enrollments = res.data or []
     caller_role = auth.get("role")
@@ -225,19 +258,25 @@ async def list_classroom_students(
         for row in enrollments:
             if "students" in row and isinstance(row["students"], dict):
                 row["students"].pop("email", None)
-    return {"status": "ok", "enrollments": enrollments}
+    return {"status": "ok", "enrollments": enrollments, "limit": limit, "offset": offset}
 
 
 @router.get("/audit-logs")
 async def get_audit_logs(
-    limit: int = Query(50, ge=1, le=200),
+    limit: int = Query(50, ge=1, le=1000),
+    offset: int = Query(0, ge=0),
     auth: dict = Depends(verify_enterprise_caller),
 ):
-    """Returns immutable enterprise security and compliance audit logs scoped to caller tenant."""
+    """Returns immutable enterprise security and compliance audit logs scoped to caller tenant with pagination support."""
     supabase = get_supabase()
     caller_district_id = auth.get("district_id") or auth.get("app_metadata", {}).get("district_id")
-    query = supabase.table("enterprise_audit_logs").select("*").order("event_timestamp", desc=True).limit(limit)
+    query = (
+        supabase.table("enterprise_audit_logs")
+        .select("*")
+        .order("event_timestamp", desc=True)
+        .range(offset, offset + limit - 1)
+    )
     if caller_district_id:
         query = query.filter("metadata->>district_id", "eq", caller_district_id)
     res = await db_exec(query)
-    return {"status": "ok", "audit_logs": res.data or []}
+    return {"status": "ok", "audit_logs": res.data or [], "limit": limit, "offset": offset}

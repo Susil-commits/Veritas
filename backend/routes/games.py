@@ -144,16 +144,17 @@ def _read_games_store() -> dict[str, Any]:
 
 
 def _write_games_store(data: dict[str, Any]) -> None:
-    """Write games store and invalidate the in-memory cache so the next read re-loads from disk."""
+    """Write games store, update the hot in-memory cache, and sync distributed state."""
     global _games_store_cache
-    try:
-        tmp = GAMES_STORE_PATH.with_suffix(".tmp")
-        with open(tmp, "w", encoding="utf-8") as f:
-            json.dump(data, f, separators=(",", ":"))
-        tmp.replace(GAMES_STORE_PATH)
-        _games_store_cache = None
-    except Exception as e:
-        logger.warning("Error writing games store to %s: %s", GAMES_STORE_PATH, e)
+    with _games_store_lock:
+        _games_store_cache = data
+        try:
+            tmp = GAMES_STORE_PATH.with_suffix(".tmp")
+            with open(tmp, "w", encoding="utf-8") as f:
+                json.dump(data, f, separators=(",", ":"))
+            tmp.replace(GAMES_STORE_PATH)
+        except Exception as e:
+            logger.warning("Error writing games store to %s: %s", GAMES_STORE_PATH, e)
 
 
 def _remove_student_game_records(student_id: str) -> None:
@@ -370,16 +371,7 @@ async def record_game_score(
     now_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
 
     with _games_store_lock:
-        _games_store_cache_inner: dict[str, Any] | None = None
-        if GAMES_STORE_PATH.exists():
-            try:
-                with open(GAMES_STORE_PATH, "r", encoding="utf-8") as _f:
-                    _loaded = json.load(_f)
-                    _games_store_cache_inner = _loaded if isinstance(_loaded, dict) else {}
-            except Exception:
-                pass
-        store: dict[str, Any] = _games_store_cache_inner or {}
-
+        store = _read_games_store()
         student_record = store.setdefault(clean_student_id, {})
         game_record = student_record.setdefault(clean_game_id, {
             "high_score": 0,

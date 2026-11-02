@@ -22,7 +22,7 @@ import time
 from typing import Optional
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import JSONResponse
 from postgrest.base_request_builder import CountMethod
 from pydantic import BaseModel, Field
@@ -48,6 +48,7 @@ router = APIRouter(tags=["parent"])
 
 CHILDREN_FALLBACK_FILE = BACKEND_DIR.parent / "data" / "children_store.json"
 _children_fallback_lock = threading.Lock()
+_fallback_children_cache: list[dict] | None = None
 
 
 class AddChildRequest(BaseModel):
@@ -60,6 +61,7 @@ class AddChildRequest(BaseModel):
 
 
 def _get_fallback_children(parent_id: str) -> list[dict]:
+    global _fallback_children_cache
     try:
         from services.redis_service import redis_service
         if redis_service.is_connected:
@@ -68,29 +70,41 @@ def _get_fallback_children(parent_id: str) -> list[dict]:
                 return cached
     except Exception:
         pass
-    file_path = CHILDREN_FALLBACK_FILE
-    if not file_path.exists():
-        alt_path = BACKEND_DIR / "data" / "children_store.json"
-        if alt_path.exists():
-            file_path = alt_path
-        else:
+
+    with _children_fallback_lock:
+        if _fallback_children_cache is not None:
+            return [c for c in _fallback_children_cache if c.get("parent_id") == parent_id]
+
+        file_path = CHILDREN_FALLBACK_FILE
+        if not file_path.exists():
+            alt_path = BACKEND_DIR / "data" / "children_store.json"
+            if alt_path.exists():
+                file_path = alt_path
+            else:
+                _fallback_children_cache = []
+                return []
+        try:
+            with open(file_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                _fallback_children_cache = data if isinstance(data, list) else []
+                return [c for c in _fallback_children_cache if c.get("parent_id") == parent_id]
+        except Exception:
+            _fallback_children_cache = []
             return []
-    try:
-        with open(file_path, "r", encoding="utf-8") as f:
-            data = json.load(f)
-            return [c for c in data if c.get("parent_id") == parent_id]
-    except Exception:
-        return []
 
 
 def _save_fallback_child(record: dict):
+    global _fallback_children_cache
     with _children_fallback_lock:
         CHILDREN_FALLBACK_FILE.parent.mkdir(parents=True, exist_ok=True)
         current = []
-        if CHILDREN_FALLBACK_FILE.exists():
+        if _fallback_children_cache is not None:
+            current = list(_fallback_children_cache)
+        elif CHILDREN_FALLBACK_FILE.exists():
             try:
                 with open(CHILDREN_FALLBACK_FILE, "r", encoding="utf-8") as f:
-                    current = json.load(f)
+                    loaded = json.load(f)
+                    current = loaded if isinstance(loaded, list) else []
             except Exception:
                 current = []
         current = [
@@ -102,10 +116,14 @@ def _save_fallback_child(record: dict):
             )
         ]
         current.append(record)
-        temp_path = CHILDREN_FALLBACK_FILE.with_suffix(".tmp")
-        with open(temp_path, "w", encoding="utf-8") as f:
-            json.dump(current, f, indent=2)
-        temp_path.replace(CHILDREN_FALLBACK_FILE)
+        _fallback_children_cache = current
+        try:
+            temp_path = CHILDREN_FALLBACK_FILE.with_suffix(".tmp")
+            with open(temp_path, "w", encoding="utf-8") as f:
+                json.dump(current, f, indent=2)
+            temp_path.replace(CHILDREN_FALLBACK_FILE)
+        except Exception as e:
+            logger.warning(f"Error persisting fallback children store: {e}")
     try:
         from services.redis_service import redis_service
         parent_id = record.get("parent_id")
@@ -117,25 +135,35 @@ def _save_fallback_child(record: dict):
 
 
 def _approve_fallback_child(parent_id: str, student_id: str) -> bool:
+    global _fallback_children_cache
     with _children_fallback_lock:
-        if not CHILDREN_FALLBACK_FILE.exists():
+        current = []
+        if _fallback_children_cache is not None:
+            current = list(_fallback_children_cache)
+        elif CHILDREN_FALLBACK_FILE.exists():
+            try:
+                with open(CHILDREN_FALLBACK_FILE, "r", encoding="utf-8") as f:
+                    loaded = json.load(f)
+                    current = loaded if isinstance(loaded, list) else []
+            except Exception:
+                current = []
+        if not current:
             return False
-        try:
-            with open(CHILDREN_FALLBACK_FILE, "r", encoding="utf-8") as f:
-                current = json.load(f)
-            updated = False
-            for c in current:
-                if c.get("parent_id") == parent_id and c.get("student_id") == student_id:
-                    c["verified"] = True
-                    c["status"] = "active"
-                    updated = True
-            if updated:
+        updated = False
+        for c in current:
+            if c.get("parent_id") == parent_id and c.get("student_id") == student_id:
+                c["verified"] = True
+                c["status"] = "active"
+                updated = True
+        if updated:
+            _fallback_children_cache = current
+            try:
                 temp_path = CHILDREN_FALLBACK_FILE.with_suffix(".tmp")
                 with open(temp_path, "w", encoding="utf-8") as f:
                     json.dump(current, f, indent=2)
                 temp_path.replace(CHILDREN_FALLBACK_FILE)
-        except Exception:
-            return False
+            except Exception:
+                pass
     try:
         from services.redis_service import redis_service
         if redis_service.is_connected:
@@ -147,13 +175,21 @@ def _approve_fallback_child(parent_id: str, student_id: str) -> bool:
 
 
 def _sync_purge_fallback_file(parent_id: str):
+    global _fallback_children_cache
     with _children_fallback_lock:
-        if not CHILDREN_FALLBACK_FILE.exists():
-            return
+        current = []
+        if _fallback_children_cache is not None:
+            current = list(_fallback_children_cache)
+        elif CHILDREN_FALLBACK_FILE.exists():
+            try:
+                with open(CHILDREN_FALLBACK_FILE, "r", encoding="utf-8") as f:
+                    loaded = json.load(f)
+                    current = loaded if isinstance(loaded, list) else []
+            except Exception:
+                current = []
+        cleaned = [c for c in current if c.get("parent_id") != parent_id]
+        _fallback_children_cache = cleaned
         try:
-            with open(CHILDREN_FALLBACK_FILE, "r", encoding="utf-8") as f:
-                current = json.load(f)
-            cleaned = [c for c in current if c.get("parent_id") != parent_id]
             temp_path = CHILDREN_FALLBACK_FILE.with_suffix(".tmp")
             with open(temp_path, "w", encoding="utf-8") as f:
                 json.dump(cleaned, f, indent=2)
@@ -657,9 +693,11 @@ async def get_parent_children(
 async def get_child_details(
     parent_id: str,
     child_id: str,
+    limit: int = Query(100, ge=1, le=1000),
+    offset: int = Query(0, ge=0),
     auth: dict = Depends(verify_parent_access),
 ):
-    """Return full mastery state and practice history for a child."""
+    """Return full mastery state and practice history for a child with pagination support."""
     supabase = get_supabase()
 
     # Verify child linkage to parent (Tenant & IDOR protection)
@@ -723,12 +761,14 @@ async def get_child_details(
         .select("*")
         .eq("student_id", child_id)
         .order("started_at", desc=True)
+        .range(0, 99)
     )
     events_res = await db_exec(
         supabase.table("session_events")
         .select("id, session_id, student_id, problem_id, attempt_text, is_correct, agent_response, created_at, problems(title, text)")
         .eq("student_id", child_id)
         .order("created_at", desc=True)
+        .range(offset, offset + limit - 1)
     )
     games_data = await _get_student_game_progress(child_id)
     skills = get_all_skills()

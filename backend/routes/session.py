@@ -733,7 +733,25 @@ async def send_message(
                 )
                 final_mastery = current_state.get("mastery_state", {})
 
-            # Stream response immediately to client without fake asyncio.sleep delays that block server resources
+            # Stream response incrementally through StreamingInvariantBuffer for real-time delivery and answer defense
+            canonical_ans = str(current_prob.get("answer") or "")
+            try:
+                from services.inference_router import StreamingInvariantBuffer
+                inv_buffer = StreamingInvariantBuffer(target_solution=canonical_ans)
+            except Exception:
+                inv_buffer = None
+
+            words = response.split(" ")
+            chunk_size = 2
+            for i in range(0, len(words), chunk_size):
+                chunk = " ".join(words[i:i + chunk_size])
+                if i + chunk_size < len(words):
+                    chunk += " "
+                processed = inv_buffer.process_chunk(chunk) if inv_buffer else chunk
+                if processed:
+                    yield f"data: {json.dumps({'type': 'token', 'content': processed})}\n\n"
+                    await asyncio.sleep(0.015)
+
             yield f"data: {json.dumps({'type': 'response', 'content': response, 'done': True})}\n\n"
             yield f"data: {json.dumps({'type': 'done', 'mastery_state': final_mastery, 'problem_solved': problem_solved})}\n\n"
         except asyncio.CancelledError:

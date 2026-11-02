@@ -431,12 +431,20 @@ export function streamMessage(
     const decoder = new TextDecoder()
     let buffer = ''
 
+    let accumulated = ''
     const handleLine = (line: string) => {
       if (!line.startsWith('data: ')) return
       try {
         const payload = JSON.parse(line.slice(6))
         if (payload.type === 'thinking') onThinking(payload.content)
-        if (payload.type === 'response') onResponse(payload.content, payload.done)
+        if (payload.type === 'token') {
+          accumulated += payload.content
+          onResponse(accumulated, false)
+        }
+        if (payload.type === 'response') {
+          accumulated = payload.content
+          onResponse(accumulated, payload.done)
+        }
         if (payload.type === 'done') onDone(payload.mastery_state ?? {}, Boolean(payload.problem_solved))
       } catch {}
     }
