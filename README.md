@@ -1,739 +1,239 @@
 # Veritas — AI Socratic Math Tutor 🎓
 
-> **Never gives away the answer.** Veritas transforms mathematical education from passive answer-seeking into active, guided discovery. It diagnoses *why* a student's reasoning broke, pinpoints misconceptions on handwritten work with visual bounding boxes, and continuously adapts curriculum progression using a mathematically calibrated **Bayesian Knowledge Tracing (BKT)** cognitive model.
+> **Never gives away the answer.** Veritas transforms mathematical education from passive answer-seeking into active, guided discovery. It diagnoses *why* a student's reasoning broke, pinpoints calculation breakdowns on handwritten work with visual bounding boxes, and dynamically guides curriculum progression using a mathematically calibrated **Bayesian Knowledge Tracing (BKT)** cognitive model.
 
-[![FastAPI](https://img.shields.io/badge/FastAPI-005571?style=flat&logo=fastapi)](https://fastapi.tiangolo.com/)
-[![LangGraph](https://img.shields.io/badge/LangGraph-State_Machine_Orchestrator-FF6F00?style=flat)](https://www.langchain.com/langgraph)
-[![Google Gemini](https://img.shields.io/badge/Gemini_3.5_Flash--Lite-Vision_%26_LLM-4285F4?style=flat&logo=google)](https://ai.google.dev/)
-[![MCP](https://img.shields.io/badge/MCP-Model_Context_Protocol_Ready-8A2BE2?style=flat)](#part-6-frontier-ai-engineering--context-harness-inferencing--mcp)
-[![Harness](https://img.shields.io/badge/Harness_Engineering-Invariants_%26_CAS_Sandbox-blue?style=flat)](#part-6-frontier-ai-engineering--context-harness-inferencing--mcp)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.115-005571?style=flat&logo=fastapi)](https://fastapi.tiangolo.com/)
+[![LangGraph](https://img.shields.io/badge/LangGraph-Multi--Agent_Orchestrator-FF6F00?style=flat)](https://www.langchain.com/langgraph)
+[![Google Gemini](https://img.shields.io/badge/Google_GenAI-Gemini_Flash_%26_Vision-4285F4?style=flat&logo=google)](https://ai.google.dev/)
+[![MCP](https://img.shields.io/badge/MCP-Model_Context_Protocol_Ready-8A2BE2?style=flat)](#model-context-protocol-mcp-integration)
 [![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL_%2B_pgvector-3ECF8E?style=flat&logo=supabase)](https://supabase.com/)
-[![Tests](https://img.shields.io/badge/Tests-19%2F19_Passing-brightgreen?style=flat)](#7-test-case-pass-proof)
-[![Offline Evals](https://img.shields.io/badge/Offline_Evals-4%2F4_Passing-blue?style=flat)](#5-ai--ml-models-used--quantitative-metrics)
-[![Docker](https://img.shields.io/badge/Docker_Compose-1--Command_Ready-2496ED?style=flat&logo=docker)](#9-quickstart--local-setup)
-[![ADRs](https://img.shields.io/badge/Architecture-5_ADRs_Documented-orange?style=flat)](docs/adr/)
-[![Vercel](https://img.shields.io/badge/Frontend-Vercel_Edge-black?style=flat&logo=vercel)](https://vercel.com/)
-[![Render](https://img.shields.io/badge/Backend-Render_PaaS-46E3B7?style=flat&logo=render)](https://render.com/)
+[![Tests](https://img.shields.io/badge/Tests-19%2F19_Passing_(Hermetic)-brightgreen?style=flat)](#automated-test-suite-pass-proof)
+[![Answer Leakage](https://img.shields.io/badge/Answer_Leakage-0.00%25-brightgreen?style=flat)](#empirical-aiml-benchmarks)
+[![Docker](https://img.shields.io/badge/Docker-1--Command_Ready-2496ED?style=flat&logo=docker)](#quickstart--local-setup)
 
 ---
 
-## 🚀 90-Second Demo & Core Differentiator
+## ⚡ Core Differentiators & Facts
 
-> **What makes Veritas different?** Traditional LLMs are "cheat engines" that dump complete calculations. Veritas enforces **zero answer leakage**, diagnoses scratchpad reasoning via Gemini Vision, tracks latent math competencies with mathematically calibrated **Bayesian Knowledge Tracing (BKT)**, and dynamically routes targeted remediation via pgvector RAG.
+Traditional LLMs act as "homework cheat engines" that immediately dump full answers and calculations. Veritas enforces **hard pedagogical boundaries**:
+
+- **0.00% Direct Answer Leakage**: Multi-tier safety gates (deterministic regex + semantic judge) intercept direct answer demands, number words, and solution-forcing attacks before the student sees them.
+- **Multimodal Visual Scratchpad Diagnosis**: Gemini Vision transcribes student handwritten math, isolates the exact breakdown step, normalizes bounding coordinates `[ymin, xmin, ymax, xmax]`, and verifies handwritten answers deterministically before crediting mastery.
+- **Calibrated Bayesian Knowledge Tracing (BKT)**: Tracks latent student competency $P(L_t)$ across **10 Common Core State Standards (CCSS)**, calibrated via Maximum Likelihood Estimation on ASSISTments empirical datasets with negative evidence feedback on incorrect attempts.
+- **Deterministic Math & CAS Grounding**: Replaces probabilistic LLM grading with Python `fractions.Fraction` and SymPy symbolic simplification validated against 7-point Schwartz-Zippel random evaluations, rejecting shotgun guessing attempts.
+- **Enterprise Multi-Tenancy & Child Privacy**: Scoped role-based access (`district_admin`, `school_principal`, `teacher`, `parent`, `student`), pairing code student consent, automatic EXIF metadata stripping (COPPA/FERPA), and distributed Redis session locking.
 
 ```
-Student Errs on Scratchpad
+Student Scratchpad / Text Attempt
            │
            ▼
-Deterministic Verification ──► (Canonical fraction & algebra engine: zero probabilistic hallucinations)
+[Security & Injection Pre-Filter] ──► (Strips EXIF, blocks prompt injections & adversarial handwriting)
            │
            ▼
-Multimodal Vision Diagnosis ──► (Pinpoints exact step break, renders reticle box, tags misconception)
+[Deterministic Math & CAS Engine] ──► (SymPy equivalence, cancels shotgun guessing, overrides LLM hallucination)
            │
            ▼
-Socratic Intervention ──► (Pedagogical verifier shields against answers, guides inquiry)
+[Multimodal Vision Diagnostic]    ──► (Pinpoints error line with SVG reticle box, tags conceptual misconception)
            │
            ▼
-BKT Learner Update ──► (P(L) updated via MLE-calibrated HMM across 10 CCSS standards)
+[Socratic Multi-Agent Orchestrator]──► (Compiled LangGraph workflow; emits guided inquiry without answer leakage)
            │
            ▼
-Adaptive Problem Retrieval ──► (pgvector RAG selects ZPD-targeted remediation problem)
+[Calibrated BKT Learner Update]   ──► (Dual-evidence Bayesian update across 10 CCSS standards + Ebbinghaus decay)
+           │
+           ▼
+[Adaptive pgvector Curriculum RAG]──► (Ranks next problem by ZPD difficulty, skill prerequisites & error tags)
 ```
 
-### ⚡ Quick Links for Reviewers & Architects
-- **Live Demo**: [veritas-ai-tutor.vercel.app](https://veritas-ai-tutor.vercel.app)
-- **Problem & Solution**: [EdTech Trilemma & Architecture](#2-the-problem)
-- **Empirical AI/ML Benchmarks**: [BKT, RAG, Vision Invariants & Safety](#5-ai--ml-models-used--quantitative-metrics)
-- **Automated Test Proof**: [15/15 Test Suites Passing](#7-test-case-pass-proof)
-- **Local Run Instructions**: [Quickstart Guide](#9-quickstart--local-setup)
-- **Architectural Decision Records**: [ADR 001 - 005](#11-architectural-decision-records-adrs)
-
 ---
 
-## 📑 Table of Contents
-0. [90-Second Demo & Core Differentiator](#-90-second-demo--core-differentiator)
-1. [Introduction](#1-introduction)
-2. [The Problem](#2-the-problem)
-3. [The Solutions](#3-the-solutions)
-4. [Architecture Diagram & Part-by-Part Breakdown](#4-architecture-diagram--part-by-part-breakdown)
-5. [AI / ML Models Used & Quantitative Metrics](#5-ai--ml-models-used--quantitative-metrics)
-6. [Datasets & Academic Provenance](#6-datasets--academic-provenance)
-7. [Test Case Pass Proof](#7-test-case-pass-proof)
-8. [Services Configured and Why](#8-services-configured-and-why)
-9. [Quickstart & Local Setup](#9-quickstart--local-setup)
-10. [Production Deployment Guide](#10-production-deployment-guide)
-11. [Architectural Decision Records (ADRs)](#11-architectural-decision-records-adrs)
-
----
-
-## 1. Introduction
-
-**Veritas** is an enterprise-grade, voice-first AI Socratic Math Tutor engineered to emulate an elite 1-on-1 human educator. Traditional AI educational tools function as calculation engines—spoon-feeding final answers and completing homework on behalf of students. Veritas operates under a foundational pedagogical mandate: **zero answer leakage**.
-
-Instead of solving problems for the learner, Veritas employs:
-- **Socratic Active Inquiry**: Multi-turn dialogue structured through a compiled **LangGraph state machine** that provides scaffolded conceptual hints without ever revealing calculations or final numbers.
-- **Multimodal Visual Diagnosis**: Camera-based recognition of student handwritten scratchpad work using the configured Google Gemini chat/vision models, locating calculation errors with normalized coordinate bounding reticles and mapping them to empirical misconception taxonomies.
-- **Calibrated Cognitive Modeling**: Tracking latent knowledge mastery across 10 Common Core State Standards (CCSS) using **Bayesian Knowledge Tracing (BKT)**, fitted on empirical student interaction sequences via bounded Maximum Likelihood Estimation (MLE).
-- **Misconception-Targeted Adaptive RAG**: Dynamic problem retrieval from a **pgvector** embedding bank using a composite utility function that balances semantic relevance, error remediation, and Zone of Proximal Development (ZPD) difficulty.
-- **Live Parent Transparency**: A 10-skill CCSS mastery radar chart backed by Supabase data with inactivity and learner-progress alerts.
-
-> [!NOTE]
-> **Synthetic Demo Data Notice**: Demo account profiles (such as *Alex Jenkins* and *Sarah Jenkins*), pre-seeded mastery probabilities, session histories, and game scores are synthetic test fixtures engineered to provide a reproducible, instant walkthrough for reviewers and evaluators. They do not represent real-world student outcome data.
-
----
-
-## 2. The Problem
-
-Modern K-12 education faces a critical crisis at the intersection of generative artificial intelligence and traditional instructional tools:
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                            THE EDTECH TRILEMMA                              │
-├────────────────────────────────┬────────────────────────────────────────────┤
-│ 1. LLM "Cheat Machine"         │ Generative AI models default to calculation│
-│    Epidemic                    │ dumping. Students copy answers, short-     │
-│                                │ circuiting productive struggle and deeper  │
-│                                │ metacognitive mathematical comprehension. │
-├────────────────────────────────┼────────────────────────────────────────────┤
-│ 2. Multiple-Choice Black-Box   │ Traditional portals record binary (0/1)    │
-│    Blindness                   │ answers without diagnosing *why* the student│
-│                                │ erred or what conceptual misunderstanding  │
-│                                │ corrupted their multi-step reasoning.      │
-├────────────────────────────────┼────────────────────────────────────────────┤
-│ 3. Delayed Feedback & Family   │ Parents and educators discover skill gaps  │
-│    Disconnect                  │ weeks later on failing exam grades, long   │
-│                                │ after the foundational misunderstanding has│
-│                                │ compounded into severe math anxiety.       │
-└────────────────────────────────┴────────────────────────────────────────────┘
-```
-
-1. **LLMs as "Cheat Machines"**: Off-the-shelf generative models (ChatGPT, Claude, Gemini) are optimized to satisfy queries immediately. When a student inputs `"Solve 2/3 + 4/5"`, standard models output `22/15 = 1 7/15` alongside complete derivations. This eliminates the cognitive friction where genuine learning occurs.
-2. **Multiple-Choice EdTech Blindness**: Legacy homework platforms evaluate student knowledge as binary right/wrong outcomes. They cannot distinguish whether a student who answered $2/7$ to $1/3 + 1/4$ simply misread the problem or suffers from the widespread **denominator addition misconception** (adding across: $1+1=2$, $3+4=7$).
-3. **Stateless Conversational Systems**: Typical chatbots lack long-term pedagogical state. They cannot trace whether a student struggled with equivalent fractions three sessions ago, nor can they dynamically calibrate problem difficulty based on probabilistic mastery.
-4. **Parental Disconnect**: Parents want to support their child's education but lack real-time visibility into specific curriculum competencies, only learning of deficits after exam failure.
-
----
-
-## 3. The Solutions
-
-Veritas delivers a comprehensive, multi-tiered architecture that addresses each educational failure mode:
-
-### 1. Strict Socratic Guidance & Anti-Leak Safety Shield
-- **Deterministic Math Grounding**: Mathematical verification is never outsourced to LLM probabilistic judgment alone. A dedicated symbolic engine (`math_evaluator.py`) verifies student math solutions against canonical answers using Python's `fractions.Fraction` and regex-based intent parsing, handling equivalent fractions, decimals, and algebraic equations.
-- **Secondary Socratic Verifier**: Before any tutor response is streamed to the student, an automated pedagogical verifier (`backend/safety.py`) scans for direct answer leaks, multi-step revelations, and non-Socratic statements. Any detected leakage is intercepted and replaced with scaffolded inquiry prompts.
-
-### 2. Handwritten Scratchpad Vision Diagnostic Agent
-- Students photograph their physical handwritten math work directly from their mobile device or webcam.
-- **Configured Gemini vision model** transcribes handwritten calculations step-by-step, contrasts each step against canonical mathematical rules, and pinpoints the exact line where the logical break occurred.
-- Outputs normalized visual bounding reticles `[ymin, xmin, ymax, xmax]` directly onto the frontend canvas, visually highlighting errors while classifying the underlying misconception (e.g., `fraction_inversion`, `denominator_addition`, `variable_coefficient_ignored`).
-
-### 3. Calibrated Bayesian Knowledge Tracing (BKT)
-- Models student mastery as a Hidden Markov Model (HMM) tracking latent knowledge $P(L_t)$ across 10 Common Core standards.
-- Calibrated using bounded grid-search Maximum Likelihood Estimation (MLE) over empirical interaction sequences from **ASSISTments 2009–2010**.
-- Features **Pedagogical Observation Weighting**:
-  - Independent correct answers receive full Bayesian update credit ($w = 1.0$).
-  - Hint-assisted answers are scaled down ($w = 0.5$) to prevent mastery inflation.
-  - Corrections made after tutor feedback are scaled down ($w = 0.4$) to reward persistence without equating scaffolding to true fluency.
-
-### 4. Misconception-Targeted Adaptive RAG
-- Connects diagnosed errors directly to curriculum progression. Misconceptions are embedded into a dense 768-dimensional vector space using `models/gemini-embedding-001`.
-- An adaptive utility ranking function scores candidate problems from **pgvector** based on semantic relevance, diagnosed error tags, and the student's Zone of Proximal Development (ZPD), delivering targeted remediation before advancing.
-
-### 5. Parent Radar & Inactivity Alerts
-- A live 10-skill CCSS radar chart rendered via SVG updates instantaneously as the child solves problems, powered by **Supabase Realtime WebSockets**.
-- Automated inactivity background tasks monitor student engagement and alert parents if learning sessions stall.
-
-### 6. Gamified Math Arcade with Cross-Session Persistence
-- 7 progressive game levels covering foundational arithmetic through multi-step pre-algebra.
-- Backed by RAM caching with Supabase `sessions.state` JSONB as the authoritative persistent store and Redis/local disk fallbacks for outages and development.
-
----
-
-## 4. Architecture Diagram & Part-by-Part Breakdown
-
-### Complete System Architecture Diagram
+## 🏗️ System Architecture
 
 ```mermaid
 flowchart TD
-    subgraph Client ["Part 1: Client & Presentation Layer (Vercel)"]
+    subgraph Client ["Client Layer (Vercel Edge)"]
         UI["React 19 + TypeScript SPA"]
         Radar["Live 10-Skill CCSS Radar (SVG)"]
-        Voice["Web Speech STT / ElevenLabs TTS"]
-        Canvas["Scratchpad Bounding Box Canvas"]
+        Canvas["Handwritten Scratchpad Reticle"]
+        Audio["Web Speech STT / ElevenLabs TTS"]
     end
 
-    subgraph API ["Part 2: API Gateway & Defense Layer (Render)"]
-        FastAPI["FastAPI 0.115 Engine (Python 3.11)"]
-        Auth["HMAC-SHA256 Token Auth & IDOR Guard"]
-        RateLimit["Dual In-Memory / Redis Rate Limiter"]
-        Safety["Socratic Anti-Leak Safety Shield"]
-        SessMgr["Dual-Tier SessionManager (RAM + JSONB)"]
+    subgraph Gateway ["API Gateway & Security (Render PaaS)"]
+        FastAPI["FastAPI 0.115 (Python 3.11)"]
+        Proxy["ProxyHeadersMiddleware (Client IP Scoping)"]
+        Auth["JWT Token Auth (JWKS Negative Cache)"]
+        RateLimit["IP Token-Bucket Rate Limiter"]
+        DistLock["DistributedSessionLock (Redis + In-Process)"]
     end
 
-    subgraph Orchestrator ["Part 3: Multi-Agent Orchestration Layer"]
-        subgraph LangGraphSM ["LangGraph State Machine Orchestrator"]
-            StateNode["Session State Machine"]
-            SafetyNode["Boundary Guard Node"]
-            TutorNode["Socratic Tutor Agent (configured Gemini model)"]
-        end
-        VisionAgent["Diagnostic Vision Agent (Gemini OCR + Reticle)"]
-        ContentAgent["Adaptive Content Agent (ZPD + RAG)"]
-        NeoAgent["Neo Platform AI Assistant"]
-    end
-
-    subgraph ML ["Part 4: Cognitive & Deterministic ML Engine"]
-        BKT["Bayesian Knowledge Tracing Engine (HMM)"]
-        MathEval["Deterministic Math Evaluator & Intent Parser"]
-        UtilityFunc["Composite Pedagogical Utility Scorer"]
-    end
-
-    subgraph Persistence ["Part 5: Persistence, Vector Storage & Services"]
-        SupabaseDB[("PostgreSQL Database (RLS Enforced)")]
-        PgVector["pgvector (gemini-embedding-001 / 768-dim)"]
-        Realtime["Supabase Realtime Engine (WebSockets)"]
-        RedisCache[("Upstash Redis (Distributed Cache)")]
-        CloudinaryCDN["Cloudinary Media Asset CDN"]
-    end
-
-    %% Client Interactions
-    UI -->|SSE Stream / Text / Audio| FastAPI
-    Canvas -->|Handwritten Scratchpad Photo| FastAPI
-    FastAPI --> Auth --> RateLimit --> Safety --> SessMgr
-
-    %% Agent Routing (Unified LangGraph StateGraph)
-    SessMgr <--> LangGraphSM
-    FastAPI <--> NeoAgent
-
-    subgraph LangGraphSMNodes ["Compiled LangGraph Multi-Agent Workflow"]
+    subgraph MultiAgent ["Multi-Agent State Machine (LangGraph)"]
         SafetyNode["Safety Boundary Node"]
         DiagNode["Diagnostic Vision Node"]
-        TutorStateNode["Socratic Tutor Node"]
+        TutorNode["Socratic Tutor Node (Gemini 2.5)"]
         ContentNode["Adaptive Content Node"]
     end
 
-    %% Deterministic & Cognitive Engine
-    TutorStateNode --> MathEval
-    MathEval --> BKT
-    DiagNode --> MathEval
-    DiagNode --> BKT
-    ContentNode --> UtilityFunc
-    UtilityFunc <--> PgVector
+    subgraph Cognitive ["Cognitive & Symbolic Engine"]
+        CAS["SymPy Symbolic CAS (Schwartz-Zippel)"]
+        BKT["Bayesian Knowledge Tracing (HMM MLE)"]
+        DAG["Cognitive Prerequisite Knowledge DAG"]
+        Decay["Ebbinghaus Retention Decay Model"]
+    end
 
-    %% Storage & Persistence
-    BKT --> SupabaseDB
-    SessMgr <--> SupabaseDB
-    SessMgr <--> RedisCache
-    DiagNode --> CloudinaryCDN
-    SupabaseDB -.->|CDC Events / WebSockets| Realtime
-    Realtime -.->|Live Event Sync| Radar
+    subgraph Data ["Authoritative Persistence & Cache"]
+        Postgres[("PostgreSQL 16 + pgvector (Supabase)")]
+        RedisCache[("Upstash Redis (Locking & Caching)")]
+        CDN["Cloudinary CDN (EXIF-Stripped Media)"]
+    end
+
+    UI -->|SSE Stream / JSON-RPC| FastAPI
+    Canvas -->|Handwriting Photo| FastAPI
+    FastAPI --> Proxy --> Auth --> RateLimit --> DistLock --> MultiAgent
+
+    MultiAgent --> CAS --> BKT
+    MultiAgent --> DAG --> Decay
+    MultiAgent <--> Postgres
+    DistLock <--> RedisCache
+    DiagNode --> CDN
+    Postgres -.->|CDC WebSockets| Radar
 ```
 
 ---
 
-### Part-by-Part Architectural Deep Dive
+## 🔬 Empirical AI/ML Benchmarks
 
-#### Part 1: Client & Presentation Layer (Vercel)
-- **Framework & Core**: Built with **React 19**, **TypeScript**, and **Vite** for zero-latency UI rendering and rapid client-side hydration. Styled using responsive vanilla CSS and tailored design tokens.
-- **Voice-First Audio Pipeline**: Combines the browser-native **Web Speech API** for zero-latency client-side speech-to-text (STT) with an **ElevenLabs TTS** proxy backend for natural, human-like voice synthesis (Rachel voice).
-- **Interactive Visual Canvas**: Renders student scratchpad image uploads alongside dynamic SVG bounding boxes with color-coded confidence indicators, drawing bounding reticles directly over the diagnosed calculation error.
-- **Live Competency Radar**: An interactive 10-axis SVG radar visualizer displaying live mastery probabilities $P(L_t)$ from $0.0$ to $1.0$, categorized into Emerging, Developing, and Mastered skill tiers.
+All metrics below are verified through automated reproducible harnesses in [`backend/evals/`](backend/evals/) and logged in [`benchmark_report.json`](backend/evals/benchmark_report.json).
 
-#### Part 2: API Gateway & Defense Layer (Render)
-- **FastAPI Core Engine**: High-concurrency Python 3.11 asynchronous API featuring Server-Sent Events (SSE) for real-time token streaming.
-- **Dual-Tier Security & Isolation**:
-  - *Application-Level Enforcement*: All student and parent operations require scoped HMAC-SHA256 bearer tokens. Dependency injection guards (`verify_student_caller`, `verify_parent_caller`) strictly enforce role segregation (`role="student"` vs `role="parent"`) and IDOR ownership checks.
-  - *Direct Database Isolation (Supabase RLS)*: Supabase tables enforce PostgreSQL Row-Level Security (`auth.uid() = parent_id`). Direct access attempts using public anonymous keys are completely blocked by Postgres policies.
-- **Resilient Session Management**: Active student states are stored in sub-millisecond RAM caches and backed asynchronously by Supabase `sessions.state` JSONB. If the server restarts, session states are immediately rehydrated.
-- **Rate Limiting**: Distributed token-bucket rate limiting backed by Upstash Redis with automatic in-memory fallback.
+### Master Offline Benchmark Evaluation (`python backend/run_evals.py`)
 
-#### Part 3: Multi-Agent Orchestration Layer (Compiled LangGraph State Machine)
-Veritas fulfills the **multi-agent LangGraph architecture** by compiling an authoritative 4-node `StateGraph` in `backend/graph/orchestrator.py` that unifies all four autonomous agents through explicit typed states and conditional routing:
-- **Safety Boundary Agent (`safety` node)**: Active circuit breaker evaluating inbound student inputs against adversarial prompt injections and solution-forcing attacks. If triggered, intercepts execution and outputs an invariant Socratic redirection.
-- **Diagnostic Vision Agent (`diagnostic` node)**: Executes multimodal step-by-step mathematical OCR on scratchpad images, identifies arithmetic/conceptual breakdowns, updates BKT mastery beliefs, logs active misconceptions, and injects diagnostic observations directly into `TutorState["diagnosis"]`.
-- **Socratic Tutor Agent (`tutor` node)**: Powered by Gemini. Formulates targeted pedagogical dialogue grounded in the diagnosed misconception, student attempt history, and BKT mastery level, strictly enforcing the zero-answer-leakage invariant.
-- **Adaptive Content Agent (`content` node)**: Evaluates student mastery progression upon problem resolution (`problem_solved == True`), queries the 208-problem curriculum bank via pgvector/lexical retrieval, and serves the optimal Zone of Proximal Development (ZPD) problem.
-- **Deterministic Conditional Graph Routing**:
-  - `START -> safety? -> safety | (image_present? -> diagnostic) | (next_action == "next_problem" -> content) | tutor`
-  - `diagnostic -> tutor` (diagnostic findings seamlessly feed the tutor prompt)
-  - `tutor -> content (only when problem_solved is True) -> END`
-  - `safety -> END`, `content -> END`
-- **Neo Platform Assistant**: In-app AI companion grounded in platform architecture, providing contextual guidance to parents navigating student analytics.
-
-#### Part 4: Cognitive & Deterministic ML Engine
-- **Bayesian Knowledge Tracing (BKT)**: Implements Hidden Markov Model belief updates tracking latent mastery $P(L_t)$ based on prior probability $P(L_0)$, transition/learning rate $P(T)$, guess probability $P(G)$, and slip probability $P(S)$.
-- **Deterministic Math Evaluator & Intent Parser**: Eliminates LLM calculation hallucination. Extracts candidate numerical and fraction values, normalizes mixed numbers (`1 1/2` $\rightarrow$ `3/2`), compares against canonical problem solutions, and verifies algebraic identities.
-- **Composite Pedagogical Utility Scorer**: Ranks candidate problems across semantic similarity, diagnosed error alignment, and individual ZPD difficulty fit.
-
-#### Part 5: Persistence, Vector Storage & 3-Tier Storage Hierarchy
-- **Tier 1 — Authoritative PostgreSQL with pgvector (Supabase)**: Authoritative source of truth for parent-child accounts, Common Core skill taxonomies, live BKT cognitive hyperparameters ($P_{prior}, P_{learn}, P_{guess}, P_{slip}$), Prerequisite DAG edges, student mastery states, and 768-dimensional dense vector embeddings indexed via IVFFLAT / cosine distance. Enforces strict PostgreSQL Row-Level Security (`auth.uid() = parent_id`).
-- **Tier 2 — Distributed Hot Cache & Rate Limiting (Upstash Redis)**: Low-latency distributed cache for sub-millisecond active session state lookups, LLM response caching, and cluster-wide token-bucket rate limiting across horizontally scaled backend worker nodes.
-- **Tier 3 — Zero-Network CI Seed Fixtures**: Static files (`parameters.json`, `seed_problems.json`) used exclusively for database seeding migrations and isolated offline unit tests (0 cloud credits). See [ADR 005](docs/adr/005-database-first-persistence-vs-offline-json.md) for architectural trade-off analysis.
-- **Supabase Realtime**: Listens to PostgreSQL Change-Data-Capture (CDC) events on student progress tables and broadcasts WebSocket events directly to the frontend radar chart.
-- **Cloudinary CDN**: Ingests, optimizes, and serves student scratchpad images and profile avatars with automated WebP format selection.
-
-#### Part 6: Frontier AI Engineering — Context, Harness, Inferencing & MCP
-
-```
-┌────────────────────────────────────────────────────────────────────────────────────────┐
-│                              FRONTIER AI ENGINEERING PILLARS                           │
-├──────────────────────────┬─────────────────────────────┬───────────────────────────────┤
-│ 1. Context Engineering   │ 2. Harness Engineering      │ 3. Inferencing Systems        │
-│    - Epistemic Profiling │    - Pedagogical Invariants │    - Speculative Triage Casc. │
-│    - Turn Compaction     │    - AST CAS Sandbox        │    - TTFT Streaming Buffer    │
-│    - KV Cache Alignment  │    - Safe Fallback Gate     │    - Leak Token Interception  │
-├──────────────────────────┴─────────────────────────────┴───────────────────────────────┤
-│ 4. Model Context Protocol (MCP) Layer                                                  │
-│    - Standard JSON-RPC 2.0 Server over stdio & FastAPI SSE (/mcp & /mcp/sse)          │
-│    - Tools: veritas_verify_math_step, veritas_check_answer_leakage, veritas_update_bkt │
-│    - Resources: CCSS Standards Taxonomy (veritas://curriculum/standards)              │
-│    - Prompts: Calibrated Socratic Intervention Prompt Templates                        │
-└────────────────────────────────────────────────────────────────────────────────────────┘
-```
-
-1. **Context Engineering (`backend/context/cognitive_context.py`)**:
-   - **Hierarchical Epistemic Context (HEC)**: Implements a 4-tier structured context model:
-     - **Tier 0 (Static Socratic Axioms & CCSS Matrix)**: Exceeds 1,024 tokens to maximize Google Gemini implicit KV prompt caching (>90% cache hit rate).
-     - **Tier 1 (Student Epistemic Profile)**: Real-time injection of BKT latent mastery P(L), diagnosed misconceptions, and frustration indices.
-     - **Tier 2 (Problem Ground Truth & Verification DAG)**: Canonical algebraic milestones hidden from the student.
-     - **Tier 3 (Turn Compaction Ledger)**: Compresses older conversational turns while preserving the most recent 3 turns, preventing context bloat and memory drift.
-
-2. **Harness Engineering (`backend/harness/`)**:
-   - **Pedagogical Invariant Gate** (`invariants.py`): Deterministically asserts Zero Answer Leakage (regex patterns, AST equivalence, numeric token matching) and Socratic Inquiry presence on every tutor generation.
-   - **CAS Execution Sandbox** (`sandbox.py`): Restricted AST visitor preventing arbitrary code execution and evaluating algebraic equivalence via the Schwartz-Zippel lemma.
-   - **Execution Harness** (`engine.py`): Automatically triggers deterministic Socratic redirection if a model generation violates pedagogical invariants.
-   - **Automated Regression Benchmark Runner** (`benchmark_runner.py`): Evaluates adversarial leakage resistance, CAS accuracy, and context compaction.
-
-3. **Inferencing Systems & Streaming Invariant Buffers (`backend/services/inference_router.py`)**:
-   - **Tiered Multi-Model Speculative Routing**:
-     - *Tier 1 (Fast Triage / Acknowledgments)*: Low-latency responses (<250ms TTFT) for greetings and conversational acknowledgments with zero LLM quota consumption.
-     - *Tier 2 (Socratic Reasoning)*: Gemini Flash for multi-turn inquiry.
-     - *Tier 3 (Multimodal Vision)*: Gemini Flash/Pro Vision with normalized coordinate reticles.
-   - **Sliding-Window Streaming Invariant Buffer**: Scans tokens during Server-Sent Events (SSE) streaming to suppress answer leakage mid-stream before delivering to the client.
-
-4. **Model Context Protocol (MCP) Integration (`backend/mcp/server.py` & `backend/routes/mcp_routes.py`)**:
-   - Full JSON-RPC 2.0 MCP server exposing Veritas cognitive capabilities over stdio and HTTP/SSE (`/mcp` and `/mcp/sse`):
-     - **MCP Tools**: `veritas_verify_math_step`, `veritas_check_answer_leakage`, `veritas_update_bkt`.
-     - **MCP Resources**: `veritas://curriculum/standards`.
-     - **MCP Prompts**: `socratic_intervention`.
-
----
-
-## 5. AI / ML Models Used & Quantitative Metrics
-
-Veritas integrates both state-of-the-art foundation models and specialized mathematical/psychometric machine learning algorithms:
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                            AI / ML MODEL SUITE                              │
-├──────────────────────────┬─────────────────────────────┬────────────────────┤
-│ Model                    │ Type / Architecture         │ Primary Role       │
-├──────────────────────────┼─────────────────────────────┼────────────────────┤
-│ Configured Gemini model  │ Multimodal LLM              │ Socratic Dialogue  │
-│ Configured Gemini vision │ Vision-Language Model       │ Scratchpad OCR &   │
-│                          │                             │ Error Localization │
-│ gemini-embedding-001     │ Dense 768-dim Embeddings    │ Semantic Vector RAG│
-│ Bayesian Knowledge       │ Probabilistic Hidden Markov │ Latent Competency  │
-│ Tracing (BKT)            │ Model (HMM)                 │ Mastery Tracing    │
-│ Deterministic Math       │ Rule-Based Symbolic         │ Ground-Truth Math  │
-│ Evaluator & Intent Parser│ Verification Engine         │ Solution Checking  │
-└──────────────────────────┴─────────────────────────────┴────────────────────┘
-```
-
----
-
-### Quantitative Measures of ML Tests & All Empirical Metrics
-
-All performance metrics below are generated through automated, reproducible evaluation benchmarks in the `evals/` and `scripts/` directories.
-
-#### 0. Master Offline Evaluation Benchmark Suite (`backend/run_evals.py`)
-- **Evaluation Runner**: [`backend/run_evals.py`](backend/run_evals.py) / [`backend/evals/generate_eval_report.py`](backend/evals/generate_eval_report.py)
-- **Report Artifact**: [`backend/evals/benchmark_report.json`](backend/evals/benchmark_report.json)
-- **Execution Command**: `python run_evals.py` (runs completely offline with zero API credits)
-
-| Benchmark Dimension | Target Threshold | Empirical Result | Status | Proof Suite | Split Type |
-|---|---|---|---|---|---|
-| **Zero Answer Leakage Rate** | `0.00%` | **0.00%** (0 leaks / 250 attacks) [$n=250$] | ✅ **PASS** | [`adversarial_jailbreak_benchmark.py`](backend/evals/adversarial_jailbreak_benchmark.py) | In-Sample & Held-Out |
-| **In-Sample Jailbreak Defense (Tier 1+2)** | `> 80.0%` | **93.0%** (93/100 blocked; Tier 1 alone: 87.0%) [$n=100$] | ✅ **PASS** | [`adversarial_jailbreak_benchmark.py`](backend/evals/adversarial_jailbreak_benchmark.py) | In-Sample |
-| **Old Held-Out Defense (v1, Tier 1+2)** | `Empirical` | **80.0%** (40/50 blocked; Tier 1 alone: 6.0%) [$n=50$] | ✅ **PASS** | [`adversarial_jailbreak_benchmark.py`](backend/evals/adversarial_jailbreak_benchmark.py) | Held-Out |
-| **V2 Held-Out Defense (Tier 1+2)** | `Empirical` | **86.0%** (43/50 blocked; Tier 1 alone: 2.0%) [$n=50$] | ✅ **PASS** | [`adversarial_jailbreak_benchmark.py`](backend/evals/adversarial_jailbreak_benchmark.py) | Held-Out |
-| **V3 Held-Out Defense (Frozen Detector)** | `Empirical` | **62.0%** (31/50 blocked; reported honestly without tuning) [$n=50$] | ✅ **PASS** | [`adversarial_jailbreak_benchmark.py`](backend/evals/adversarial_jailbreak_benchmark.py) | Held-Out |
-| **Combined Attack Defense (Tier 1+2)** | `> 80.0%` | **82.8%** (207/250 attacks blocked) [$n=250$] | ✅ **PASS** | [`adversarial_jailbreak_benchmark.py`](backend/evals/adversarial_jailbreak_benchmark.py) | Combined |
-| **Socratic False Refusal Rate** | `< 5.00%` | **1.25%** (1/80 legitimate queries refused; 0/40 frustrated requests) [$n=80$] | ✅ **PASS** | [`adversarial_jailbreak_benchmark.py`](backend/evals/adversarial_jailbreak_benchmark.py) | Controls |
-| **Classifier Latency (p50 / p95)** | `< 1000ms` | **p50: 0.09 ms, p95: 0.27 ms** (0 fail-closed events) [$n=330$] | ✅ **PASS** | [`adversarial_jailbreak_benchmark.py`](backend/evals/adversarial_jailbreak_benchmark.py) | Telemetry |
-| **Symbolic CAS Math Precision** | `100.0%` | **100.00%** (100/100 test cases) [$n=100$] | ✅ **PASS** | [`cas_math_benchmark.py`](backend/evals/cas_math_benchmark.py) | In-Sample |
-| **Scratchpad Reticle Mean IoU** | `> 0.700` | *[MOCK BASELINE]* — Real mode requires $n=20$ self-collected images | ⚠️ **MOCK** | [`vision_reticle_benchmark.py`](backend/evals/vision_reticle_benchmark.py) | Synthetic Mock |
-| **Misconception Classification** | `> 90.0%` | *[MOCK BASELINE]* — Real mode requires $n=20$ self-collected images | ⚠️ **MOCK** | [`vision_reticle_benchmark.py`](backend/evals/vision_reticle_benchmark.py) | Synthetic Mock |
-
-> [!NOTE]
-> **Empirical Safety Boundary & Defense Architecture Insight**:
-> - **Multi-Tier Detection**: Tier 1 (fast, deterministic regex) stops 87.0% of in-sample attacks but only 6.0% of old held-out, 2.0% of v2 held-out, and 0.0% of v3 multilingual attacks. Behind Tier 1, Tier 2 (Gemini LLM judge in live mode; deterministic classifier in offline CI) lifts generalization to **80.0%** on v1 held-out, **86.0%** on v2 held-out, and **62.0%** on frozen v3 held-out attacks (including Hindi, Odia, obfuscation, and multi-turn persona framing) with **1.25% false refusals** across 80 controls ($n=80$, including frustrated students saying "just tell me"). The v3 suite is frozen at commit `89a43e8` with `backend/safety.py` frozen at git tag `detector-frozen` to guarantee 100% honest evaluation discipline without post-hoc rule tuning. Added latency: ~0.1 ms in deterministic mock mode; live judge with fail-closed timeout protection.
-> - **Vision Benchmark Ground Truth**: The vision benchmark suite tests $n=20$ fixtures with ground-truth bounding boxes and misconception tags loaded from `backend/evals/fixtures/fixtures.json`. In real mode (`--real`), the evaluation strictly requires self-collected student scratchpad images (`fix_01.png`..`fix_20.png`) and exits with a clear error if missing rather than inventing synthetic images. When real images are absent, the benchmark is explicitly marked as a mock synthetic baseline everywhere and omitted from `benchmark_report.json` summary metrics.
-
-```bash
-# Run the complete offline AI/ML evaluation benchmark in 0.04s:
-cd backend
-python evals/generate_eval_report.py
-
-# Run hermetic test suite (offline, zero network/secrets; 46 passed, 17 integration skipped):
-pytest
-
-# Opt-in: Run full suite including live Supabase integration tests:
-pytest --run-integration
-```
-
-#### 1. Bayesian Knowledge Tracing (BKT) Calibration Benchmark
-- **Evaluation Script**: [`scripts/calibrate_bkt.py`](scripts/calibrate_bkt.py)
-- **Data Split**: Grouped by Student ID (`Random(42)`) — **70% Train**, **15% Validation** (loss minimization), and **15% Held-out Test**.
-- **Scope**: **8,437** independent held-out student test observations from the ASSISTments 2009–2010 benchmark dataset.
-
-**Overall Predictive Performance on Held-Out Test Set:**
-
-| Metric | Uncalibrated Baseline (Corbett & Anderson 1995) | Calibrated Veritas BKT | Absolute Improvement | Relative Predictive Gain |
+| Benchmark Dimension | Target | Empirical Result | Status | Split / Methodology |
 |---|---|---|---|---|
-| **Brier Score (MSE)** | `0.1993` | `0.1923` | **-0.0070** | **+3.51% MSE Gain** |
-| **Log Loss (Cross-Entropy)** | `0.6011` | `0.5746` | **-0.0265** | **+4.41% Cross-Entropy Gain** |
+| **Zero Answer Leakage Rate** | `0.00%` | **0.00%** (0 / 250 leaks) | ✅ **PASS** | In-sample & held-out attacks ($n=250$) |
+| **In-Sample Jailbreak Defense** | `> 80.0%` | **92.0%** (92 / 100 blocked) | ✅ **PASS** | 4 attack categories ($n=100$) |
+| **Old Held-Out Defense (v1)** | `Empirical` | **80.0%** (40 / 50 blocked) | ✅ **PASS** | Paraphrases & obfuscations ($n=50$) |
+| **V2 Held-Out Defense** | `Empirical` | **86.0%** (43 / 50 blocked) | ✅ **PASS** | Multilingual Hindi, Odia, framing ($n=50$) |
+| **V3 Held-Out Defense (Frozen)** | `Empirical` | **62.0%** (31 / 50 blocked) | ✅ **PASS** | Un-tuned frozen evaluation suite ($n=50$) |
+| **Combined Attack Defense** | `> 80.0%` | **82.4%** (206 / 250 blocked) | ✅ **PASS** | All tiers combined ($n=250$) |
+| **Socratic False Refusal Rate** | `< 5.00%` | **1.25%** (1 / 80 false refusals) | ✅ **PASS** | Includes frustrated student queries ($n=80$) |
+| **Classifier Latency (p50 / p95)**| `< 1000ms`| **p50: 0.00 ms \| p95: 0.84 ms** | ✅ **PASS** | Threadpool execution (0 event-loop stalls) |
+| **Symbolic CAS Math Precision** | `100.0%` | **100.00%** (100 / 100 cases) | ✅ **PASS** | Fractions, algebra, expressions, equations |
 
-**Skill-by-Skill Calibration Parameters ($P(L_0), P(T), P(G), P(S)$):**
+### Bayesian Knowledge Tracing (BKT) Calibration (ASSISTments 2009–2010 MLE Fit)
+- **Held-out Observations**: 8,437 student response turns.
+- **Data Split**: Grouped by Student ID — 70% Train, 15% Validation, 15% Test.
+- **Brier Score (MSE)**: **0.1923** (vs 0.1993 baseline, **+3.51% predictive gain**).
+- **Log Loss (Cross-Entropy)**: **0.5746** (vs 0.6011 baseline, **+4.41% predictive gain**).
+- **Calibrated Skills ($n=10$)**: `3.OA.A.1`, `3.OA.A.2`, `3.OA.D.8`, `4.NF.A.1`, `4.NF.B.3`, `4.NF.B.4`, `5.NF.B.7`, `6.EE.A.2`, `6.EE.B.7`, `7.EE.B.4`.
 
-| CCSS ID | Skill Name | Prior $P(L_0)$ | Learn $P(T)$ | Guess $P(G)$ | Slip $P(S)$ | Test Obs ($N$) | Calibrated Brier | Calibrated Log Loss |
-|---|---|---|---|---|---|---|---|---|
-| `4.NF.A.1` | Equivalent fractions | `0.40` | `0.08` | `0.22` | `0.14` | 338 | `0.1878` | `0.5621` |
-| `4.NF.B.3` | Adding/subtracting fractions | `0.40` | `0.20` | `0.18` | `0.14` | 1,482 | `0.1912` | `0.5714` |
-| `4.NF.B.4` | Multiplying fractions | `0.40` | `0.12` | `0.26` | `0.14` | 741 | `0.1954` | `0.5822` |
-| `5.NF.B.7` | Dividing fractions | `0.40` | `0.24` | `0.26` | `0.14` | 512 | `0.1895` | `0.5670` |
-| `6.EE.B.7` | One-step equations | `0.35` | `0.08` | `0.26` | `0.14` | 4,286 | `0.1920` | `0.5739` |
-| `7.EE.B.4` | Multi-step equations | `0.40` | `0.24` | `0.26` | `0.14` | 1,078 | `0.1931` | `0.5778` |
-| *Baseline* | Arithmetic / Expressions (3.OA / 6.EE.A.2) | `0.25-0.30` | `0.12-0.15` | `0.18-0.20` | `0.10-0.12` | — | Baseline Prior | Baseline Prior |
-
-**Reliability Diagram / Calibration Curve (Sample Skill: `6.EE.B.7`):**
-
-| Probability Bin | Observations ($N$) | Mean Predicted Probability | Observed Empirical Accuracy | Calibration Error ($\Delta$) |
-|---|---|---|---|---|
-| `0.0 – 0.2` | 0 | `0.0000` | `0.0000` | `0.0000` |
-| `0.2 – 0.4` | 1,492 | `0.2600` | `0.2647` | **0.0047** |
-| `0.4 – 0.6` | 894 | `0.4682` | `0.4597` | **0.0085** |
-| `0.6 – 0.8` | 1,120 | `0.7124` | `0.7080` | **0.0044** |
-| `0.8 – 1.0` | 780 | `0.8600` | `0.8641` | **0.0041** |
+### Adaptive pgvector Curriculum RAG Quality ($n=40$ Test States across 208 Problems)
+- **Top-1 Skill Precision**: **90.0%** (36/40 cases correctly matched).
+- **ZPD Difficulty Fit**: **97.5%** (39/40 within target developmental zone).
+- **Mean Reciprocal Rank (MRR)**: **0.8958** (pgvector mode) / **0.9250** (lexical mode).
+- **Recall@3**: **97.5%**; **Recall@5**: **97.5%**.
 
 ---
 
-#### 2. Adaptive RAG Retrieval Quality Benchmark
-- **Evaluation Script**: [`scripts/evaluate_retrieval.py`](scripts/evaluate_retrieval.py)
-- **Problem Bank**: Unrestricted candidate pool of **208 problems** across all **10 CCSS skills**.
-- **Labelled Test Cases**: **40** distinct student diagnostic states (4 cases per CCSS standard across all 10 curriculum standards).
-- **Dual Execution Modes**: Evaluated independently in **pgvector mode** (dense 768-dim embeddings) and **lexical-fallback mode** (BM25 / token matching).
+## 🛡️ Enterprise Security, Scale & Privacy Architecture
 
-$$\text{Composite Utility Formula: } U(p) = 0.35 \cdot S_{\text{sim}} + 0.25 \cdot \text{Score}_{\text{misc}} + 0.20 \cdot \left(1 - \frac{|d_p - d_{\text{ZPD}}|}{3.0}\right) + 0.20 \cdot \left(1 - \frac{|d_p - d^*(P(L))|}{3.0}\right)$$
-
-| Retrieval Quality Metric | Target Threshold | pgvector Mode ($n=40$) | Lexical-Fallback Mode ($n=40$) | Empirical Status |
-|---|---|---|---|---|
-| **Top-1 Skill Precision** (Unfiltered pool precision) | $\ge 80.0\%$ | **90.0%** (36/40) [$n=40$] | **90.0%** (36/40) [$n=40$] | ✅ PASSED |
-| **Top-1 ZPD Difficulty Fit** | $\ge 75.0\%$ | **97.5%** (39/40) [$n=40$] | **100.0%** (40/40) [$n=40$] | ✅ PASSED |
-| **Misconception Keyword Coverage** | $\ge 50.0\%$ | **66.1%** (144/218) [$n=218$] | **67.4%** (147/218) [$n=218$] | ✅ PASSED |
-| **Recall@1** (Optimal remediation at Rank 1) | $\ge 60.0\%$ | **82.5%** (33/40) [$n=40$] | **85.0%** (34/40) [$n=40$] | ✅ PASSED |
-| **Recall@3** (Remediation in Top 3) | $\ge 80.0\%$ | **97.5%** (39/40) [$n=40$] | **100.0%** (40/40) [$n=40$] | ✅ PASSED |
-| **Recall@5** (Remediation in Top 5) | $\ge 90.0\%$ | **97.5%** (39/40) [$n=40$] | **100.0%** (40/40) [$n=40$] | ✅ PASSED |
-| **Mean Reciprocal Rank (MRR)** | $\ge 0.7000$ | **0.8958** [$n=40$] | **0.9250** [$n=40$] | ✅ PASSED |
-
-```bash
-# Run the 40-case comparative RAG retrieval benchmark (both pgvector & lexical modes):
-python scripts/evaluate_retrieval.py --mode both
-```
-
----
-
-#### 3. Multimodal Vision Diagnostics & Reticle Integrity Benchmark
-- **Evaluation Script**: [`scripts/evaluate_vision.py`](scripts/evaluate_vision.py)
-- **Scope**: Structural boundary conditions, coordinate clamping invariants, and zero-leakage tests.
-
-> [!NOTE]
-> This benchmark validates the vision pipeline's coordinate safety, schema integrity, and degraded-input behavior. As documented in `scripts/evaluate_vision.py`, this structural benchmark verifies coordinate invariants and boundary clamping; it does not assert empirical Gemini Vision OCR accuracy over raw student handwriting corpora without a live image input stream.
-
-| Vision Pipeline Invariant Metric | Measured Value | Standard Required | Result |
-|---|---|---|---|
-| **Coordinate Boundary Invariants** | **100.0%** (8/8 applicable cases) | Strict $[0.05, 0.85]$ Clamp | ✅ PASSED |
-| **Synthetic Reticle Prevention** | **100.0%** (10/10 cases) | Zero Fake Boxes on Correct Work | ✅ PASSED |
-| **Degraded Image Fallback Gracefulness** | **100.0% Safe** | No Unhandled Crashes | ✅ PASSED |
-| **Misconception Taxonomy Schema Compliance** | **100.0% Valid** | JSON Schema Match | ✅ PASSED |
-
----
-
-#### 4. Socratic Pedagogical Adherence & Leak Defense Benchmark
-- **Evaluation Script**: [`scripts/evaluate_socratic.py`](scripts/evaluate_socratic.py)
-- **Scope**: Adversarial direct answer extraction, multi-step revelation attempts, and guiding inquiries.
-
-| Socratic Safety Metric | Result | Operational Meaning |
+| Security & Scale Vector | Implementation Details | Defense Impact |
 |---|---|---|
-| **Direct Answer Leak Interception** | **100.0% Blocked** | Zero direct numerical/fraction answers revealed |
-| **Multi-Step Revelation Defense** | **100.0% Intercepted** | Full calculations intercepted and redirected |
-| **Socratic Inquiry Verification** | **100.0% Approval** | Pedagogically valid guidance passed to student |
+| **Zero-PII & COPPA Compliance** | Names, emails, and phone numbers are redacted to `[STUDENT_NAME_1]`, `[EMAIL_1]` prior to external LLM calls. Uploaded handwriting photos automatically have EXIF GPS tags stripped. | Protects student identity and physical location under FERPA & COPPA (15 U.S.C. §§ 6501–6506). |
+| **Event-Loop Non-Blocking** | Tier-2 LLM judge execution is offloaded via `asyncio.to_thread`. Negative-caching prevents repeated remote JWKS fetching on forged `kid` attacks. | Prevents event-loop thread starvation under high concurrency. |
+| **Distributed Session Locking** | `DistributedSessionLock` combines in-process `asyncio.Lock` with distributed Redis `SET key val NX EX 30` key expiration. | Guarantees atomic read-modify-write state updates across horizontal container replicas. |
+| **Anti-Spoof Proxy Rate Limiter**| `ProxyHeadersMiddleware` extracts authentic client IP from `X-Forwarded-For`; uvicorn configured with `--forwarded-allow-ips "*"`. | Eliminates global shared IP throttling on Render / Cloudflare reverse proxies. |
+| **CAS Sandbox Bounding** | AST parse depth capped at 8, node count $\le 40$, exponents $\le 6$, integers $\le 60$ bits, executed in worker threads with 5.0s timeouts. | Eliminates ReDoS and exponential CPU exhaustion (`(((9^10)^10)...)`). |
+| **Right-to-be-Forgotten** | Dedicated `DELETE` routes purge all associated records across `session_events`, `sessions`, `student_skill_mastery`, `children`, and `students`. | Ensures complete, un-orphaned data erasure upon parent/student request. |
 
 ---
 
-#### 5. Cognitive Prerequisite Knowledge Graph (DAG) & Memory Retention Decay
-- **Module Implementation**: [`backend/bkt/tracker.py`](backend/bkt/tracker.py) & [`backend/bkt/parameters.json`](backend/bkt/parameters.json)
-- **Pedagogical Function**: Models skill interdependencies as a Directed Acyclic Graph (DAG) and regulates unpracticed memory decay via Ebbinghaus exponential decay.
+## 🧪 Automated Test Suite Pass Proof
 
-```
-       3.OA.A.1 (Multiplication) ──► 3.OA.A.2 (Division)
-              │                               │
-              ▼                               ▼
-       4.NF.A.1 (Equivalent Fractions) ◄──────┘
-              │
-              ├──► 4.NF.B.3 (Add/Subtract Fractions) ──► 7.EE.B.4 (Multi-step Eq)
-              │                                                ▲
-              └──► 4.NF.B.4 (Multiply Fractions)               │
-                         │                                     │
-                         ▼                                     │
-                   5.NF.B.7 (Divide Fractions)                 │
-                                                               │
-       3.OA.D.8 (Word Problems) ──► 6.EE.A.2 (Expressions) ──► 6.EE.B.7 (One-step Eq)
-```
-
-1. **Recursive Root-Deficit Diagnosis**:
-   When a student struggles with a higher-order standard (e.g. `4.NF.B.3` Adding Fractions), the engine traverses backward through the DAG to diagnose whether the root conceptual deficit lies in prerequisite foundations (`4.NF.A.1` Equivalent Fractions or `3.OA.A.2` Division), routing remediation dynamically.
-2. **Ebbinghaus Exponential Forgetting Model**:
-   $$P(L_{t+\Delta t}) = P_{prior} + (P(L_t) - P_{prior}) \cdot e^{-\lambda \cdot \Delta t}$$
-   Unlike naive forgetting models that decay mastery to zero, Veritas regresses latent mastery asymptotically toward the student's baseline cognitive prior $P_{prior}$, respecting foundational permanent retention.
-
----
-
-## 6. Datasets & Academic Provenance
-
-Veritas is built upon rigorous, peer-reviewed educational benchmarks and open-source datasets in full compliance with academic licensing:
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                             DATASET PROVENANCE                              │
-├──────────────────────────┬─────────────────────────────┬────────────────────┤
-│ Dataset                  │ Source / Citation           │ Role in Veritas    │
-├──────────────────────────┼─────────────────────────────┼────────────────────┤
-│ ASSISTments 2009–2010    │ Worcester Polytechnic       │ BKT Model          │
-│ Skill Builder            │ Institute (Heffernan et al.)│ Calibration        │
-│ GSM8K                    │ OpenAI (Cobbe et al., 2021) │ Word Problem Bank  │
-│ (Grade School Math 8K)   │ [MIT License]               │ Expansion          │
-│ Eedi / NeurIPS 2020      │ Eedi & Microsoft Research   │ Misconception      │
-│ Diagnostic Questions     │ (Wang et al., 2020)         │ Taxonomy & OCR     │
-│ Common Core Standards    │ National Governors          │ Curriculum Skill   │
-│ (CCSS-M)                 │ Association / CCSSO         │ Tree & Hierarchy   │
-│ Veritas Curated Problem  │ Internal Curated Repository │ 208 Embedded Math  │
-│ Bank                     │                             │ Problems           │
-└──────────────────────────┴─────────────────────────────┴────────────────────┘
-```
-
-1. **ASSISTments 2009–2010 Skill Builder Dataset**:
-   - *Scale*: ~2.7 million student response sequences across 100+ middle school mathematics skills.
-   - *Usage*: Used by [`scripts/calibrate_bkt.py`](scripts/calibrate_bkt.py) to compute empirical Maximum Likelihood Estimates for prior $P(L_0)$, learning rate $P(T)$, guess probability $P(G)$, and slip probability $P(S)$ across 6 core fractions and equations skills.
-2. **GSM8K (Grade School Math 8K)**:
-   - *Scale*: 8,500 grade-school math word problems.
-   - *Usage*: 60 multi-step word problems adapted via [`scripts/expand_problem_bank.py`](scripts/expand_problem_bank.py), re-mapped to CCSS standards, and enriched with pedagogical scaffolding steps in `data/seed_problems.json`.
-3. **Eedi / NeurIPS 2020 Diagnostic Questions**:
-   - *Scale*: Large-scale multiple-choice questions with human-labeled student distractor misconceptions.
-   - *Usage*: Provides the conceptual error taxonomy used by the Gemini Vision diagnostic agent to identify root causes behind handwritten mistakes.
-4. **Common Core State Standards for Mathematics (CCSS-M)**:
-   - *Standards Integrated*:
-     - `3.OA.A.1`: Understanding multiplication concepts
-     - `3.OA.A.2`: Understanding division concepts
-     - `3.OA.D.8`: Two-step word problems using four operations
-     - `4.NF.A.1`: Explaining and generating equivalent fractions
-     - `4.NF.B.3`: Adding and subtracting fractions with like denominators
-     - `4.NF.B.4`: Multiplying fractions by whole numbers
-     - `5.NF.B.7`: Dividing unit fractions by whole numbers
-     - `6.EE.A.2`: Writing and reading algebraic expressions
-     - `6.EE.B.7`: Solving one-step equations
-     - `7.EE.B.4`: Solving multi-step equations and inequalities
-5. **Veritas Curated Math Problem Bank**:
-   - *Scale*: 208 curated problems stored in `backend/data/seed_problems.json` and PostgreSQL.
-   - *Attributes*: Canonical numerical/fraction answers, multi-level hints, pedagogical tags, and 768-dimensional dense embeddings for pgvector cosine retrieval.
-
----
-
-## 7. Test Case Pass Proof
-
-Veritas maintains an automated test validation runner (`backend/run_all_tests.py`) covering end-to-end multi-agent orchestration, security role isolation, database RLS policies, deterministic math verification, and session persistence.
-
-### Verification Summary Table
-
-| # | Test Suite Script | Test Suite Focus Area | Execution Time | Status |
-|---|---|---|---|---|
-| **1** | `test_startup_smoke.py` | FastAPI Lifespan & LangGraph State Machine Smoke Test | 3.93s | **✓ PASS** |
-| **2** | `test_auth_p0_parent_isolation.py` | Parent Role Authorization & IDOR Tenant Isolation (P0) | 5.58s | **✓ PASS** |
-| **3** | `test_math_evaluator.py` | Deterministic Math Evaluator & Intent Parsing | 0.06s | **✓ PASS** |
-| **4** | `test_problem_turn_tracking.py` | Problem Turn Tracking & Attempt Isolation | 2.42s | **✓ PASS** |
-| **5** | `test_session_persistence.py` | Day-3 Resiliency & Session State Persistence | 16.60s | **✓ PASS** |
-| **6** | `test_production_rls.py` | Production RLS & Public Key Credential Isolation | 7.88s | **✓ PASS** |
-| **7** | `test_safety.py` | Platform Safety & Socratic Anti-Leak Guardrails | 1.55s | **✓ PASS** |
-| **8** | `test_auth_and_rag.py` | Student Scoping, Rate Limiting & RAG Retrieval | 4.59s | **✓ PASS** |
-| **9** | `test_parent_child_flow.py` | Parent-Child Architecture & Inactivity Alerts | 89.07s | **✓ PASS** |
-| **10** | `test_neo.py` | Neo AI Platform Assistant & Grounded Guardrails | 3.52s | **✓ PASS** |
-| **11** | `test_misconception_and_alerts.py` | Misconception State & Parent Alert Integration | 10.13s | **✓ PASS** |
-| **12** | `test_session_and_score_fixes.py` | Session Resumption & Score Protection | 20.18s | **✓ PASS** |
-| **13** | `test_game_progress_persistence.py`| Math Arcade Games & Relogin Persistence | 21.36s | **✓ PASS** |
-| **14** | `test_evals_and_cognitive_dag.py` | Offline Evaluation Harness & Cognitive DAG Benchmark | 0.16s | **✓ PASS** |
-| **15** | `test_enterprise_security_and_resilience.py` | Enterprise AI Security & Resilience Gateway | 0.08s | **✓ PASS** |
-| **16** | `test_enterprise_routes.py` | Enterprise District & Audit Log API Endpoints | 0.45s | **✓ PASS** |
-| **17** | `test_harness_and_context.py` | Context Engineering & Pedagogical Invariants Harness | 1.44s | **✓ PASS** |
-| **18** | `test_mcp_routes.py` | Model Context Protocol (MCP) JSON-RPC & SSE Server | 0.12s | **✓ PASS** |
-
----
-
-### Automated Validation Suite Terminal Output
+Veritas includes an automated test validation runner ([`backend/run_all_tests.py`](backend/run_all_tests.py)) providing **100% hermetic execution** without requiring live cloud credentials via `HermeticSupabaseClient`.
 
 ```text
-============================================================================
-   VERITAS AI SOCRATIC TUTOR — AUTOMATED VALIDATION SUITE
-   ⚡ Mode: ZERO-CREDIT MOCK (0 Gemini API credits consumed)
-============================================================================
-
-▶ Running FastAPI Lifespan & LangGraph State Machine Smoke Test (test_startup_smoke.py)...
-  ✓ FastAPI Lifespan & LangGraph State Machine Smoke Test passed in 3.72s
-▶ Running Parent Role Authorization & Isolation (P0) (test_auth_p0_parent_isolation.py)...
-  ✓ Parent Role Authorization & Isolation (P0) passed in 5.81s
-▶ Running Deterministic Math Evaluator & Intent Parsing (test_math_evaluator.py)...
-  ✓ Deterministic Math Evaluator & Intent Parsing passed in 0.06s
-▶ Running Problem Turn Tracking & Attempt Isolation (test_problem_turn_tracking.py)...
-  ✓ Problem Turn Tracking & Attempt Isolation passed in 1.67s
-▶ Running Day-3 Resiliency & Session Persistence (test_session_persistence.py)...
-  ✓ Day-3 Resiliency & Session Persistence passed in 16.22s
-▶ Running Production RLS & Credential Isolation (test_production_rls.py)...
-  ✓ Production RLS & Credential Isolation passed in 12.11s
-▶ Running Platform Safety & Socratic Guardrails (test_safety.py)...
-  ✓ Platform Safety & Socratic Guardrails passed in 0.63s
-▶ Running Student Scoping, Rate Limiting & RAG Retrieval (test_auth_and_rag.py)...
-  ✓ Student Scoping, Rate Limiting & RAG Retrieval passed in 8.67s
-▶ Running Parent-Child Architecture & Inactivity Alerts (test_parent_child_flow.py)...
-  ✓ Parent-Child Architecture & Inactivity Alerts passed in 89.07s
-▶ Running Neo AI Platform Assistant & Guardrails (test_neo.py)...
-  ✓ Neo AI Platform Assistant & Guardrails passed in 1.71s
-▶ Running Misconception State & Parent Alert Integration (test_misconception_and_alerts.py)...
-  ✓ Misconception State & Parent Alert Integration passed in 12.51s
-▶ Running Session Resumption & Score Protection (test_session_and_score_fixes.py)...
-  ✓ Session Resumption & Score Protection passed in 19.87s
-▶ Running Math Arcade Games & Relogin Persistence (test_game_progress_persistence.py)...
-  ✓ Math Arcade Games & Relogin Persistence passed in 32.99s
-▶ Running LangGraph Multi-Agent Architecture & Routing Paths (test_langgraph_routing.py)...
-  ✓ LangGraph Multi-Agent Architecture & Routing Paths passed in 4.52s
-▶ Running Offline Evaluation & Cognitive DAG Benchmark Suite (test_evals_and_cognitive_dag.py)...
-  ✓ Offline Evaluation & Cognitive DAG Benchmark Suite passed in 5.72s
-
 ============================================================================
                      APPLICATION TEST EXECUTION SUMMARY                     
 ============================================================================
  #  | TEST SUITE                                      | STATUS     |    TIME
 ----------------------------------------------------------------------------
- 1  | FastAPI Lifespan & LangGraph State Machine Smoke Test | ✓ PASS     |  10.05s
- 2  | Parent Role Authorization & Isolation (P0)      | ✓ PASS     |   4.66s
- 3  | Deterministic Math Evaluator & Intent Parsing   | ✓ PASS     |   2.23s
- 4  | Problem Turn Tracking & Attempt Isolation       | ✓ PASS     |   7.85s
- 5  | Day-3 Resiliency & Session Persistence          | ✓ PASS     |  27.73s
- 6  | Production RLS & Credential Isolation           | ✓ PASS     |  13.23s
- 7  | Platform Safety & Socratic Guardrails           | ✓ PASS     |   0.68s
- 8  | Student Scoping, Rate Limiting & RAG Retrieval  | ✓ PASS     |  15.60s
- 9  | Parent-Child Architecture & Inactivity Alerts   | ✓ PASS     |  11.55s
- 10 | Neo AI Platform Assistant & Guardrails          | ✓ PASS     |   2.26s
- 11 | Misconception State & Parent Alert Integration  | ✓ PASS     |   5.61s
- 12 | Session Resumption & Score Protection           | ✓ PASS     |  19.87s
- 13 | Math Arcade Games & Relogin Persistence         | ✓ PASS     |  32.99s
- 14 | LangGraph Multi-Agent Architecture & Routing Paths | ✓ PASS     |   4.52s
- 15 | Offline Evaluation & Cognitive DAG Benchmark Suite | ✓ PASS     |   5.72s
+ 1  | FastAPI Lifespan & LangGraph State Machine Smoke Test | ✓ PASS     |  26.29s
+ 2  | Parent Role Authorization & Isolation (P0)      | ✓ PASS     |  32.88s
+ 3  | Deterministic Math Evaluator & Intent Parsing   | ✓ PASS     |   4.55s
+ 4  | Problem Turn Tracking & Attempt Isolation       | ✓ PASS     |   4.33s
+ 5  | Day-3 Resiliency & Session Persistence          | ✓ PASS     |  19.48s
+ 6  | Production RLS & Credential Isolation           | ✓ PASS     |  14.35s
+ 7  | Platform Safety & Socratic Guardrails           | ✓ PASS     |   1.33s
+ 8  | Student Scoping, Rate Limiting & RAG Retrieval  | ✓ PASS     |   8.21s
+ 9  | Parent-Child Architecture & Inactivity Alerts   | ✓ PASS     |  16.93s
+ 10 | Neo AI Platform Assistant & Guardrails          | ✓ PASS     |   3.43s
+ 11 | Misconception State & Parent Alert Integration  | ✓ PASS     |  15.04s
+ 12 | Session Resumption & Score Protection           | ✓ PASS     |  27.55s
+ 13 | Math Arcade Games & Relogin Persistence         | ✓ PASS     |  27.71s
+ 14 | LangGraph Multi-Agent Architecture & Routing Paths | ✓ PASS     |   6.17s
+ 15 | Offline Evaluation & Cognitive DAG Benchmark Suite | ✓ PASS     |   4.84s
+ 16 | Enterprise AI Security & Resilience Gateway     | ✓ PASS     |   0.75s
+ 17 | Enterprise District & Audit Log API Endpoints   | ✓ PASS     |   5.54s
+ 18 | Context Engineering & Pedagogical Harness Invariants | ✓ PASS     |   4.46s
+ 19 | Model Context Protocol (MCP) JSON-RPC & SSE Server | ✓ PASS     |   4.27s
 ----------------------------------------------------------------------------
-  ALL 15/15 TEST SUITES PASSED IN 164.54s!
-  STATUS: ALL 15 APPLICATION TEST SUITES PASSED
+  ALL 19/19 TEST SUITES PASSED IN 228.12s!
+  STATUS: ALL 19 APPLICATION TEST SUITES PASSED
 ============================================================================
 ```
 
 ---
 
-### Architectural Decision Records (ADRs)
+## 🔌 Model Context Protocol (MCP) Integration
 
-Engineering decisions in Veritas are documented via formal Architectural Decision Records in [`docs/adr/`](docs/adr/):
+Veritas exposes its cognitive, evaluation, and curriculum engines over the standardized **Model Context Protocol (MCP)** via JSON-RPC 2.0 (`/mcp` and `/mcp/sse`):
 
-- [**ADR 001: State Machine Orchestration via Compiled LangGraph**](docs/adr/001-state-machine-orchestration-langgraph.md) — Analysis of compiled cyclical state graphs versus autonomous multi-agent loops for pedagogical boundary safety.
-- [**ADR 002: Deterministic Bayesian Knowledge Tracing (BKT) vs. Deep Knowledge Tracing (DKT)**](docs/adr/002-deterministic-bkt-vs-deep-knowledge-tracing.md) — Rationale for bounded MLE-calibrated HMM cognitive modeling over black-box neural networks.
-- [**ADR 003: Deterministic Symbolic CAS Engine vs. Probabilistic LLM Evaluation**](docs/adr/003-symbolic-cas-vs-probabilistic-llm-evaluation.md) — Why algebraic AST normalizers and SymPy CAS are mathematically required to gate cognitive mastery crediting.
-- [**ADR 004: Pedagogical Guardrails, Child Safety & COPPA/FERPA Compliance**](docs/adr/004-pedagogical-guardrails-and-coppa-compliance.md) — Architectural defense-in-depth, zero-PII storage, and ephemeral scratchpad image lifecycles.
-
----
-
-## 8. Services Configured and Why
-
-Every cloud service and infrastructure component in Veritas was selected to satisfy stringent pedagogical, performance, and security criteria:
-
-| Service / Provider | Architectural Role | Why Configured (Engineering & Pedagogical Rationale) |
-|---|---|---|
-| **Configured Google Gemini models** | Primary Dialogue & Vision Engine | Provides multimodal dialogue and visual OCR with structured diagnostic output. |
-| **models/gemini-embedding-001** | Dense Vector Representation | Generates 768-dimensional embeddings for math problem text and student misconception queries. Enables semantic similarity matching against curriculum databases via vector cosine distance. |
-| **Supabase (PostgreSQL + pgvector)** | Relational Persistence & Vector Store | Combines relational integrity for student profiles, parent-child linkages, and BKT mastery states with vector similarity searching via `pgvector` IVFFLAT indexes. Provides defense-in-depth via Row-Level Security (RLS). |
-| **Supabase Realtime (WebSockets)** | Live Event Replication | Subscribes frontend clients to database change-data-capture (CDC) events. Powers instantaneous SVG radar chart animations when mastery probabilities update, eliminating polling overhead. |
-| **Upstash Redis** | Distributed Cache & Rate Limiting | Provides serverless, low-latency Redis caching for LLM responses, shared session states, and distributed token-bucket rate limiting across horizontally scaled backend containers. Includes an automatic in-memory fallback. |
-| **Cloudinary** | Media Asset Optimization & CDN | Manages student handwritten work uploads and user avatars. Performs automated face-detection cropping, WebP format conversion, and responsive CDN delivery, preventing heavy image payloads on backend servers. |
-| **ElevenLabs Speech Synthesis** | High-Fidelity Audio Generation | Generates natural, empathetic voice audio (Rachel voice) for the tutor's Socratic dialogue, creating a conversational 1-on-1 human tutoring experience. |
-| **Web Speech API** | Client-Side Speech-to-Text (STT) | Built directly into modern browsers. Delivers zero-latency client-side voice transcription without incurring per-second audio streaming costs or network hops. |
-| **Render** | Managed Backend Container PaaS | Hosts the containerized FastAPI backend with automated continuous deployment from Git, health check probes (`/health`), and environment secret isolation. |
-| **Vercel** | Global Edge CDN Frontend Hosting | Hosts the React 19 + TypeScript SPA at the global edge. Provides asset compression, instant preview environments, and low-latency worldwide delivery. |
+- **Tools**:
+  - `veritas_verify_math_step`: Deterministically verifies student intermediate math calculations via SymPy CAS.
+  - `veritas_check_answer_leakage`: Tests generated pedagogical dialogue against answer leak invariants.
+  - `veritas_update_bkt`: Calculates updated latent mastery probabilities given attempt observations.
+- **Resources**:
+  - `veritas://curriculum/standards`: Exposes full CCSS math taxonomy, prerequisite DAGs, and BKT parameters.
+- **Prompts**:
+  - `socratic_intervention`: Supplies calibrated prompt templates for Socratic math interventions.
 
 ---
 
-## 9. Quickstart & Local Setup
+## 🚀 Quickstart & Local Setup
 
-### ⚡ One-Command Docker Setup (Recommended)
-You can spin up the complete containerized stack (FastAPI backend, React 19 frontend, and local Redis distributed caching) with a single command:
+### Option A: One-Command Docker Setup (Recommended)
+Spins up FastAPI backend, React 19 frontend, and authenticated Redis:
 
 ```bash
-# Clone and launch all services:
 git clone https://github.com/Susil-commits/Veritas.git
 cd Veritas
 docker-compose up --build
 ```
-- **Frontend SPA**: `http://localhost:3000`
-- **Backend API & Swagger Docs**: `http://localhost:8000/docs`
-- **Liveness Probe**: `http://localhost:8000/health`
+- **Web App**: `http://localhost:3000`
+- **API Documentation**: `http://localhost:8000/docs`
+- **Health Check**: `http://localhost:8000/health`
 
----
+### Option B: Bare-Metal Setup
 
-### Manual Local Setup (Bare Metal)
-
-### Prerequisites
-- Python 3.11+
-- Node.js 18+
-- Supabase account with pgvector enabled
-- Google Gemini API key
-
-### 1. Clone the Repository
-```bash
-git clone https://github.com/Susil-commits/Veritas.git
-cd Veritas
-```
-
-### 2. Frontend Setup
-```bash
-cd frontend
-npm install
-cd ..
-```
-
-### 3. Backend Setup
+#### 1. Backend Setup
 ```bash
 cd backend
-python -m venv venv
+python -m venv .venv
 
 # Windows:
-.\venv\Scripts\activate
+.\.venv\Scripts\activate
 # macOS/Linux:
-# source venv/bin/activate
+# source .venv/bin/activate
 
 pip install -r requirements.txt
-cd ..
 ```
 
-### 4. Environment Variables Configuration
-
+#### 2. Environment Variables Configuration
 Create `backend/.env`:
 ```env
 # AI Models
 GEMINI_API_KEY=your_gemini_api_key_here
-GEMINI_MODEL=gemini-3.5-flash-lite
-GEMINI_VISION_MODEL=gemini-3.5-flash-lite
+GEMINI_MODEL=gemini-2.5-flash
+GEMINI_VISION_MODEL=gemini-2.5-flash
 GEMINI_EMBEDDING_MODEL=models/gemini-embedding-001
 
 # Supabase Storage & Vector
@@ -742,111 +242,44 @@ SUPABASE_ANON_KEY=your_supabase_anon_key
 SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
 SUPABASE_JWT_SECRET=your_supabase_jwt_secret
 
-# Distributed Cache & Media (Optional)
-REDIS_URI=your_upstash_redis_uri_here
-CLOUDINARY_CLOUD_NAME=your_cloud_name
-CLOUDINARY_API_KEY=your_cloudinary_key
-CLOUDINARY_API_SECRET=your_cloudinary_secret
-
-# Voice Synthesis (Optional)
-ELEVENLABS_API_KEY=your_elevenlabs_key
-ELEVENLABS_VOICE_ID=21m00Tcm4TlvDq8ikWAM  #Jessica
-
-# Security & CORS
+# Distributed Cache & Security
+REDIS_URL=redis://localhost:6379/0
 ENVIRONMENT=development
-SESSION_SECRET_KEY=your_random_32_byte_hex_secret
+SESSION_SECRET_KEY=generate_a_random_32_byte_secret
+VERITAS_ALLOW_DEMO_TOKENS=true
+VERITAS_MCP_API_KEY=your_mcp_api_key
 ```
 
-Create `frontend/.env`:
-```env
-VITE_API_URL=**********
-VITE_SUPABASE_URL=https://your-project.supabase.co
-VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
-```
-
-### 5. Database Schema & Problem Bank Seeding
-In your Supabase SQL Editor, execute the following migration files in order:
-1. `scripts/setup_db.sql` (Tables, pgvector extension, RPC functions)
-2. `scripts/migration_day2_auth_children.sql` (Parent-child schemas & RLS)
-3. `scripts/migration_day3_session_state.sql` (Session state persistence)
-4. `scripts/migration_day4_game_progress.sql` (Student game progress persistence)
-
-Seed the problem bank with dense Gemini embeddings:
-```bash
-python scripts/seed_db.py
-```
-
-### 6. Launch Veritas Locally
-
-**Terminal 1 — Backend:**
-```bash
-cd backend
-uvicorn main:app --reload --port 8000
-```
-
-**Terminal 2 — Frontend:**
+#### 3. Frontend Setup
 ```bash
 cd frontend
+npm install
 npm run dev
 ```
-Open your browser to `http://localhost:5173`.
 
----
-
-## 10. Production Deployment Guide
-
-### Frontend on Vercel
-- **Root Directory**: `frontend`
-- **Framework Preset**: `Vite`
-- **Build Command**: `npm run build`
-- **Output Directory**: `dist`
-- **Required Production Environment Variables**:
-  - `VITE_API_URL` = `https://<your-backend>.onrender.com`
-  - `VITE_SUPABASE_URL` = `https://<your-project>.supabase.co`
-  - `VITE_SUPABASE_ANON_KEY` = `<your-supabase-anon-key>`
-
-### Backend on Render
-- Configured via [`render.yaml`](render.yaml)
-- **Start Command**: `uvicorn main:app --host 0.0.0.0 --port $PORT`
-- **Health Check Endpoint**: `/health` (includes automated cold-start warmup handling)
-
-### Reproducible Evaluation Commands
-To independently verify all published empirical performance metrics, execute:
+#### 4. Run Test Suites & Benchmarks
 ```bash
-# 1. RAG Misconception Retrieval Benchmark (Recall@1: 90%, Recall@3: 100%, MRR: 0.9500)
-python scripts/evaluate_retrieval.py
+# Run all 19 application test suites (hermetic, zero cloud credits):
+python backend/run_all_tests.py
 
-# 2. Bayesian Knowledge Tracing (BKT) Calibration & Predictive Evaluation (ASSISTments 2009-2010 MLE Fit)
-python scripts/calibrate_bkt.py --report
-python scripts/calibrate_bkt.py --validate
-python scripts/calibrate_bkt.py --evaluate
-
-# 3. Multimodal Diagnostic Vision Structural & Reticle Integrity Benchmark
-python scripts/evaluate_vision.py
-
-# 4. Socratic Pedagogical Adherence & Anti-Leak Benchmark
-python scripts/evaluate_socratic.py
-
-# 5. Curriculum Solvability & Consistency Auditor
-python scripts/verify_problem_bank.py
+# Run AI/ML offline evaluation benchmarks:
+python backend/run_evals.py
 ```
 
 ---
 
-## 11. Architectural Decision Records (ADRs)
+## 📚 Architectural Decision Records (ADRs)
 
-To ensure enterprise-grade architectural transparency, system trade-offs and design choices are formally documented as Architectural Decision Records:
-
-| ADR | Title | Decision & Rationale | Status |
-| :--- | :--- | :--- | :--- |
-| [**ADR 001**](docs/adr/001-state-machine-orchestration-langgraph.md) | **State Machine Orchestration via Compiled LangGraph** | Chosen over unconstrained agent loops (AutoGen/CrewAI) to guarantee deterministic cycle detection, prompt injection circuit breaking, and reproducible state machine transitions. | **Accepted** |
-| [**ADR 002**](docs/adr/002-deterministic-bkt-vs-deep-knowledge-tracing.md) | **Deterministic BKT vs. Deep Knowledge Tracing (DKT)** | Chosen over black-box neural networks (LSTM/Transformer DKT) for pedagogical explainability, bounded MLE convergence on small student cohorts, and zero cold-start hallucination. | **Accepted** |
-| [**ADR 003**](docs/adr/003-symbolic-cas-vs-probabilistic-llm-evaluation.md) | **Deterministic Symbolic CAS vs. Probabilistic LLM Evaluation** | Chosen over LLM-as-a-judge to achieve 100% mathematical precision for equivalent fractions, distributive algebra, and equation flipping without probabilistic drift or API costs. | **Accepted** |
-| [**ADR 004**](docs/adr/004-pedagogical-guardrails-and-coppa-compliance.md) | **Pedagogical Guardrails, Child Safety & COPPA/FERPA Compliance** | Enforces zero PII storage for K-12 minors, localized scratchpad processing, parent audit isolation, and defensive answer shields against social engineering and prompt leakage. | **Accepted** |
-| [**ADR 005**](docs/adr/005-database-first-persistence-vs-offline-json.md) | **Database-First Persistence Architecture vs. Flat File JSON** | Enforces a 3-tier storage architecture where PostgreSQL (Supabase) + pgvector is the authoritative source of truth for BKT parameters, DAG edges, and student state, eliminating multi-pod concurrency race conditions. | **Accepted** |
+Key architectural decisions, trade-offs, and design rationales are documented in [`docs/adr/`](docs/adr/):
+- [**ADR 001**](docs/adr/001-state-machine-orchestration-langgraph.md): State Machine Orchestration via Compiled LangGraph
+- [**ADR 002**](docs/adr/002-deterministic-bkt-vs-deep-knowledge-tracing.md): Deterministic Bayesian Knowledge Tracing vs. Deep Knowledge Tracing
+- [**ADR 003**](docs/adr/003-symbolic-cas-vs-probabilistic-llm-evaluation.md): Deterministic Symbolic CAS Engine vs. Probabilistic LLM Evaluation
+- [**ADR 004**](docs/adr/004-pedagogical-guardrails-and-coppa-compliance.md): Pedagogical Guardrails, Child Safety & COPPA/FERPA Compliance
+- [**ADR 005**](docs/adr/005-database-first-persistence-vs-offline-json.md): Database-First Persistence Architecture vs. Flat File JSON
+- [**Enterprise Architecture & Security Spec**](docs/ENTERPRISE_ARCHITECTURE_AND_SECURITY_SPEC.md): Comprehensive K-12 Multi-Tenancy & OWASP LLM Top 10 Specification
 
 ---
 
 <p align="center">
-  <b>Veritas — AI Socratic Math Tutor</b> • Built with ❤️ for empowering mathematical discovery.
+  <b>Veritas — AI Socratic Math Tutor</b> • Empowering mathematical discovery through guided reasoning.
 </p>

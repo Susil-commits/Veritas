@@ -19,10 +19,11 @@ We established a layered, defense-in-depth safety architecture (`backend/safety.
    - Student session payloads store minimal synthetic identifiers (UUIDs).
    - Real student names and contact information are isolated; LLM prompts receive sanitized, anonymized tokens.
 
-3. **Ephemeral Scratchpad Image Lifecycles**:
+3. **Ephemeral Scratchpad Image Lifecycles & Minor Privacy**:
    - Camera scratchpad uploads are validated against magic bytes (`JPEG`, `PNG`, `WebP`) to eliminate malicious executable uploads.
-   - Files are processed in memory and uploaded to cloud storage with short-lived, expiring signed URLs.
-   - Dedicated "Delete My Data" endpoints allow parents to permanently purge all associated child records and mastery profiles in a single transactional cascade.
+   - Images automatically have EXIF GPS location metadata and device tags stripped before processing.
+   - Child-parent linking requires student pairing code authorization.
+   - Dedicated "Delete My Data" endpoints permanently purge all associated child records, children linkages, and students table rows.
 
 4. **Cryptographic Role Isolation & IDOR Defense**:
    - HMAC-SHA256 signed session tokens strictly enforce role segregation:

@@ -62,9 +62,9 @@ To serve school districts and enterprise institutions, Veritas implements an iso
 | **LLM01** | Prompt Injection (Direct & Indirect) | Attacker writes jailbreak text on handwritten paper or inputs DAN prompts. | **Tier-1 Deterministic Regex** + **Tier-2 Semantic LLM Judge** + **Visual OCR Pre-Filter**. |
 | **LLM02** | Insecure Output Handling | Model outputs raw code, script tags, or unescaped LaTeX math formulas. | **KaTeX macro white-listing**, **DOMPurify client sanitization**, no raw HTML execution. |
 | **LLM03** | Training Data Poisoning / RAG Poisoning | Malicious curriculum problems injected into the pgvector database. | Strict schema validation, verified CCSS problem corpus, signature checks. |
-| **LLM04** | Model Denial of Service | Flooding heavy vision OCR and voice synthesis calls to exhaust cloud quotas. | **Sliding-window Rate Limiter**, 10MB upload limits, **Concurrency Semaphores**, Token Budgets. |
-| **LLM05** | Supply Chain Vulnerabilities | Deprecated third-party SDKs, unpinned Python libraries, or upstream API outages. | Requirements pinning, **Multi-Provider AI Gateway with Circuit Breakers**. |
-| **LLM06** | Sensitive Information Disclosure | Student PII (name, email, school) or proprietary system prompts leaking. | **Zero-PII Anonymization Layer** + **Cryptographic Prompt Canary Honeytokens**. |
+| **LLM04** | Model Denial of Service | Flooding heavy vision OCR, nested exponent expressions, or rapid requests to exhaust quotas and freeze event loop. | **AST depth (8) and node (40) bounds on CAS sandbox**, 5s worker execution timeouts, **Threadpool offloading**, **Proxy-aware Rate Limiter**, **Distributed Redis session locking**. |
+| **LLM05** | Supply Chain Vulnerabilities | Deprecated third-party SDKs, unpinned Python libraries, or upstream API outages. | Requirements pinning, `google-genai>=1.0.0` integration, **Multi-Provider AI Gateway with Circuit Breakers**. |
+| **LLM06** | Sensitive Information Disclosure | Student PII (name, email, school, GPS location in photos) or proprietary system prompts leaking. | **Zero-PII Anonymization Layer**, **Automatic EXIF metadata stripping**, and **Cryptographic Prompt Canary Honeytokens**. |
 | **LLM07** | Insecure Plugin Design | Agent tools executing arbitrary actions or SQL queries without bounds. | **Zero arbitrary code execution** (`Fraction` and SymPy AST sandboxing; no `eval()`/`exec()`). |
 | **LLM08** | Excessive Agency | LLM deciding to alter student grade records or database rows autonomously. | Deterministic BKT math updates; LLMs have read-only access to curriculum vectors. |
 | **LLM09** | Overreliance & Hallucination | Probabilistic LLM incorrectly grading mathematical arithmetic or algebraic equations. | **Deterministic Objective Math Evaluator** (SymPy/Fraction check precedes all BKT credit). |
@@ -131,7 +131,7 @@ All enterprise security capabilities are backed by automated tests in `backend/t
 # Run the dedicated Enterprise AI Security suite
 python backend/test_enterprise_security_and_resilience.py
 
-# Run the master validation suite (16/16 suites passing)
+# Run the master validation suite (19/19 suites passing)
 python backend/run_all_tests.py
 ```
 

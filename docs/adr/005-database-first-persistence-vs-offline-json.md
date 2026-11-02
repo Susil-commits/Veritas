@@ -32,6 +32,7 @@ We implemented a strict **3-Tier Storage Hierarchy** where **PostgreSQL (Supabas
 ┌─────────────────────────────────────────────────────────────┐
 │ TIER 2: DISTRIBUTED HOT CACHE & RATE LIMITING (Redis)       │
 │  - Sub-millisecond session state caching across all pods    │
+│  - Distributed session locking (DistributedSessionLock)     │
 │  - Distributed rate limiting & query vector deduplication   │
 └──────────────────────────────┬──────────────────────────────┘
                                │ Network Failure / Cold Boot
