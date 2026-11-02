@@ -79,6 +79,9 @@ async def lifespan(app: FastAPI):
     else:
         print("[WARN] Auth: SESSION_SECRET_KEY not explicitly configured in environment. Using fallback/ephemeral keying.")
 
+    if not os.getenv("VERITAS_MCP_API_KEY"):
+        print("[WARN] MCP Auth: VERITAS_MCP_API_KEY not configured. /mcp endpoints are disabled (fail-closed).")
+
     if os.getenv("ENABLE_DEMO_SEED", "false").lower() == "true":
         try:
             from db.seed_demo_data import ensure_demo_data_seeded

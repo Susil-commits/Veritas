@@ -81,8 +81,8 @@ PROMPT_INJECTION_PATTERNS = [
     r"output the final answer in bold",
     r"print result:\s*final answer",
     r"just answer it, do not guide me",
-    r"\b(tell me|give me)\s+(?:the\s+)?(?:final\s+|correct\s+|exact\s+|direct\s+)?(answer|solution)\b",
-    r"\b(?:what(?:'s|\s+is|\s+are)|what\s+was)\s+(?:the\s+)?(?:final\s+|correct\s+|exact\s+)?(?:answer|solution|result)\b",
+    r"\b(tell me|give me)\s+(?:the\s+)?(?:final\s+|correct\s+|exact\s+|direct\s+)?(answer|solution)\b(?!\s+(?:method|approach|strategy|process|technique|step|formula|concept|rule|type))\b",
+    r"\b(?:what(?:'s|\s+is|\s+are)|what\s+was)\s+(?:the\s+)?(?:final\s+|correct\s+|exact\s+)?(?:answer|solution|result)\b(?!\s+(?:method|approach|strategy|process|technique|step|formula|concept|rule|type))\b",
     r"\b(?:can\s+you\s+)?(?:solve\s+(?:it|this|the\s+problem)\s+for\s+me)\b",
     r"\b(?:just\s+)?(?:do|finish)\s+(?:it|the\s+math|the\s+problem)\s+for\s+me\b",
     r"\bi\s+don'?t\s+know,?\s*(?:just\s+)?(?:tell|give)\s+me\s+(?:the\s+)?(?:final\s+|exact\s+|direct\s+)?(?:answer|solution|result|number)\b",
@@ -333,8 +333,10 @@ def _deterministic_tier2_mock_judge(text: str) -> Tuple[bool, Optional[str]]:
 
     norm = _normalize_obfuscation(text)
     if any(k in norm for k in ["answer", "solution", "result", "solve"]):
-        if re.search(r"\b(answer|solution|result|solve)\b", norm) and any(c in text.lower() for c in ["-", "_", ".", " ", "!", "@", "3", "1", "0"]):
-            return True, "obfuscated_answer_demand"
+        if re.search(r"\b(answer|solution|result|solve)\b", norm):
+            for kw in ["answer", "solution", "result", "solve"]:
+                if kw in norm and kw not in text.lower():
+                    return True, "obfuscated_answer_demand"
 
     for pat in TIER2_MULTILINGUAL_PATTERNS:
         if pat.search(text):

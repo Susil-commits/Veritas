@@ -131,9 +131,17 @@ def create_session_token(
     student_name: str,
     role: str = "student",
     expires_in_seconds: int = 86400 * 7,  # 7 days for ease of demoing
+    district_id: Optional[str] = None,
+    school_id: Optional[str] = None,
+    app_metadata: Optional[dict] = None,
 ) -> str:
     """Issue an HMAC-SHA256 signed session token containing student & session claims."""
     now = int(time.time())
+    meta = dict(app_metadata or {})
+    if district_id and "district_id" not in meta:
+        meta["district_id"] = district_id
+    if school_id and "school_id" not in meta:
+        meta["school_id"] = school_id
     payload = {
         "sub": student_id,
         "sid": session_id,
@@ -141,6 +149,9 @@ def create_session_token(
         "role": role,
         "iat": now,
         "exp": now + expires_in_seconds,
+        "district_id": district_id or meta.get("district_id"),
+        "school_id": school_id or meta.get("school_id"),
+        "app_metadata": meta,
     }
     payload_json = json.dumps(payload, separators=(",", ":")).encode("utf-8")
     encoded_payload = _b64url_encode(payload_json)
@@ -284,6 +295,9 @@ def verify_session_token(token: str) -> dict:
                             "name": user_meta.get("name") or (u.email.split("@")[0] if u.email else "User"),
                             "role": role,
                             "exp": int(time.time()) + 3600,
+                            "district_id": app_meta.get("district_id"),
+                            "school_id": app_meta.get("school_id"),
+                            "app_metadata": app_meta,
                         }
                 except Exception:
                     pass
@@ -311,6 +325,9 @@ def verify_session_token(token: str) -> dict:
                             "name": user_meta.get("name") or (u.email.split("@")[0] if u.email else "User"),
                             "role": role,
                             "exp": int(time.time()) + 3600,
+                            "district_id": app_meta.get("district_id"),
+                            "school_id": app_meta.get("school_id"),
+                            "app_metadata": app_meta,
                         }
                 except Exception:
                     pass
@@ -365,12 +382,26 @@ def verify_session_token(token: str) -> dict:
         # Roles must be read from server-controlled app_metadata or top-level signed claim,
         # NEVER elevated via client-writable user_metadata (which any user can edit in Supabase).
         candidate_role = app_meta.get("role") or app_meta.get("user_role") or payload.get("role")
-        if candidate_role in ("parent", "district_admin", "school_principal", "teacher", "enterprise_admin", "admin"):
+        if candidate_role in (
+            "parent",
+            "district_admin",
+            "school_principal",
+            "teacher",
+            "enterprise_admin",
+            "admin",
+            "super_admin",
+            "super-admin",
+            "observer",
+            "evaluator",
+        ):
             role = candidate_role
         elif candidate_role == "student":
             role = "student"
         else:
             role = "student"
+
+        district_id = app_meta.get("district_id") or payload.get("district_id")
+        school_id = app_meta.get("school_id") or payload.get("school_id")
 
         return {
             "sub": payload.get("sub"),
@@ -378,6 +409,9 @@ def verify_session_token(token: str) -> dict:
             "name": user_meta.get("name") or (payload.get("email", "").split("@")[0] if payload.get("email") else "User"),
             "role": role,
             "exp": payload.get("exp"),
+            "district_id": district_id,
+            "school_id": school_id,
+            "app_metadata": app_meta,
         }
 
     if len(parts) != 2:
@@ -697,7 +731,12 @@ ENTERPRISE_ROLES = {
     "teacher",
     "enterprise_admin",
     "admin",
+    "super_admin",
+    "super-admin",
+    "observer",
+    "evaluator",
 }
+SUPER_ADMIN_ROLES = {"super_admin", "super-admin"}
 
 
 async def verify_enterprise_caller(
@@ -711,6 +750,7 @@ async def verify_enterprise_caller(
     2. Demo tokens and parents/students are strictly rejected with 403 Forbidden.
     3. Caller role is one of ENTERPRISE_ROLES.
     4. Extracts tenant claims (district_id, school_id) for tenant-scoped operations.
+    5. Rejects enterprise callers without a tenant claim unless explicitly a super-admin.
     """
     token = _extract_token(authorization, x_session_token)
 
@@ -736,6 +776,23 @@ async def verify_enterprise_caller(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=f"Enterprise access denied: role '{caller_role}' is not authorized for district/school management",
+        )
+
+    app_meta = payload.get("app_metadata") or {}
+    is_super_admin = (
+        caller_role in SUPER_ADMIN_ROLES
+        or payload.get("is_super_admin") is True
+        or app_meta.get("is_super_admin") is True
+        or app_meta.get("super_admin") is True
+    )
+
+    district_id = payload.get("district_id") or app_meta.get("district_id")
+    school_id = payload.get("school_id") or app_meta.get("school_id")
+
+    if not is_super_admin and not (district_id or school_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied: enterprise caller has no tenant scope claim (district_id or school_id required)",
         )
 
     return payload

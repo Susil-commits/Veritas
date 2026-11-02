@@ -114,7 +114,7 @@ async def neo_chat(
         norm_query = clean_msg.strip().lower()
         if len(norm_query) < 120:
             query_hash = hashlib.md5(norm_query.encode("utf-8")).hexdigest()
-            user_scope = user_context.get("name") or user_context.get("student_id") or user_context.get("parent_id") or "guest"
+            user_scope = user_context.get("student_id") or user_context.get("parent_id") or user_context.get("sub") or user_context.get("name") or "guest"
             cache_key = f"veritas:neo_query:{user_context['role']}:{user_scope}:{query_hash}"
             cached_res = redis_service.get_json(cache_key)
             if cached_res and isinstance(cached_res, dict) and "reply" in cached_res:

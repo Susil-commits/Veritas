@@ -6,6 +6,7 @@ to interact with Veritas tools, resources, and Socratic prompts over the standar
 """
 import os
 import asyncio
+import hmac
 import json
 import logging
 from typing import Any, Dict, Optional
@@ -29,30 +30,32 @@ MCP_TIMEOUT_SECONDS = 5.0
 
 
 def _verify_mcp_auth(request: Request, authorization: Optional[str] = None, x_api_key: Optional[str] = None):
-    """Enforce authentication on MCP endpoints in production environments."""
+    """Enforce authentication on MCP endpoints. Fails closed (HTTP 503) if VERITAS_MCP_API_KEY is not configured."""
     is_prod = (
         os.getenv("ENVIRONMENT", "").lower() == "production"
         or os.getenv("RENDER") is not None
     )
-    is_test = os.getenv("VERITAS_TEST_MODE", "").lower() == "true"
+    is_test = (
+        os.getenv("VERITAS_TEST_MODE", "").lower() == "true"
+        or os.getenv("PYTEST_CURRENT_TEST") is not None
+    )
     expected_key = os.getenv("VERITAS_MCP_API_KEY")
 
-    if expected_key:
-        token = authorization.replace("Bearer ", "").strip() if authorization else (x_api_key.strip() if x_api_key else "")
-        if token != expected_key:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid or missing MCP API key",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
-    elif is_prod and not is_test:
-        token = authorization.replace("Bearer ", "").strip() if authorization else (x_api_key.strip() if x_api_key else "")
-        if not token:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Authentication required for production MCP endpoints",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
+    if not expected_key:
+        if is_test and not is_prod:
+            return
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="MCP service is disabled: VERITAS_MCP_API_KEY environment variable is not configured.",
+        )
+
+    token = authorization.replace("Bearer ", "").strip() if authorization else (x_api_key.strip() if x_api_key else "")
+    if not token or not hmac.compare_digest(token.encode("utf-8"), expected_key.encode("utf-8")):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or missing MCP API key",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
 
 @router.post("", summary="Model Context Protocol JSON-RPC 2.0 Endpoint")

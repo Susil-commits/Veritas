@@ -36,3 +36,5 @@ services:
         value: "false"
       - key: SESSION_SECRET_KEY
         generateValue: true
+      - key: VERITAS_MCP_API_KEY
+        generateValue: true

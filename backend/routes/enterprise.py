@@ -79,6 +79,10 @@ async def list_districts(
     if caller_district_id:
         res = await db_exec(supabase.table("districts").select("*").eq("id", caller_district_id).order("name"))
     else:
+        caller_role = auth.get("role")
+        is_super = caller_role in ("super_admin", "super-admin") or auth.get("is_super_admin")
+        if not is_super:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied: tenant scope claim required")
         res = await db_exec(supabase.table("districts").select("*").order("name"))
     return {"status": "ok", "districts": res.data or []}
 
@@ -159,6 +163,31 @@ async def list_school_classrooms(
     return {"status": "ok", "classrooms": res.data or []}
 
 
+async def _verify_classroom_tenant_scope(supabase: Any, classroom_id: str, auth: dict) -> dict:
+    caller_role = auth.get("role")
+    is_super = caller_role in ("super_admin", "super-admin") or auth.get("is_super_admin")
+    if is_super:
+        return {}
+    caller_district_id = auth.get("district_id") or auth.get("app_metadata", {}).get("district_id")
+    caller_school_id = auth.get("school_id") or auth.get("app_metadata", {}).get("school_id")
+
+    cls_res = await db_exec(supabase.table("classrooms").select("id, school_id").eq("id", classroom_id).limit(1))
+    if not cls_res.data:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Classroom not found")
+    classroom = cls_res.data[0]
+    cls_school_id = classroom.get("school_id")
+
+    if caller_school_id and caller_school_id != cls_school_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied: outside authorized school tenant scope")
+
+    if caller_district_id:
+        sch_res = await db_exec(supabase.table("schools").select("id, district_id").eq("id", cls_school_id).limit(1))
+        if sch_res.data and sch_res.data[0].get("district_id") != caller_district_id:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied: outside authorized district tenant scope")
+
+    return classroom
+
+
 @router.post("/classrooms/{classroom_id}/enroll")
 async def enroll_student_in_classroom(
     classroom_id: str,
@@ -167,6 +196,7 @@ async def enroll_student_in_classroom(
 ):
     """Enrolls a student in a classroom cohort."""
     supabase = get_supabase()
+    await _verify_classroom_tenant_scope(supabase, classroom_id, auth)
     payload = {
         "classroom_id": classroom_id,
         "student_id": req.student_id,
@@ -182,6 +212,7 @@ async def list_classroom_students(
 ):
     """Lists students enrolled in a classroom cohort with FERPA role-based scoping."""
     supabase = get_supabase()
+    await _verify_classroom_tenant_scope(supabase, classroom_id, auth)
     res = await db_exec(
         supabase.table("classroom_enrollments")
         .select("student_id, enrolled_at, students(id, name, email)")
@@ -207,6 +238,6 @@ async def get_audit_logs(
     caller_district_id = auth.get("district_id") or auth.get("app_metadata", {}).get("district_id")
     query = supabase.table("enterprise_audit_logs").select("*").order("event_timestamp", desc=True).limit(limit)
     if caller_district_id:
-        query = query.eq("district_id", caller_district_id)
+        query = query.filter("metadata->>district_id", "eq", caller_district_id)
     res = await db_exec(query)
     return {"status": "ok", "audit_logs": res.data or []}

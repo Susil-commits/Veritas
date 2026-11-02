@@ -123,7 +123,8 @@ All metrics below are verified through automated reproducible harnesses in [`bac
 - **Data Split**: Grouped by Student ID — 70% Train, 15% Validation, 15% Test.
 - **Brier Score (MSE)**: **0.1923** (vs 0.1993 baseline, **+3.51% predictive gain**).
 - **Log Loss (Cross-Entropy)**: **0.5746** (vs 0.6011 baseline, **+4.41% predictive gain**).
-- **Calibrated Skills ($n=10$)**: `3.OA.A.1`, `3.OA.A.2`, `3.OA.D.8`, `4.NF.A.1`, `4.NF.B.3`, `4.NF.B.4`, `5.NF.B.7`, `6.EE.A.2`, `6.EE.B.7`, `7.EE.B.4`.
+- **Empirically Calibrated Skills ($n=6$)**: `4.NF.A.1`, `4.NF.B.3`, `4.NF.B.4`, `5.NF.B.7`, `6.EE.B.7`, `7.EE.B.4` (fitted on empirical ASSISTments datasets).
+- **Cognitive Tutor Baseline Priors ($n=4$)**: `3.OA.A.1`, `3.OA.A.2`, `3.OA.D.8`, `6.EE.A.2` (Corbett & Anderson baseline cognitive tutor priors).
 
 ### Adaptive pgvector Curriculum RAG Quality ($n=40$ Test States across 208 Problems)
 - **Top-1 Skill Precision**: **90.0%** (36/40 cases correctly matched).

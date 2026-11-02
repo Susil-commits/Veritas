@@ -240,6 +240,8 @@ export interface ChildItem {
   student_id: string
   student_name: string
   student_email: string
+  verified?: boolean
+  status?: 'active' | 'pending_consent' | string
   last_session_at: string | null
   days_since_practice: number
   has_fraction_gap: boolean
@@ -265,7 +267,8 @@ export async function addChild(
   childEmail: string,
   childName?: string,
   parentEmail?: string,
-): Promise<{ status: string; child: { student_id: string; student_name: string; student_email: string } }> {
+  pairingCode?: string,
+): Promise<{ status: string; message?: string; child: { student_id: string; student_name: string; student_email: string; verified?: boolean; status?: string } }> {
   const { data } = await api.post(
     '/parent/add-child',
     {
@@ -273,7 +276,53 @@ export async function addChild(
       child_email: childEmail,
       child_name: childName,
       parent_email: parentEmail,
+      pairing_code: pairingCode,
     },
+    {
+      headers: getAuthHeaders(),
+    },
+  )
+  return data
+}
+
+export async function generateStudentPairingCode(studentId: string): Promise<{
+  pairing_code: string
+  ttl_seconds: number
+  expires_at: string
+  message: string
+}> {
+  const { data } = await api.post(
+    `/student/${studentId}/pairing-code`,
+    {},
+    {
+      headers: getAuthHeaders(),
+    },
+  )
+  return data
+}
+
+export async function getPendingParents(studentId: string): Promise<{
+  pending_parents: Array<{
+    parent_id: string
+    created_at?: string
+  }>
+}> {
+  const { data } = await api.get(
+    `/student/${studentId}/pending-parents`,
+    {
+      headers: getAuthHeaders(),
+    },
+  )
+  return data
+}
+
+export async function approveParentLink(studentId: string, parentId: string): Promise<{
+  status: string
+  message: string
+}> {
+  const { data } = await api.post(
+    `/student/${studentId}/approve-parent`,
+    { parent_id: parentId },
     {
       headers: getAuthHeaders(),
     },

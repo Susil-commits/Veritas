@@ -173,6 +173,7 @@ export default function ParentDashboard() {
   const [showAddModal, setShowAddModal] = useState(false)
   const [newChildEmail, setNewChildEmail] = useState('')
   const [newChildName, setNewChildName] = useState('')
+  const [newPairingCode, setNewPairingCode] = useState('')
   const [addError, setAddError] = useState('')
   const [addingChild, setAddingChild] = useState(false)
   const [liveIndicator, setLiveIndicator] = useState(false)
@@ -469,11 +470,15 @@ export default function ParentDashboard() {
     }
     setAddingChild(true)
     setAddError('')
-    addChild(parentId, trimmedInput, newChildName.trim(), parentEmail)
+    addChild(parentId, trimmedInput, newChildName.trim(), parentEmail, newPairingCode.trim() || undefined)
       .then((res) => {
         setShowAddModal(false)
         setNewChildEmail('')
         setNewChildName('')
+        setNewPairingCode('')
+        if (res.child?.status === 'pending_consent' || res.child?.verified === false) {
+          alert('Child link created! To protect student privacy, your student must confirm the link in their Veritas session, or you can re-link with their 8-character pairing code.')
+        }
         if (res.child?.student_id) {
           handleSelectChild(res.child.student_id)
         }
@@ -690,6 +695,11 @@ export default function ParentDashboard() {
                       <div className="child-meta">
                         <h4>{child.student_name}</h4>
                         <p>{child.student_email}</p>
+                        {(child.status === 'pending_consent' || child.verified === false) && (
+                          <span style={{ fontSize: '0.75rem', color: '#eab308', background: 'rgba(234, 179, 8, 0.15)', padding: '2px 6px', borderRadius: '4px', marginTop: '4px', display: 'inline-block', fontWeight: 600 }}>
+                            Pending Consent
+                          </span>
+                        )}
                         {(isDemoParent || child.student_id === DEMO_STUDENT_ID) && (
                           <span className="synthetic-demo-pill">INTERACTIVE DEMO — Sample Learner</span>
                         )}
@@ -723,6 +733,27 @@ export default function ParentDashboard() {
                 <div className="synthetic-notice-text">
                   <span className="synthetic-notice-title">INTERACTIVE DEMO — Sample Learner Profile</span>
                   <p>Interactive preview showcasing sample learning progress, mastery radar, and practice alerts. Connect your child&rsquo;s account to track live progress.</p>
+                </div>
+              </div>
+            )}
+
+            {/* Pending Student Consent Notice */}
+            {(selectedChild.status === 'pending_consent' || selectedChild.verified === false) && !(isDemoParent || selectedChild.student_id === DEMO_STUDENT_ID) && (
+              <div style={{
+                background: 'rgba(234, 179, 8, 0.12)',
+                border: '1px solid rgba(234, 179, 8, 0.35)',
+                color: '#fef08a',
+                padding: '0.85rem 1.15rem',
+                borderRadius: '10px',
+                marginBottom: '1.25rem',
+                fontSize: '0.9rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+              }}>
+                <span style={{ fontSize: '1.4rem' }}>⏳</span>
+                <div>
+                  <strong>Awaiting Student Consent:</strong> This parent-child link is pending confirmation. To protect student privacy under COPPA and FERPA, your student must confirm this link in their Veritas session or you can re-link using their temporary 8-character pairing code.
                 </div>
               </div>
             )}
@@ -1407,6 +1438,24 @@ export default function ParentDashboard() {
                   }}
                   maxLength={50}
                 />
+              </div>
+
+              <div className="form-group">
+                <label>8-Character Pairing Code (Optional)</label>
+                <input
+                  type="text"
+                  className="input modal-input"
+                  placeholder="e.g. 2BTF4PRS (generated in student session)"
+                  value={newPairingCode}
+                  onChange={(e) => {
+                    setNewPairingCode(e.target.value.toUpperCase().trim())
+                    setAddError('')
+                  }}
+                  maxLength={16}
+                />
+                <span style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '4px', display: 'block' }}>
+                  If omitted, link is created as pending until your child approves it in their session.
+                </span>
               </div>
 
               {addError && <p className="error-msg">{addError}</p>}

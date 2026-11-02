@@ -197,13 +197,16 @@ def test_api_misconception_and_alerts_integration():
     save_student_misconception(test_student_id, "flipped_operation", "5.NF.B.7", resolved=False)
     save_student_misconception(test_student_id, "flipped_operation", "5.NF.B.7", resolved=False)
 
-    # 4b. Link child to parent
+    # 4b. Link child to parent with valid student pairing code
+    from services.pairing_service import generate_pairing_code
+    pair_code = generate_pairing_code(test_student_id)["pairing_code"]
     link_resp = client.post("/parent/add-child", json={
         "parent_id": test_parent_id,
         "parent_email": "parent@veritas.dev",
         "child_email": test_email,
         "child_name": "Alerts Test Student",
         "student_id": test_student_id,
+        "pairing_code": pair_code,
     }, headers=parent_headers)
     assert link_resp.status_code == 200
 

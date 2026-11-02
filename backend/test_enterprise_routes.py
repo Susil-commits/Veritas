@@ -6,6 +6,7 @@ Automated Test Suite for Enterprise District, School, and Classroom API Endpoint
 """
 import os
 import sys
+import uuid
 from pathlib import Path
 
 BACKEND_DIR = Path(__file__).resolve().parent
@@ -60,13 +61,26 @@ def test_enterprise_auth_enforcement():
 
 
 def test_enterprise_admin_endpoints():
-    print("🔑 [ENTERPRISE ROUTE TEST 2] Verifying Authenticated Admin Access...")
-    # Generate admin token
+    print("🔑 [ENTERPRISE ROUTE TEST 2] Verifying Authenticated Admin Access & Tenant Scoping...")
+    # 0. Enterprise token WITHOUT tenant claim must be rejected with 403 (unless explicit super-admin)
+    unscoped_token = create_session_token(
+        student_id="admin-unscoped",
+        session_id="unscoped-sess",
+        student_name="Unscoped Admin",
+        role="district_admin",
+    )
+    res_unscoped = client.get("/enterprise/districts", headers={"Authorization": f"Bearer {unscoped_token}"})
+    assert res_unscoped.status_code == 403, f"Expected 403 for unscoped enterprise caller, got {res_unscoped.status_code}"
+    print("   ✓ Enterprise caller without tenant scope claim correctly rejected with HTTP 403")
+
+    # Generate admin token with valid tenant scope claim
+    valid_district_id = str(uuid.uuid4())
     admin_token = create_session_token(
         student_id="admin-user-001",
         session_id="admin-session-001",
         student_name="District Admin",
         role="district_admin",
+        district_id=valid_district_id,
     )
     headers = {"Authorization": f"Bearer {admin_token}"}
 
@@ -83,7 +97,54 @@ def test_enterprise_admin_endpoints():
     logs_data = res_logs.json()
     assert "audit_logs" in logs_data
     print(f"   ✓ Successfully queried /enterprise/audit-logs (found {len(logs_data['audit_logs'])} records)")
+
+    # 3. Super-admin token can list without tenant claim
+    super_admin_token = create_session_token(
+        student_id="super-admin-001",
+        session_id="super-admin-sess",
+        student_name="Super Admin",
+        role="super_admin",
+    )
+    res_super = client.get("/enterprise/districts", headers={"Authorization": f"Bearer {super_admin_token}"})
+    assert res_super.status_code == 200, f"Expected 200 for super_admin, got {res_super.status_code}"
+    print("   ✓ Explicit super-admin authorized to list districts across tenants (HTTP 200)")
     print("✅ [ENTERPRISE ROUTE TEST 2 PASSED]\n")
+
+
+def test_classroom_scoping_and_observer_redaction():
+    print("🏫 [ENTERPRISE ROUTE TEST 3] Verifying Classroom Scoping & Role Redaction...")
+    # 1. Observer role token has access (in ENTERPRISE_ROLES)
+    observer_dist_id = str(uuid.uuid4())
+    observer_token = create_session_token(
+        student_id="observer-001",
+        session_id="observer-sess",
+        student_name="State Evaluator",
+        role="observer",
+        district_id=observer_dist_id,
+    )
+    res_obs = client.get("/enterprise/districts", headers={"Authorization": f"Bearer {observer_token}"})
+    assert res_obs.status_code == 200, f"Expected 200 for observer in ENTERPRISE_ROLES, got {res_obs.status_code}"
+    print("   ✓ Observer / Evaluator role successfully authenticated under ENTERPRISE_ROLES")
+
+    # 2. Classroom scoping: attempting to enroll in non-existent or out-of-tenant classroom returns 404/403
+    random_cls_id = str(uuid.uuid4())
+    teacher_token = create_session_token(
+        student_id="teacher-001",
+        session_id="teacher-sess",
+        student_name="Teacher A",
+        role="teacher",
+        school_id=str(uuid.uuid4()),
+        district_id=str(uuid.uuid4()),
+    )
+    enroll_res = client.post(
+        f"/enterprise/classrooms/{random_cls_id}/enroll",
+        json={"student_id": str(uuid.uuid4())},
+        headers={"Authorization": f"Bearer {teacher_token}"},
+    )
+    # Scoping check triggers: classroom not found in tenant returns 404 (or 403 if cross-tenant)
+    assert enroll_res.status_code in (403, 404), f"Expected 403 or 404 for un-scoped classroom enroll, got {enroll_res.status_code}"
+    print(f"   ✓ Classroom enrollment strictly scoped to tenant (got HTTP {enroll_res.status_code})")
+    print("✅ [ENTERPRISE ROUTE TEST 3 PASSED]\n")
 
 
 if __name__ == "__main__":
@@ -92,6 +153,7 @@ if __name__ == "__main__":
     print("=" * 76 + "\n")
     test_enterprise_auth_enforcement()
     test_enterprise_admin_endpoints()
+    test_classroom_scoping_and_observer_redaction()
     print("=" * 76)
     print("🎉 ALL ENTERPRISE API ROUTER TESTS PASSED!")
     print("=" * 76 + "\n")

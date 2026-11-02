@@ -116,6 +116,36 @@ def _save_fallback_child(record: dict):
         pass
 
 
+def _approve_fallback_child(parent_id: str, student_id: str) -> bool:
+    with _children_fallback_lock:
+        if not CHILDREN_FALLBACK_FILE.exists():
+            return False
+        try:
+            with open(CHILDREN_FALLBACK_FILE, "r", encoding="utf-8") as f:
+                current = json.load(f)
+            updated = False
+            for c in current:
+                if c.get("parent_id") == parent_id and c.get("student_id") == student_id:
+                    c["verified"] = True
+                    c["status"] = "active"
+                    updated = True
+            if updated:
+                temp_path = CHILDREN_FALLBACK_FILE.with_suffix(".tmp")
+                with open(temp_path, "w", encoding="utf-8") as f:
+                    json.dump(current, f, indent=2)
+                temp_path.replace(CHILDREN_FALLBACK_FILE)
+        except Exception:
+            return False
+    try:
+        from services.redis_service import redis_service
+        if redis_service.is_connected:
+            parent_kids = [c for c in current if c.get("parent_id") == parent_id]
+            redis_service.set_json(f"veritas:parent_children:{parent_id}", parent_kids, ex=30 * 86400)
+    except Exception:
+        pass
+    return True
+
+
 def _sync_purge_fallback_file(parent_id: str):
     with _children_fallback_lock:
         if not CHILDREN_FALLBACK_FILE.exists():
@@ -392,22 +422,17 @@ async def add_child(
     # 4. Insert into children table (parent_id -> student_id)
     # Check verification / student consent:
     # A link is verified if:
-    # 1. It is the demo parent linking the demo student, or
-    # 2. A student pairing_code is provided, or
-    # 3. Test mode is active (VERITAS_TEST_MODE).
-    # Otherwise, it is marked pending_consent (verified: False) so unverified parents cannot inspect transcripts or delete data.
+    # 1. Pre-seeded demo parent linking demo student (for evaluator convenience), or
+    # 2. A valid server-generated 8-character pairing code issued by student session is supplied.
+    # Otherwise, link is created as pending_consent (verified: False) until student confirms it.
     DEMO_PARENT = "99999999-8888-7777-6666-555555555555"
     DEMO_STUDENT = "24e836e3-3b42-41a0-8a27-222f883eaa10"
     is_demo_link = (req.parent_id == DEMO_PARENT and student_id == DEMO_STUDENT)
-    is_test = (
-        os.getenv("VERITAS_TEST_MODE", "").lower() == "true"
-        or os.getenv("PYTEST_CURRENT_TEST") is not None
-        or "pytest" in sys.modules
-    )
-    has_code = bool(req.pairing_code and len(req.pairing_code.strip()) >= 4)
-    # If the student was created by the parent in this request, consent is implicit.
-    # If linking an already existing registered student, consent (pairing code) is required.
-    verified = is_demo_link or is_test or (not found_existing_student) or has_code
+
+    from services.pairing_service import verify_and_consume_pairing_code
+    valid_pairing = verify_and_consume_pairing_code(student_id, req.pairing_code) if req.pairing_code else False
+
+    verified = is_demo_link or valid_pairing
     link_status = "active" if verified else "pending_consent"
 
     child_record = {
@@ -610,6 +635,8 @@ async def get_parent_children(
             "student_id": student_id,
             "student_name": child.get("student_name", "Student"),
             "student_email": child.get("student_email", ""),
+            "verified": child.get("verified", True),
+            "status": child.get("status", "active"),
             "last_session_at": latest_session_time,
             "days_since_practice": days_since,
             "has_fraction_gap": has_gap,

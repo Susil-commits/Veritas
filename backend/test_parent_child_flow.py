@@ -82,13 +82,47 @@ def test_full_parent_child_flow():
     assert idor_resp.status_code == 403, f"Expected 403 for IDOR add-child, got {idor_resp.status_code}"
     print("   ✓ IDOR add-child attempt by mismatched parent correctly blocked with HTTP 403")
 
-    # 2c. Valid authenticated parent adds child
-    resp = client.post("/parent/add-child", json=add_payload, headers=parent_headers)
+    # 2c. Bogus code ('1234') must NOT count as consent — link remains pending_consent
+    bogus_add_payload = dict(add_payload, pairing_code="1234")
+    bogus_resp = client.post("/parent/add-child", json=bogus_add_payload, headers=parent_headers)
+    assert bogus_resp.status_code == 200
+    assert bogus_resp.json()["child"]["status"] == "pending_consent"
+    assert bogus_resp.json()["child"]["verified"] is False
+    print("   ✓ Bogus pairing code '1234' rejected as consent: link left as pending_consent (verified: False)")
+
+    # 2d. Attempting to access child details while pending_consent must be blocked with HTTP 403
+    pending_details_resp = client.get(f"/parent/{test_parent_id}/child/{test_student_id}/details", headers=parent_headers)
+    assert pending_details_resp.status_code == 403, f"Expected 403 for unverified child details, got {pending_details_resp.status_code}"
+    print("   ✓ Access to unverified/pending child data correctly blocked with HTTP 403")
+
+    # 2e. Student authenticated session issues an 8-character pairing code
+    student_token = create_session_token(test_student_id, session_data["session_id"], test_child_name, role="student")
+    student_headers = {"Authorization": f"Bearer {student_token}"}
+    pair_code_resp = client.post(f"/student/{test_student_id}/pairing-code", headers=student_headers)
+    assert pair_code_resp.status_code == 200, f"Expected 200, got {pair_code_resp.status_code}: {pair_code_resp.text}"
+    pair_code = pair_code_resp.json()["pairing_code"]
+    assert len(pair_code) == 8, f"Expected 8-char pairing code, got {pair_code}"
+    print(f"   ✓ Student generated 8-character cryptographically secure pairing code: {pair_code}")
+
+    # 2f. Student explicitly approves parent via approval endpoint
+    approve_resp = client.post(
+        f"/student/{test_student_id}/approve-parent",
+        json={"parent_id": test_parent_id},
+        headers=student_headers,
+    )
+    assert approve_resp.status_code == 200, f"Expected 200, got {approve_resp.status_code}: {approve_resp.text}"
+    assert approve_resp.json()["verified"] is True
+    print(f"   ✓ Student explicitly approved parent {test_parent_id} via student approval endpoint")
+
+    # 2g. Valid authenticated parent adds child or has active status
+    resp = client.post("/parent/add-child", json=dict(add_payload, pairing_code=pair_code), headers=parent_headers)
     assert resp.status_code == 200, f"Expected 200, got {resp.status_code}: {resp.text}"
     add_data = resp.json()
     assert add_data["status"] == "ok"
     assert add_data["child"]["student_email"] == test_child_email
-    print(f"   ✓ Child {test_child_email} successfully linked to parent {test_parent_id}")
+    assert add_data["child"]["verified"] is True
+    assert add_data["child"]["status"] == "active"
+    print(f"   ✓ Child {test_child_email} successfully linked and verified to parent {test_parent_id}")
 
     # 3. Test Getting Children List for Parent
     print("\n[TEST 3] Testing /parent/{parent_id}/children...")

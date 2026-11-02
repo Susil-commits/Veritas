@@ -98,6 +98,43 @@ def test_fastapi_mcp_sse_transport():
         assert "event: endpoint" in first_line
 
 
+def test_fastapi_mcp_auth_fail_closed_and_constant_time():
+    import os
+    # 1. Test fail-closed in production mode when key is missing
+    os.environ["ENVIRONMENT"] = "production"
+    old_key = os.environ.pop("VERITAS_MCP_API_KEY", None)
+    old_test_mode = os.environ.pop("VERITAS_TEST_MODE", None)
+
+    try:
+        resp = client.post("/mcp", json={"jsonrpc": "2.0", "id": 99, "method": "initialize", "params": {}})
+        assert resp.status_code == 503, f"Expected 503 fail-closed when key missing, got {resp.status_code}"
+
+        # 2. Configure key and test invalid token rejected with 401
+        os.environ["VERITAS_MCP_API_KEY"] = "secure_mcp_secret_key_12345"
+        resp_bad = client.post(
+            "/mcp",
+            json={"jsonrpc": "2.0", "id": 99, "method": "initialize", "params": {}},
+            headers={"Authorization": "Bearer wrong_token_attempt"},
+        )
+        assert resp_bad.status_code == 401, f"Expected 401 for wrong token, got {resp_bad.status_code}"
+
+        # 3. Valid key accepted with 200
+        resp_good = client.post(
+            "/mcp",
+            json={"jsonrpc": "2.0", "id": 99, "method": "initialize", "params": {}},
+            headers={"Authorization": "Bearer secure_mcp_secret_key_12345"},
+        )
+        assert resp_good.status_code == 200, f"Expected 200 for correct token, got {resp_good.status_code}"
+    finally:
+        os.environ["ENVIRONMENT"] = "test"
+        if old_key:
+            os.environ["VERITAS_MCP_API_KEY"] = old_key
+        else:
+            os.environ.pop("VERITAS_MCP_API_KEY", None)
+        if old_test_mode:
+            os.environ["VERITAS_TEST_MODE"] = old_test_mode
+
+
 if __name__ == "__main__":
     import sys
     sys.exit(pytest.main([__file__, "-v"]))

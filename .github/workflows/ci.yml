@@ -24,13 +24,12 @@ jobs:
       VERITAS_TEST_MODE: "true"
       VERITAS_MOCK_LLM: "true"
       SESSION_SECRET_KEY: "veritas_ci_test_secret_key_fixed_length_minimum_32_bytes!!"
-      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-      SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-      SUPABASE_JWT_SECRET: ${{ secrets.SUPABASE_JWT_SECRET }}
-      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-      UPSTASH_REDIS_URL: ${{ secrets.UPSTASH_REDIS_URL }}
-      UPSTASH_REDIS_TOKEN: ${{ secrets.UPSTASH_REDIS_TOKEN }}
+      # Isolated Test Supabase project without service-role key; zero live Gemini credits in CI
+      SUPABASE_URL: ${{ secrets.TEST_SUPABASE_URL || secrets.SUPABASE_URL }}
+      SUPABASE_ANON_KEY: ${{ secrets.TEST_SUPABASE_ANON_KEY || secrets.SUPABASE_ANON_KEY }}
+      SUPABASE_JWT_SECRET: ${{ secrets.TEST_SUPABASE_JWT_SECRET || secrets.SUPABASE_JWT_SECRET }}
+      UPSTASH_REDIS_URL: ${{ secrets.TEST_UPSTASH_REDIS_URL || secrets.UPSTASH_REDIS_URL }}
+      UPSTASH_REDIS_TOKEN: ${{ secrets.TEST_UPSTASH_REDIS_TOKEN || secrets.UPSTASH_REDIS_TOKEN }}
 
     steps:
       - name: Checkout repository

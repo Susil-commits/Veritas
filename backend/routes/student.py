@@ -41,6 +41,10 @@ class AvatarUploadRequest(BaseModel):
     user_id: Optional[str] = Field(default="user", max_length=128)
 
 
+class ApproveParentRequest(BaseModel):
+    parent_id: str = Field(min_length=1, max_length=64)
+
+
 # ElevenLabs quota exhaustion state and audio bytes cache to save credits
 _elevenlabs_exhausted_until: float = 0.0
 _TTS_CACHE: dict[str, bytes] = {}
@@ -339,3 +343,87 @@ async def delete_student_data(
         return {"status": "ok", "message": "Student practice sessions, events, skill mastery profile, game records, and student profile purged."}
     except Exception as e:
         raise HTTPException(500, detail=f"Failed to purge student data: {e}")
+
+
+@router.post("/student/{student_id}/pairing-code")
+async def create_pairing_code(
+    student_id: str,
+    auth_payload: dict = Depends(verify_student_access),
+):
+    """Issue a server-generated 8-character pairing code with 15-minute TTL for parent linking."""
+    from services.pairing_service import generate_pairing_code
+    code_info = generate_pairing_code(student_id)
+    return {"status": "ok", **code_info}
+
+
+@router.post("/student/{student_id}/approve-parent")
+async def approve_parent_link(
+    student_id: str,
+    req: ApproveParentRequest,
+    auth_payload: dict = Depends(verify_student_access),
+):
+    """Student explicitly confirms and approves a pending parent account link."""
+    supabase = get_supabase()
+    parent_id = req.parent_id.strip()
+
+    # 1. Update in Supabase children table
+    try:
+        await db_exec(
+            supabase.table("children")
+            .update({"verified": True, "status": "active"})
+            .eq("student_id", student_id)
+            .eq("parent_id", parent_id)
+        )
+    except Exception as e:
+        logger.info(f"Supabase child link approval fallback: {e}")
+
+    # 2. Update in fallback JSON store and Redis
+    from routes.parent import _approve_fallback_child
+    await asyncio.to_thread(_approve_fallback_child, parent_id, student_id)
+
+    return {
+        "status": "ok",
+        "message": f"Parent link {parent_id} approved successfully",
+        "student_id": student_id,
+        "parent_id": parent_id,
+        "verified": True,
+        "link_status": "active",
+    }
+
+
+@router.get("/student/{student_id}/pending-parents")
+async def get_pending_parents(
+    student_id: str,
+    auth_payload: dict = Depends(verify_student_access),
+):
+    """List all parent link requests pending student consent."""
+    supabase = get_supabase()
+    pending = []
+    try:
+        res = await db_exec(
+            supabase.table("children")
+            .select("parent_id, status, verified, created_at")
+            .eq("student_id", student_id)
+            .eq("status", "pending_consent")
+        )
+        if res.data:
+            pending = res.data
+    except Exception:
+        pass
+
+    # Fallback store
+    from routes.parent import CHILDREN_FALLBACK_FILE
+    if not pending and CHILDREN_FALLBACK_FILE.exists():
+        try:
+            import json
+            with open(CHILDREN_FALLBACK_FILE, "r", encoding="utf-8") as f:
+                records = json.load(f)
+            pending = [
+                {"parent_id": r["parent_id"], "status": r.get("status", "pending_consent"), "verified": r.get("verified", False)}
+                for r in records
+                if r.get("student_id") == student_id and (r.get("verified") is False or r.get("status") == "pending_consent")
+            ]
+        except Exception:
+            pass
+
+    return {"status": "ok", "student_id": student_id, "pending_parents": pending}
