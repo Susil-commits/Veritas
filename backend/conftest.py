@@ -5,10 +5,18 @@ with zero network dependencies and no required environment secrets.
 """
 import os
 import sys
+import warnings
 from pathlib import Path
 from typing import Any, Dict, List
 from unittest.mock import MagicMock
 import pytest
+
+# Suppress early assertion rewrite warnings and library deprecation warnings
+warnings.filterwarnings("ignore", category=pytest.PytestAssertRewriteWarning)
+warnings.filterwarnings("ignore", message=r".*Module already imported so cannot be rewritten.*")
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+warnings.filterwarnings("ignore", category=PendingDeprecationWarning)
+warnings.filterwarnings("ignore", category=FutureWarning)
 
 BACKEND_DIR = Path(__file__).resolve().parent
 if str(BACKEND_DIR) not in sys.path:
@@ -29,6 +37,12 @@ def pytest_configure(config):
         "markers",
         "integration: mark test as requiring external network/database services (skipped by default)",
     )
+    # Silence rewrite warnings and deprecations from external libraries in pytest summary
+    config.addinivalue_line("filterwarnings", "ignore::pytest.PytestAssertRewriteWarning")
+    config.addinivalue_line("filterwarnings", "ignore:Module already imported so cannot be rewritten.*:pytest.PytestAssertRewriteWarning")
+    config.addinivalue_line("filterwarnings", "ignore::DeprecationWarning")
+    config.addinivalue_line("filterwarnings", "ignore::PendingDeprecationWarning")
+    config.addinivalue_line("filterwarnings", "ignore::FutureWarning")
 
 
 def pytest_collection_modifyitems(config, items):

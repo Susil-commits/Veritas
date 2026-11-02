@@ -15,7 +15,7 @@ concurrency:
 # ─────────────────────────────────────────────────────────────────────────────
 jobs:
   backend-tests:
-    name: Backend — Full Test Suite, Enterprise Security & AI Benchmarks (17 suites, mock mode)
+    name: Backend — Full Test Suite, Enterprise Security & AI Benchmarks (19 suites, mock mode)
     runs-on: ubuntu-latest
 
     env:
@@ -24,6 +24,7 @@ jobs:
       VERITAS_TEST_MODE: "true"
       VERITAS_MOCK_LLM: "true"
       SESSION_SECRET_KEY: "veritas_ci_test_secret_key_fixed_length_minimum_32_bytes!!"
+      PYTHONWARNINGS: "ignore::pytest.PytestAssertRewriteWarning,ignore::DeprecationWarning,ignore::PendingDeprecationWarning"
       # Isolated Test Supabase project without service-role key; zero live Gemini credits in CI
       SUPABASE_URL: ${{ secrets.TEST_SUPABASE_URL || secrets.SUPABASE_URL }}
       SUPABASE_ANON_KEY: ${{ secrets.TEST_SUPABASE_ANON_KEY || secrets.SUPABASE_ANON_KEY }}
@@ -50,8 +51,8 @@ jobs:
       - name: Verify dependency resolution integrity
         run: pip check
 
-      # Single step runs all 17 suites via the project's own master test runner.
-      - name: Run all 17 test suites via run_all_tests.py
+      # Single step runs all 19 suites via the project's own master test runner.
+      - name: Run all 19 test suites via run_all_tests.py
         working-directory: backend
         run: python run_all_tests.py
 
