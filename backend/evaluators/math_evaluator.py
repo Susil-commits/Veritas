@@ -180,27 +180,34 @@ def extract_student_candidate(message: str) -> list[Tuple[str, str]]:
     # 3. For short/direct messages (<= 5 words), extract bare fractions, numbers, or expressions
     if is_short_direct and not candidates:
         # Mixed fractions e.g. "1 1/2"
+        mixed_spans: list[tuple[int, int]] = []
         for mf in re.finditer(r"\b(\d+\s+\d+/\d+)\b", text):
             if not is_in_negation(mf.start(1), mf.end(1), mf.group(1).strip()):
                 add_cand(mf.group(1), "fraction")
+                mixed_spans.append((mf.start(1), mf.end(1)))
 
         # Simple fractions e.g. "3/4", "6/8"
         for sf in re.finditer(r"\b(-?\d+/\d+)\b", text):
             if not is_in_negation(sf.start(1), sf.end(1), sf.group(1).strip()):
-                add_cand(sf.group(1), "fraction")
+                if not any(ms <= sf.start(1) and sf.end(1) <= me for ms, me in mixed_spans):
+                    add_cand(sf.group(1), "fraction")
 
         # Expressions e.g. "2p + h", "h + 2p", "15 + 4t"
+        expr_spans: list[tuple[int, int]] = []
         for ex in re.finditer(r"\b((?:[0-9]*[a-zA-Z]|[0-9]+)(?:\s*[+\-*/]\s*(?:[0-9]*[a-zA-Z]|[0-9]+))+)\b", text):
             if re.search(r"[a-zA-Z]", ex.group(1)):
                 add_cand(ex.group(1), "expression")
+                expr_spans.append((ex.start(1), ex.end(1)))
         for st in re.finditer(r"\b([0-9]+[a-zA-Z])\b", text):
-            add_cand(st.group(1), "expression")
+            if not any(es <= st.start(1) and st.end(1) <= ee for es, ee in expr_spans):
+                add_cand(st.group(1), "expression")
 
         # Standalone numbers e.g. "40", "40.0", "1,000" (only if no equation, expression, or fraction candidate already identified)
         if not has_equation and not any(c[1] in ("expression", "fraction") for c in candidates):
             for nm in re.finditer(r"\b(-?\d{1,3}(?:,\d{3})*(?:\.\d+)?|-?\d+(?:\.\d+)?)\b", text):
                 if not is_in_negation(nm.start(1), nm.end(1), nm.group(1).strip()):
-                    add_cand(nm.group(1).replace(",", ""), "number")
+                    if not any(ms <= nm.start(1) and nm.end(1) <= me for ms, me in mixed_spans):
+                        add_cand(nm.group(1).replace(",", ""), "number")
 
     return candidates
 
@@ -427,19 +434,37 @@ def evaluate_student_solution(student_message: str, current_problem: dict) -> di
         "answer is", "answer:", "is it", "got", "equals", "equal to", "i think it's", "it is", "result is", "= "
     ])
 
+    # Detect shotgun guessing / multiple conflicting candidate answers (e.g. "x = 1, x = 2, x = 3, x = 5")
+    distinct_candidates = []
+    for cand, c_type in candidates:
+        if not any(verify_math_equivalence(cand, d[0], expected_type) for d in distinct_candidates):
+            distinct_candidates.append((cand, c_type))
+
+    is_shotgun_guessing = len(distinct_candidates) > 1
+
     matched_candidate = None
     is_match = False
 
-    # Check all extracted candidates against expected answer
-    for cand, c_type in candidates:
-        if verify_math_equivalence(cand, expected_ans, expected_type):
-            is_match = True
-            matched_candidate = cand
-            break
+    # Shotgun guessing is rejected: a student cannot spray multiple guesses in a single turn to claim solved
+    if not is_shotgun_guessing:
+        for cand, c_type in candidates:
+            if verify_math_equivalence(cand, expected_ans, expected_type):
+                is_match = True
+                matched_candidate = cand
+                break
 
     # If not matched, pick most prominent candidate to detect incorrect final attempts
     chosen_candidate = matched_candidate or (candidates[0][0] if candidates else None)
-    is_attempt = explicit_answer_intent or bool(candidates and len(student_message.split()) <= 4)
+    is_attempt = is_shotgun_guessing or explicit_answer_intent or bool(candidates and len(student_message.split()) <= 4)
+
+    if is_shotgun_guessing:
+        reason = f"Multiple conflicting guesses detected ({len(distinct_candidates)} choices); shotgun guessing rejected"
+    elif is_match:
+        reason = f"Mathematically verified equivalence with expected {expected_ans}"
+    elif chosen_candidate:
+        reason = f"Candidate '{chosen_candidate}' is not equivalent to expected '{expected_ans}'"
+    else:
+        reason = "No numerical or algebraic candidate found"
 
     return {
         "objective_solved": is_match,
@@ -447,7 +472,5 @@ def evaluate_student_solution(student_message: str, current_problem: dict) -> di
         "student_answer_extracted": chosen_candidate,
         "expected_answer": expected_ans,
         "eval_type": expected_type,
-        "match_reason": f"Mathematically verified equivalence with expected {expected_ans}" if is_match else (
-            f"Candidate '{chosen_candidate}' is not equivalent to expected '{expected_ans}'" if chosen_candidate else "No numerical or algebraic candidate found"
-        ),
+        "match_reason": reason,
     }

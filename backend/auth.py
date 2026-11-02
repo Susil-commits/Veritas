@@ -49,6 +49,10 @@ def revoke_session_token(session_id: str, ttl_seconds: int = 86400) -> None:
         logger.warning("Failed to write session revocation to Redis for %s: %s", session_id, e)
 
 
+# Cache for invalid/forged kid identifiers to prevent repeated outbound JWKS network hammering
+_INVALID_JWKS_KIDS: dict[str, float] = {}
+
+
 def _validate_jwt_claims(payload: dict) -> None:
     """Validate identity claims when supplied by a Supabase JWT."""
     if not payload.get("sub"):
@@ -155,20 +159,44 @@ def verify_session_token(token: str) -> dict:
     DEMO_PARENT_ID = "99999999-8888-7777-6666-555555555555"
     DEMO_STUDENT_ID = "24e836e3-3b42-41a0-8a27-222f883eaa10"
 
+    is_prod = (
+        os.getenv("ENVIRONMENT", "").lower() == "production"
+        or os.getenv("RENDER") is not None
+    )
+    allow_demo = (
+        os.getenv("VERITAS_ALLOW_DEMO_TOKENS", "false").lower() == "true"
+        or os.getenv("VERITAS_TEST_MODE", "").lower() == "true"
+    )
+
     # Evaluator Convenience: Pre-seeded zero-setup demo accounts for reviewers and evaluators.
     # Strict allowlist: Only known demo identities are accepted; arbitrary IDs under demo_ prefix are rejected.
+    # In production, demo tokens are strictly rejected unless explicitly enabled via VERITAS_ALLOW_DEMO_TOKENS.
     if token in (f"demo_{DEMO_PARENT_ID}", f"demo_parent_{DEMO_PARENT_ID}", "demo_parent"):
+        if is_prod and not allow_demo:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Demo authentication tokens are disabled in production environments.",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
         return {
             "sub": DEMO_PARENT_ID,
             "role": "parent",
             "name": "Demo Parent",
+            "is_demo": True,
             "exp": int(time.time()) + 86400 * 30,
         }
     if token in (f"demo_{DEMO_STUDENT_ID}", "demo_student"):
+        if is_prod and not allow_demo:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Demo authentication tokens are disabled in production environments.",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
         return {
             "sub": DEMO_STUDENT_ID,
             "role": "student",
             "name": "Demo Student",
+            "is_demo": True,
             "exp": int(time.time()) + 86400 * 30,
         }
     if token.startswith("demo_"):
@@ -210,6 +238,14 @@ def verify_session_token(token: str) -> dict:
                     detail="Server misconfiguration: SUPABASE_URL required for asymmetric token verification",
                     headers={"WWW-Authenticate": "Bearer"},
                 )
+            kid = header.get("kid")
+            now = time.time()
+            if kid and kid in _INVALID_JWKS_KIDS and now < _INVALID_JWKS_KIDS[kid]:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Invalid token signing key identifier",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
             try:
                 import jwt
                 from jwt import PyJWKClient
@@ -230,6 +266,8 @@ def verify_session_token(token: str) -> dict:
             except HTTPException:
                 raise
             except Exception as e:
+                if kid:
+                    _INVALID_JWKS_KIDS[kid] = time.time() + 300.0
                 # Fallback to Supabase Auth API verification if JWKS decoding fails
                 try:
                     from db.supabase_client import get_supabase
@@ -237,8 +275,9 @@ def verify_session_token(token: str) -> dict:
                     user_resp = sb.auth.get_user(token)
                     if user_resp and user_resp.user:
                         u = user_resp.user
-                        user_meta = u.user_metadata or {}
-                        role = "parent" if user_meta.get("user_role") == "parent" else "student"
+                        app_meta = getattr(u, "app_metadata", None) or {}
+                        user_meta = getattr(u, "user_metadata", None) or {}
+                        role = app_meta.get("role") or app_meta.get("user_role") or "student"
                         return {
                             "sub": u.id,
                             "email": u.email,
@@ -263,8 +302,9 @@ def verify_session_token(token: str) -> dict:
                     user_resp = sb.auth.get_user(token)
                     if user_resp and user_resp.user:
                         u = user_resp.user
-                        user_meta = u.user_metadata or {}
-                        role = "parent" if user_meta.get("user_role") == "parent" else "student"
+                        app_meta = getattr(u, "app_metadata", None) or {}
+                        user_meta = getattr(u, "user_metadata", None) or {}
+                        role = app_meta.get("role") or app_meta.get("user_role") or "student"
                         return {
                             "sub": u.id,
                             "email": u.email,
@@ -320,15 +360,15 @@ def verify_session_token(token: str) -> dict:
                 detail="Authentication token has expired. Please sign in again.",
                 headers={"WWW-Authenticate": "Bearer"},
             )
+        app_meta = payload.get("app_metadata") or {}
         user_meta = payload.get("user_metadata") or {}
-        # Supabase default role claim is 'authenticated'; resolve student vs parent accurately
-        raw_role = user_meta.get("user_role") or payload.get("role")
-        if raw_role == "parent":
-            role = "parent"
-        elif raw_role == "student":
+        # Roles must be read from server-controlled app_metadata or top-level signed claim,
+        # NEVER elevated via client-writable user_metadata (which any user can edit in Supabase).
+        candidate_role = app_meta.get("role") or app_meta.get("user_role") or payload.get("role")
+        if candidate_role in ("parent", "district_admin", "school_principal", "teacher", "enterprise_admin", "admin"):
+            role = candidate_role
+        elif candidate_role == "student":
             role = "student"
-        elif payload.get("role") == "parent":
-            role = "parent"
         else:
             role = "student"
 
@@ -447,14 +487,22 @@ async def verify_student_access(
             supabase = get_supabase()
             res = await asyncio.to_thread(
                 lambda: supabase.table("children")
-                .select("student_id")
+                .select("*")
                 .eq("parent_id", caller_sub)
                 .eq("student_id", student_id)
                 .limit(1)
                 .execute()
             )
             if res.data and len(res.data) > 0:
+                child_row = res.data[0]
+                if child_row.get("verified") is False or child_row.get("status") == "pending_consent":
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail="Access denied: student link is pending student consent",
+                    )
                 return payload
+        except HTTPException:
+            raise
         except Exception:
             pass
 
@@ -463,8 +511,17 @@ async def verify_student_access(
             from services.redis_service import redis_service
             if redis_service.is_connected:
                 cached_kids = redis_service.get_json(f"veritas:parent_children:{caller_sub}")
-                if isinstance(cached_kids, list) and any(c.get("student_id") == student_id for c in cached_kids):
-                    return payload
+                if isinstance(cached_kids, list):
+                    for c in cached_kids:
+                        if c.get("student_id") == student_id:
+                            if c.get("verified") is False or c.get("status") == "pending_consent":
+                                raise HTTPException(
+                                    status_code=status.HTTP_403_FORBIDDEN,
+                                    detail="Access denied: student link is pending student consent",
+                                )
+                            return payload
+        except HTTPException:
+            raise
         except Exception:
             pass
 
@@ -475,8 +532,16 @@ async def verify_student_access(
             if store_file.exists():
                 with open(store_file, "r", encoding="utf-8") as f:
                     store_data = json.load(f)
-                    if any(c.get("parent_id") == caller_sub and c.get("student_id") == student_id for c in store_data):
-                        return payload
+                    for c in store_data:
+                        if c.get("parent_id") == caller_sub and c.get("student_id") == student_id:
+                            if c.get("verified") is False or c.get("status") == "pending_consent":
+                                raise HTTPException(
+                                    status_code=status.HTTP_403_FORBIDDEN,
+                                    detail="Access denied: student link is pending student consent",
+                                )
+                            return payload
+        except HTTPException:
+            raise
         except Exception:
             pass
 
@@ -624,3 +689,54 @@ async def verify_student_caller(
         )
 
     return verify_session_token(token)
+
+
+ENTERPRISE_ROLES = {
+    "district_admin",
+    "school_principal",
+    "teacher",
+    "enterprise_admin",
+    "admin",
+}
+
+
+async def verify_enterprise_caller(
+    authorization: Optional[str] = Header(None),
+    x_session_token: Optional[str] = Header(None),
+) -> dict:
+    """
+    FastAPI dependency to authenticate enterprise administrators, principals, and teachers.
+    Guarantees:
+    1. Caller provides a valid, unexpired token.
+    2. Demo tokens and parents/students are strictly rejected with 403 Forbidden.
+    3. Caller role is one of ENTERPRISE_ROLES.
+    4. Extracts tenant claims (district_id, school_id) for tenant-scoped operations.
+    """
+    token = _extract_token(authorization, x_session_token)
+
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required: missing token in Authorization or X-Session-Token header",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    payload = verify_session_token(token)
+
+    # Demo accounts and general parents/students are barred from enterprise management
+    DEMO_PARENT = "99999999-8888-7777-6666-555555555555"
+    if payload.get("is_demo") or payload.get("sub") == DEMO_PARENT:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied: demo identities are not authorized for enterprise administrative endpoints",
+        )
+
+    caller_role = payload.get("role")
+    if caller_role not in ENTERPRISE_ROLES:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Enterprise access denied: role '{caller_role}' is not authorized for district/school management",
+        )
+
+    return payload
+

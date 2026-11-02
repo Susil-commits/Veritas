@@ -40,6 +40,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
+from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 load_dotenv()
 
@@ -89,6 +90,9 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="AI Socratic Tutor API", lifespan=lifespan)
+
+# Trust upstream reverse proxy headers (Render, Cloudflare, etc.) to extract accurate client IP
+app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
 
 # CORS — allow frontend origins explicitly via FRONTEND_URL env var (comma-separated).
 frontend_env = os.getenv("FRONTEND_URL", "")

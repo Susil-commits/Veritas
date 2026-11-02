@@ -21,6 +21,7 @@ from safety import (
     SOCRATIC_BOUNDARY_RESPONSE,
     SAFE_SUPPORT_RESPONSE,
     is_answer_leaked,
+    sanitize_ocr_visual_input,
 )
 try:
     from backend.harness.invariants import PedagogicalInvariantChecker
@@ -132,7 +133,31 @@ async def diagnostic_node(state: TutorState) -> dict:
         skill_id=skill_id,
     )
 
+    raw_ocr = diagnosis.get("ocr_text", "")
+    is_adversarial, attack_cat, clean_ocr = sanitize_ocr_visual_input(raw_ocr)
+    if is_adversarial:
+        clean_ocr = ""
+        diagnosis["ocr_text"] = ""
+        diagnosis["is_correct"] = False
+        steps.append(f"Diagnostic Validator: intercepted adversarial visual input ({attack_cat})")
+    else:
+        diagnosis["ocr_text"] = clean_ocr
+
     is_correct = bool(diagnosis.get("is_correct", False))
+
+    # Deterministic verification of photo grading: verify handwriting OCR mathematically
+    if clean_ocr and current_prob:
+        math_eval = evaluate_student_solution(clean_ocr, current_prob)
+        if math_eval.get("eval_type") != "none":
+            if math_eval.get("objective_solved"):
+                is_correct = True
+                diagnosis["is_correct"] = True
+                steps.append(f"Diagnostic Validator: mathematically verified OCR answer '{math_eval.get('student_answer_extracted')}'")
+            elif math_eval.get("is_explicit_attempt") and not math_eval.get("objective_solved"):
+                is_correct = False
+                diagnosis["is_correct"] = False
+                steps.append(f"Diagnostic Validator: OCR candidate '{math_eval.get('student_answer_extracted')}' is incorrect; overriding LLM judgement")
+
     misc_type = str(diagnosis.get("misconception_type", "unknown"))
     steps.append(f"Diagnostic Vision agent: diagnosis complete (is_correct={is_correct}, misconception={misc_type})")
 
@@ -253,6 +278,7 @@ async def tutor_node(state: TutorState) -> dict:
         extracted_answer = None
 
     # Deterministic Objective Math Validator: Verify student candidate mathematically
+    math_eval: dict = {}
     if latest_input and current_prob and not diagnosis:
         eval_input = extracted_answer or latest_input
         math_eval = evaluate_student_solution(eval_input, current_prob)
@@ -357,6 +383,19 @@ async def tutor_node(state: TutorState) -> dict:
             if student_id:
                 await asyncio.to_thread(_save_mastery, student_id, curr_skill, new_m)
             credited = True
+    elif not problem_solved and curr_skill and (math_eval.get("is_explicit_attempt") or is_final_attempt):
+        raw_curr = mastery_state.get(curr_skill)
+        cur_val = float(raw_curr) if raw_curr is not None else 0.3
+        new_m = update_mastery(
+            current_mastery=cur_val,
+            is_correct=False,
+            skill_id=curr_skill,
+            attempt_type=attempt_type,
+        )
+        mastery_state[curr_skill] = round(new_m, 4)
+        student_id = state.get("student_id")
+        if student_id:
+            await asyncio.to_thread(_save_mastery, student_id, curr_skill, new_m)
 
     return {
         "agent_response": response,
@@ -380,7 +419,18 @@ async def content_node(state: TutorState) -> dict:
     steps.append("Adaptive Content agent: selecting next ZPD-targeted challenge...")
 
     mastery_state = dict(state.get("mastery_state") or {})
-    next_skill = get_next_skill(mastery_state)
+    curr_prob = state.get("current_problem") or {}
+    curr_skill = curr_prob.get("skill_id") or state.get("current_skill_id")
+    deficit_skill = None
+    if curr_skill:
+        curr_m = float(mastery_state.get(curr_skill, 0.3))
+        if curr_m < 0.65 or not state.get("problem_solved", False):
+            from bkt.tracker import diagnose_root_skill_deficit
+            deficit_skill = diagnose_root_skill_deficit(mastery_state, curr_skill)
+            if deficit_skill:
+                steps.append(f"Cognitive DAG: diagnosed foundational deficit in prerequisite '{deficit_skill}'")
+
+    next_skill = deficit_skill or get_next_skill(mastery_state)
     raw_next_m = mastery_state.get(next_skill)
     mastery_prob = float(raw_next_m) if raw_next_m is not None else 0.3
     student_id = str(state.get("student_id") or "default")

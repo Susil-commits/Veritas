@@ -107,8 +107,51 @@ _locks_guard = threading.Lock()
 MAX_SESSION_LOCKS = int(os.getenv("MAX_SESSION_LOCKS", "10000"))
 
 
-def get_session_lock(session_id: str) -> asyncio.Lock:
-    """Return an asyncio.Lock tied to session_id to serialize read-modify-write state operations."""
+class DistributedSessionLock:
+    """
+    Hybrid distributed session lock:
+    1. Acquires local in-process asyncio.Lock to serialize concurrent coroutines in current worker.
+    2. Acquires distributed Redis key (SET NX EX 30) to serialize across multiple horizontal workers.
+    """
+    def __init__(self, session_id: str, local_lock: asyncio.Lock):
+        self.session_id = session_id
+        self.local_lock = local_lock
+        self.redis_lock_key = f"veritas:lock:session:{session_id}"
+        self.acquired_redis = False
+
+    async def __aenter__(self):
+        await self.local_lock.acquire()
+        if redis_service.is_connected and getattr(redis_service, "_client", None):
+            try:
+                for _ in range(20):
+                    acquired = await asyncio.to_thread(
+                        redis_service._client.set,
+                        self.redis_lock_key,
+                        "1",
+                        nx=True,
+                        ex=30,
+                    )
+                    if acquired:
+                        self.acquired_redis = True
+                        break
+                    await asyncio.sleep(0.05)
+            except Exception:
+                pass
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        try:
+            if self.acquired_redis and redis_service.is_connected and getattr(redis_service, "_client", None):
+                try:
+                    await asyncio.to_thread(redis_service._client.delete, self.redis_lock_key)
+                except Exception:
+                    pass
+        finally:
+            self.local_lock.release()
+
+
+def get_session_lock(session_id: str) -> DistributedSessionLock:
+    """Return a DistributedSessionLock tied to session_id to serialize read-modify-write state operations."""
     _LOCK_IDLE_TTL = 7200  # 2 hours — locks not accessed for this long are eligible for eviction
     with _locks_guard:
         now = time.time()
@@ -116,8 +159,6 @@ def get_session_lock(session_id: str) -> asyncio.Lock:
             _session_locks[session_id] = asyncio.Lock()
         _session_lock_times[session_id] = now
         if len(_session_locks) > MAX_SESSION_LOCKS:
-            # Prefer evicting locks that are (a) unlocked AND (b) oldest by last-access time
-            # Fallback: also evict locks idle for >2h even if they appear locked (stale context)
             stale_ids = sorted(_session_lock_times, key=lambda k: _session_lock_times.get(k, 0.0))
             for stale_id in stale_ids:
                 if stale_id == session_id:
@@ -133,7 +174,7 @@ def get_session_lock(session_id: str) -> asyncio.Lock:
                     _session_lock_times.pop(stale_id, None)
                 if len(_session_locks) <= MAX_SESSION_LOCKS:
                     break
-        return _session_locks[session_id]
+        return DistributedSessionLock(session_id, _session_locks[session_id])
 
 # Maximum number of active sessions kept in RAM cache (LRU eviction).
 # Default 100 easily handles >50 concurrent students while preventing unbounded memory growth.

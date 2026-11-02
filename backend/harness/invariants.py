@@ -68,6 +68,17 @@ class PedagogicalInvariantChecker:
         target_clean = str(target_solution).strip()
         target_frac = cls._parse_fraction_or_num(target_clean)
 
+        # 0. Multi-pattern Socratic leak verification
+        try:
+            from backend.safety import is_answer_leaked
+        except ImportError:
+            try:
+                from safety import is_answer_leaked
+            except ImportError:
+                is_answer_leaked = None
+        if is_answer_leaked and is_answer_leaked(tutor_reply, target_solution):
+            return False, f"Direct answer leak: Target solution '{target_clean}' detected in reply"
+
         # 1. Regex Leak Patterns
         for pattern in cls.LEAK_PATTERNS:
             match = re.search(pattern, reply_lower, re.IGNORECASE)

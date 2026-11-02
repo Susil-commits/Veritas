@@ -9,6 +9,8 @@ Provides endpoints for:
 """
 
 import asyncio
+import base64
+import io
 import hashlib
 import logging
 import os
@@ -169,6 +171,22 @@ async def upload_user_avatar(
     if len(req.image) > 8 * 1024 * 1024:
         raise HTTPException(status_code=413, detail="Avatar image is too large.")
 
+    # Security: Ensure avatar is strictly a data:image base64 URI, never a local file path
+    if not req.image.startswith("data:image/"):
+        raise HTTPException(status_code=400, detail="Avatar image must be a valid base64 data:image URI.")
+
+    try:
+        header, b64_part = req.image.split(",", 1)
+        mime_type = header.split(";")[0].replace("data:", "").strip()
+        img_bytes = base64.b64decode(b64_part)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Malformed base64 image data URI.")
+
+    # Validate image format and magic bytes
+    from safety import validate_image_upload, strip_image_exif
+    validate_image_upload(img_bytes, content_type=mime_type, max_size_bytes=8 * 1024 * 1024)
+    img_bytes = strip_image_exif(img_bytes)
+
     clean_user = caller_id
     limiter.enforce_cooldown(
         key=f"avatar_{clean_user}",
@@ -180,7 +198,7 @@ async def upload_user_avatar(
     try:
         cdn_url = await asyncio.to_thread(
             cloudinary_service.upload_avatar,
-            req.image,
+            io.BytesIO(img_bytes),
             clean_user,
         )
         if cdn_url:
@@ -308,7 +326,16 @@ async def delete_student_data(
         # Also remove local games_store.json entry so deleted scores don't reappear from file cache
         _remove_student_game_records(student_id)
         clear_student_misconceptions(student_id)
+        # Purge child links and students profile row (FERPA/COPPA Right to be Forgotten)
+        try:
+            await db_exec(supabase.table("children").delete().eq("student_id", student_id))
+        except Exception:
+            pass
+        try:
+            await db_exec(supabase.table("students").delete().eq("id", student_id))
+        except Exception:
+            pass
         await asyncio.to_thread(cloudinary_service.delete_student_assets, student_id)
-        return {"status": "ok", "message": "Student practice sessions, events, skill mastery profile, and game records purged."}
+        return {"status": "ok", "message": "Student practice sessions, events, skill mastery profile, game records, and student profile purged."}
     except Exception as e:
         raise HTTPException(500, detail=f"Failed to purge student data: {e}")

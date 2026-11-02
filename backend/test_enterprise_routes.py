@@ -43,6 +43,19 @@ def test_enterprise_auth_enforcement():
     res3 = client.get("/enterprise/audit-logs")
     assert res3.status_code == 401, f"Expected 401, got {res3.status_code}: {res3.text}"
     print("   ✓ /enterprise/audit-logs correctly rejects unauthenticated calls (HTTP 401)")
+
+    # 4. Parent role and demo tokens must be rejected with 403 Forbidden
+    parent_token = create_session_token(
+        student_id="parent-user-001",
+        session_id="parent-session-001",
+        student_name="Standard Parent",
+        role="parent",
+    )
+    res_parent = client.get("/enterprise/districts", headers={"Authorization": f"Bearer {parent_token}"})
+    assert res_parent.status_code == 403, f"Expected 403 for parent role, got {res_parent.status_code}"
+    res_demo = client.get("/enterprise/districts", headers={"Authorization": "Bearer demo_parent"})
+    assert res_demo.status_code == 403, f"Expected 403 for demo_parent, got {res_demo.status_code}"
+    print("   ✓ /enterprise/districts correctly rejects parent role and demo_parent token (HTTP 403)")
     print("✅ [ENTERPRISE ROUTE TEST 1 PASSED]\n")
 
 
@@ -53,7 +66,7 @@ def test_enterprise_admin_endpoints():
         student_id="admin-user-001",
         session_id="admin-session-001",
         student_name="District Admin",
-        role="parent",  # verified via verify_parent_access
+        role="district_admin",
     )
     headers = {"Authorization": f"Bearer {admin_token}"}
 

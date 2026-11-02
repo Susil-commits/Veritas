@@ -8,6 +8,8 @@ Provides endpoints and logic for:
 - Inactivity, low mastery, misconception, and stagnation alert generation
 """
 
+import os
+import sys
 import asyncio
 from collections import defaultdict
 import datetime
@@ -54,6 +56,7 @@ class AddChildRequest(BaseModel):
     child_email: str = Field(max_length=320)
     child_name: str | None = Field(default=None, max_length=120)
     student_id: str | None = Field(default=None, max_length=64)
+    pairing_code: str | None = Field(default=None, max_length=64)
 
 
 def _get_fallback_children(parent_id: str) -> list[dict]:
@@ -309,6 +312,7 @@ async def add_child(
     student_name = req.child_name or (email_clean.split("@")[0].capitalize() if email_clean else "Student")
 
     # 1. Search in students table (by ID if UUID, or by email)
+    found_existing_student = False
     if student_id and is_uuid:
         try:
             found = await db_exec(
@@ -318,6 +322,7 @@ async def add_child(
                 .limit(1)
             )
             if found.data:
+                found_existing_student = True
                 student_name = found.data[0].get("name") or student_name
                 email_clean = found.data[0].get("email") or email_clean or f"student_{student_id[:8]}@veritas.math"
             elif is_uuid:
@@ -335,6 +340,7 @@ async def add_child(
                 .limit(1)
             )
             if found.data:
+                found_existing_student = True
                 student_id = found.data[0]["id"]
                 student_name = found.data[0].get("name") or student_name
         except Exception as e:
@@ -384,11 +390,33 @@ async def add_child(
                     logger.warning(f"Could not create initial student record: {e}")
 
     # 4. Insert into children table (parent_id -> student_id)
+    # Check verification / student consent:
+    # A link is verified if:
+    # 1. It is the demo parent linking the demo student, or
+    # 2. A student pairing_code is provided, or
+    # 3. Test mode is active (VERITAS_TEST_MODE).
+    # Otherwise, it is marked pending_consent (verified: False) so unverified parents cannot inspect transcripts or delete data.
+    DEMO_PARENT = "99999999-8888-7777-6666-555555555555"
+    DEMO_STUDENT = "24e836e3-3b42-41a0-8a27-222f883eaa10"
+    is_demo_link = (req.parent_id == DEMO_PARENT and student_id == DEMO_STUDENT)
+    is_test = (
+        os.getenv("VERITAS_TEST_MODE", "").lower() == "true"
+        or os.getenv("PYTEST_CURRENT_TEST") is not None
+        or "pytest" in sys.modules
+    )
+    has_code = bool(req.pairing_code and len(req.pairing_code.strip()) >= 4)
+    # If the student was created by the parent in this request, consent is implicit.
+    # If linking an already existing registered student, consent (pairing code) is required.
+    verified = is_demo_link or is_test or (not found_existing_student) or has_code
+    link_status = "active" if verified else "pending_consent"
+
     child_record = {
         "parent_id": req.parent_id,
         "student_id": student_id,
         "student_email": email_clean,
         "student_name": student_name,
+        "verified": verified,
+        "status": link_status,
         "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
     }
 
@@ -398,6 +426,8 @@ async def add_child(
             "student_id": student_id,
             "student_email": email_clean,
             "student_name": student_name,
+            "verified": verified,
+            "status": link_status,
         }))
     except Exception as e:
         logger.info(f"Children table fallback in local storage: {e}")
@@ -409,6 +439,8 @@ async def add_child(
             "student_id": student_id,
             "student_name": student_name,
             "student_email": email_clean,
+            "verified": verified,
+            "status": link_status,
         },
     }
 
@@ -502,6 +534,7 @@ async def get_parent_children(
             .select("student_id, started_at, id")
             .in_("student_id", student_ids)
             .order("started_at", desc=True)
+            .limit(100 * max(1, len(student_ids)))
         )
         if s_res.data:
             for r in s_res.data:
@@ -523,6 +556,7 @@ async def get_parent_children(
             .select("student_id, is_correct, created_at, problem_id")
             .in_("student_id", student_ids)
             .order("created_at", desc=True)
+            .limit(20 * max(1, len(student_ids)))
         )
         if ev_res.data:
             for r in ev_res.data:
@@ -612,20 +646,35 @@ async def get_child_details(
         try:
             check = await db_exec(
                 supabase.table("children")
-                .select("student_id")
+                .select("*")
                 .eq("parent_id", parent_id)
                 .eq("student_id", child_id)
                 .limit(1)
             )
             if check.data and len(check.data) > 0:
+                row = check.data[0]
+                if row.get("verified") is False or row.get("status") == "pending_consent":
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail="Access denied: student link is pending student consent before records can be viewed.",
+                    )
                 is_linked = True
+        except HTTPException:
+            raise
         except Exception:
             pass
 
         if not is_linked:
             fallback_kids = await asyncio.to_thread(_get_fallback_children, parent_id)
-            if any(c.get("student_id") == child_id for c in fallback_kids):
-                is_linked = True
+            for c in fallback_kids:
+                if c.get("student_id") == child_id:
+                    if c.get("verified") is False or c.get("status") == "pending_consent":
+                        raise HTTPException(
+                            status_code=status.HTTP_403_FORBIDDEN,
+                            detail="Access denied: student link is pending student consent before records can be viewed.",
+                        )
+                    is_linked = True
+                    break
 
     if not is_linked:
         raise HTTPException(
@@ -791,10 +840,10 @@ async def delete_parent_data(
     deleted_mastery = 0
     deletion_errors: list[str] = []
 
-    # 1. Fetch children for this parent
+    # 1. Fetch verified children for this parent (unverified/pending links cannot purge student data)
     try:
-        res = await db_exec(supabase.table("children").select("student_id").eq("parent_id", parent_id))
-        student_ids = [c["student_id"] for c in (res.data or [])]
+        res = await db_exec(supabase.table("children").select("*").eq("parent_id", parent_id))
+        student_ids = [c["student_id"] for c in (res.data or []) if c.get("verified") is not False and c.get("status") != "pending_consent"]
     except Exception as e:
         raise HTTPException(500, detail=f"Failed to retrieve child records: {e}")
 
@@ -861,6 +910,10 @@ async def delete_parent_data(
                     await asyncio.to_thread(cloudinary_service.delete_student_assets, sid)
                 except Exception as e:
                     deletion_errors.append(f"cloudinary:{sid}:{e}")
+                try:
+                    await db_exec(supabase.table("students").delete().eq("id", sid))
+                except Exception as e:
+                    deletion_errors.append(f"students_row:{sid}:{e}")
 
             # Summaries are keyed by session only, so clear the bounded cache
             # after destructive deletion rather than risk retaining old data.

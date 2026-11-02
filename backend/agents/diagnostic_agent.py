@@ -93,16 +93,22 @@ If the work is correct, set is_correct=true, misconception_type="step_skipped_co
 Be specific and educational — a teacher should be able to show this diagnosis to a student."""
 
 
+_VISION_LLM_CACHE = {}
+
+
 def build_vision_llm(model_name: str | None = None) -> ChatGoogleGenerativeAI:
     selected = model_name or os.environ.get("GEMINI_VISION_MODEL") or VISION_MODEL
     api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY", "")
-    return ChatGoogleGenerativeAI(
-        model=selected,
-        google_api_key=api_key,
-        max_output_tokens=2048,
-        max_retries=0,
-        timeout=15,
-    )
+    cache_key = (selected, api_key)
+    if cache_key not in _VISION_LLM_CACHE:
+        _VISION_LLM_CACHE[cache_key] = ChatGoogleGenerativeAI(
+            model=selected,
+            google_api_key=api_key,
+            max_output_tokens=2048,
+            max_retries=0,
+            timeout=15,
+        )
+    return _VISION_LLM_CACHE[cache_key]
 
 
 def normalize_bounding_box(data: dict) -> tuple[dict | None, str, float]:

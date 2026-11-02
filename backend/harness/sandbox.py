@@ -46,12 +46,27 @@ class SafeMathEvaluator:
 
     @classmethod
     def validate_ast(cls, expr_str: str) -> None:
-        """Ensures expression AST contains ONLY safe mathematical nodes."""
+        """Ensures expression AST contains ONLY safe mathematical nodes and respects bounded limits."""
+        if not expr_str or len(expr_str) > 250:
+            raise UnsafeExpressionError("Expression exceeds maximum character length (max 250 chars)")
+
         cleaned = expr_str.replace("^", "**")
         try:
             tree = ast.parse(cleaned, mode="eval")
         except SyntaxError as e:
             raise UnsafeExpressionError(f"Invalid math syntax: {e}")
+
+        def _check_depth_and_count(node: ast.AST, current_depth: int = 1) -> int:
+            if current_depth > 8:
+                raise UnsafeExpressionError("Expression exceeds maximum allowable nesting depth (max depth 8)")
+            count = 1
+            for child in ast.iter_child_nodes(node):
+                count += _check_depth_and_count(child, current_depth + 1)
+                if count > 40:
+                    raise UnsafeExpressionError("Expression exceeds maximum allowable AST node count (max 40 nodes)")
+            return count
+
+        _check_depth_and_count(tree)
 
         for node in ast.walk(tree):
             if not isinstance(node, cls.ALLOWED_NODES):
@@ -65,7 +80,7 @@ class SafeMathEvaluator:
     ) -> Optional[Fraction]:
         """
         Safely evaluates an arithmetic or algebraic expression with variable substitutions.
-        Returns None if expression is non-evaluable or contains syntax errors.
+        Returns None if expression is non-evaluable, times out, or contains syntax errors.
         """
         try:
             cls.validate_ast(expr_str)
@@ -83,6 +98,8 @@ class SafeMathEvaluator:
     def _eval_node(cls, node: ast.AST, variables: Dict[str, Fraction]) -> Fraction:
         if isinstance(node, ast.Constant):
             if isinstance(node.value, (int, float)):
+                if abs(node.value) > 100_000_000:
+                    raise ValueError("Numeric constant exceeds maximum allowable value")
                 return Fraction(node.value).limit_denominator(10000)
             raise ValueError("Non-numeric constant")
         elif isinstance(node, ast.Name):
@@ -100,50 +117,92 @@ class SafeMathEvaluator:
             left = cls._eval_node(node.left, variables)
             right = cls._eval_node(node.right, variables)
             if isinstance(node.op, ast.Add):
-                return left + right
+                res = left + right
             elif isinstance(node.op, ast.Sub):
-                return left - right
+                res = left - right
             elif isinstance(node.op, ast.Mult):
-                return left * right
+                res = left * right
             elif isinstance(node.op, ast.Div):
                 if right == 0:
                     raise ZeroDivisionError("Division by zero in CAS sandbox")
-                return left / right
+                res = left / right
             elif isinstance(node.op, ast.Pow):
-                if right.denominator != 1 or right.numerator > 10:
-                    raise ValueError("Exponent too large or fractional")
-                return left ** int(right.numerator)
-            raise ValueError(f"Unsupported binary operator {type(node.op)}")
+                if right.denominator != 1:
+                    raise ValueError("Exponent must be an integer")
+                exp_int = int(right.numerator)
+                if exp_int < 0 or exp_int > 6:
+                    raise ValueError("Exponent must be an integer between 0 and 6")
+                if abs(left.numerator) > 100 or abs(left.denominator) > 100:
+                    raise ValueError("Base too large for safe exponentiation")
+                if left.numerator.bit_length() * exp_int > 60:
+                    raise ValueError("Exponentiation output exceeds 60-bit limit")
+                res = left ** exp_int
+            else:
+                raise ValueError(f"Unsupported binary operator {type(node.op)}")
+
+            if abs(res.numerator) > 100_000_000 or abs(res.denominator) > 100_000_000:
+                raise ValueError("Intermediate result exceeds safe bounds")
+            return res
         raise ValueError(f"Unsupported node type: {type(node)}")
 
     @classmethod
     def are_expressions_equivalent(cls, expr1: str, expr2: str) -> bool:
         """
         Determines if two expressions evaluate to the same exact value.
-        For algebraic expressions with variables, tests point evaluations via Schwartz-Zippel.
+        Primary: Exact symbolic CAS equivalence via SymPy with bounded AST validation.
+        Fallback: Multi-point randomized Schwartz-Zippel lemma testing binding all allowed variables.
         """
-        # Test direct arithmetic
+        # Validate AST safety on both inputs first
+        try:
+            cls.validate_ast(expr1)
+            cls.validate_ast(expr2)
+        except UnsafeExpressionError:
+            return False
+
+        # 1. Exact Symbolic CAS verification via SymPy
+        try:
+            import sympy
+            from sympy.parsing.sympy_parser import (
+                parse_expr,
+                standard_transformations,
+                implicit_multiplication_application,
+            )
+            transforms = standard_transformations + (implicit_multiplication_application,)
+            s1 = parse_expr(expr1.replace("^", "**"), transformations=transforms)
+            s2 = parse_expr(expr2.replace("^", "**"), transformations=transforms)
+            diff = sympy.simplify(s1 - s2)
+            if diff == 0:
+                return True
+            if diff.is_number and diff != 0:
+                return False
+        except Exception:
+            pass
+
+        # 2. Test direct arithmetic
         val1 = cls.evaluate_arithmetic(expr1)
         val2 = cls.evaluate_arithmetic(expr2)
         if val1 is not None and val2 is not None:
             return val1 == val2
 
-        # Test algebraic equivalence at multiple evaluation points
+        # 3. Sound Multi-Point Algebraic Evaluation via Schwartz-Zippel
+        # Binds ALL allowed variables (x, y, z, n, a, b, c, pi, e) across 7 non-trivial sample points
         sample_points = [
-            {"x": Fraction(2, 1), "y": Fraction(3, 1), "z": Fraction(5, 1), "n": Fraction(4, 1)},
-            {"x": Fraction(5, 1), "y": Fraction(7, 1), "z": Fraction(11, 1), "n": Fraction(9, 1)},
-            {"x": Fraction(-3, 1), "y": Fraction(2, 1), "z": Fraction(4, 1), "n": Fraction(-1, 1)},
+            {"x": Fraction(1, 1), "y": Fraction(2, 1), "z": Fraction(3, 1), "n": Fraction(4, 1), "a": Fraction(2, 1), "b": Fraction(3, 1), "c": Fraction(5, 1), "pi": Fraction(314, 100), "e": Fraction(272, 100)},
+            {"x": Fraction(7, 1), "y": Fraction(4, 1), "z": Fraction(6, 1), "n": Fraction(1, 1), "a": Fraction(3, 1), "b": Fraction(7, 1), "c": Fraction(2, 1), "pi": Fraction(314, 100), "e": Fraction(272, 100)},
+            {"x": Fraction(-4, 1), "y": Fraction(5, 1), "z": Fraction(-2, 1), "n": Fraction(3, 1), "a": Fraction(-1, 1), "b": Fraction(4, 1), "c": Fraction(-3, 1), "pi": Fraction(314, 100), "e": Fraction(272, 100)},
+            {"x": Fraction(3, 2), "y": Fraction(5, 2), "z": Fraction(7, 2), "n": Fraction(9, 2), "a": Fraction(1, 2), "b": Fraction(3, 2), "c": Fraction(5, 2), "pi": Fraction(314, 100), "e": Fraction(272, 100)},
+            {"x": Fraction(8, 1), "y": Fraction(3, 1), "z": Fraction(1, 1), "n": Fraction(7, 1), "a": Fraction(5, 1), "b": Fraction(2, 1), "c": Fraction(8, 1), "pi": Fraction(314, 100), "e": Fraction(272, 100)},
+            {"x": Fraction(-5, 1), "y": Fraction(-3, 1), "z": Fraction(4, 1), "n": Fraction(-2, 1), "a": Fraction(-4, 1), "b": Fraction(6, 1), "c": Fraction(1, 1), "pi": Fraction(314, 100), "e": Fraction(272, 100)},
+            {"x": Fraction(11, 1), "y": Fraction(6, 1), "z": Fraction(8, 1), "n": Fraction(5, 1), "a": Fraction(7, 1), "b": Fraction(9, 1), "c": Fraction(4, 1), "pi": Fraction(314, 100), "e": Fraction(272, 100)},
         ]
 
-        all_matched = True
-        at_least_one_eval = False
-
+        evaluated_points = 0
         for point in sample_points:
             res1 = cls.evaluate_arithmetic(expr1, point)
             res2 = cls.evaluate_arithmetic(expr2, point)
             if res1 is not None and res2 is not None:
-                at_least_one_eval = True
+                evaluated_points += 1
                 if res1 != res2:
                     return False
 
-        return at_least_one_eval and all_matched
+        return evaluated_points >= 3

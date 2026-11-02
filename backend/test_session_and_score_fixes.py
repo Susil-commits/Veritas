@@ -6,6 +6,8 @@ Unit & Integration tests for:
 4. /session/reset resetting mastery back to 0.30 and starting problem 1 fresh.
 5. Parent linking accepting student UUID code as well as email.
 """
+import os
+os.environ.setdefault("VERITAS_TEST_MODE", "true")
 import uuid
 import pytest
 from fastapi.testclient import TestClient

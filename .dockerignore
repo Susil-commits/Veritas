@@ -1,0 +1,43 @@
+# Secrets & Environment variables
+.env
+*.env
+*.env.*
+.env.local
+.env.production
+.env.development
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Python cache & bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Node & Frontend dependencies
+node_modules/
+dist/
+build/
+.npm/
+
+# Version control & IDEs
+.git/
+.gitignore
+.gitattributes
+.vscode/
+.idea/
+*.swp
+*~
+
+# Temporary & Data files
+data/*.tmp
+data/*.log
+*.log
+

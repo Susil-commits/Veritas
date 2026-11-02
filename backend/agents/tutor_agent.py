@@ -4,6 +4,7 @@ Uses Google Gemini via centralized config.
 """
 # pyright: reportMissingImports=false, reportMissingModuleSource=false
 import os
+import time
 import json
 import re
 from typing import Any
@@ -13,7 +14,13 @@ from config import CHAT_MODEL, CHAT_MODEL_CASCADE, extract_clean_text
 
 
 def _parse_tutor_response(raw: str, fallback_text: str) -> dict:
-    """Parse the tutor LLM's JSON response. Falls back to old keyword-matching if parsing fails."""
+    """
+    Parse the tutor LLM's JSON response safely.
+    Guarantees:
+    - Never shows raw JSON or unescaped JSON delimiters to the student.
+    - Encouraging teacher praise ('Excellent thinking!') NEVER falsely triggers problem_solved=True.
+    - Objective math verifier governs mathematical correctness.
+    """
     clean_text = raw.strip()
     clean_text = re.sub(r"^```(?:json)?\s*", "", clean_text, flags=re.IGNORECASE)
     clean_text = re.sub(r"\s*```$", "", clean_text).strip()
@@ -38,17 +45,25 @@ def _parse_tutor_response(raw: str, fallback_text: str) -> dict:
         }
     except Exception as parse_err:
         print(f"[WARN] Failed to parse tutor JSON: {parse_err}. Raw text: {raw[:150]}")
-        # Fallback: use the raw text as the reply, and fall back to the old
-        # keyword heuristic so a parsing failure never breaks the "solved" signal entirely.
-        congrats_signals = [
-            "spot on", "correct!", "that's right", "thats right", "great job", "you got it",
-            "wonderful work", "excellent", "nailed it", "well done", "perfect!", "exactly right",
-            "you solved it", "you arrived at the correct"
-        ]
-        resp_lower = fallback_text.lower()
+        # Cleanly extract tutor conversational text without showing raw JSON to child
+        reply_match = re.search(r'"(?:reply|response|message)"\s*:\s*"((?:[^"\\]|\\.)*)', clean_text)
+        if reply_match:
+            try:
+                clean_reply = json.loads(f'"{reply_match.group(1)}"')
+            except Exception:
+                clean_reply = reply_match.group(1).replace(r"\"", '"').strip()
+        else:
+            clean_reply = re.sub(r'^[\s\{\}"\']*(?:reply|response|message)?[\s:"]*', "", clean_text)
+            clean_reply = re.sub(r'[\s\}\]"]*$', "", clean_reply).strip()
+
+        if not clean_reply or len(clean_reply) < 5 or clean_reply.startswith("{"):
+            clean_reply = fallback_text if (fallback_text and not fallback_text.strip().startswith("{")) else "Great effort! What operation or step should we try next?"
+
+        # Praise words (e.g. 'Excellent thinking!') must NEVER falsely mark a problem as solved.
+        # Problem solved status is strictly determined by the objective math verifier or valid JSON flag.
         return {
-            "reply": fallback_text,
-            "problem_solved": any(s in resp_lower for s in congrats_signals),
+            "reply": clean_reply,
+            "problem_solved": False,
             "is_final_attempt": None,
             "extracted_student_answer": None,
             "student_reasoning": None,
@@ -105,17 +120,21 @@ FEW_SHOT_EXAMPLES = [
 
 
 MODEL_CASCADE = CHAT_MODEL_CASCADE
+_TUTOR_LLM_CACHE: dict[tuple[str, str], Any] = {}
 
 
 def build_tutor_llm(model_name: str) -> Any:
     api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY", "")
-    return ChatGoogleGenerativeAI(
-        model=model_name,
-        google_api_key=api_key,
-        max_output_tokens=1000,
-        max_retries=0,
-        timeout=10,
-    )
+    cache_key = (model_name, api_key)
+    if cache_key not in _TUTOR_LLM_CACHE:
+        _TUTOR_LLM_CACHE[cache_key] = ChatGoogleGenerativeAI(
+            model=model_name,
+            google_api_key=api_key,
+            max_output_tokens=1000,
+            max_retries=0,
+            timeout=8,
+        )
+    return _TUTOR_LLM_CACHE[cache_key]
 
 
 def _intelligent_socratic_fallback(
@@ -305,7 +324,13 @@ Guide the student gently away from these specific traps if you see them recurrin
     seen = set()
     models_to_try = [m for m in MODEL_CASCADE if m and not (m in seen or seen.add(m))]
 
+    cascade_start = time.time()
+    MAX_CASCADE_DURATION = 12.0
+
     for model_name in models_to_try:
+        if time.time() - cascade_start > MAX_CASCADE_DURATION:
+            print(f"[WARN] Tutor cascade total deadline reached ({MAX_CASCADE_DURATION}s); breaking fallback loop.")
+            break
         try:
             llm = build_tutor_llm(model_name)
             response = llm.invoke(messages)

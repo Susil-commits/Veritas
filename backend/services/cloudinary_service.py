@@ -63,7 +63,7 @@ class CloudinaryService:
     def is_available(self) -> bool:
         return self._configured and CLOUDINARY_AVAILABLE
 
-    def upload_avatar(self, file_content: Union[bytes, str], user_id: str) -> Optional[str]:
+    def upload_avatar(self, file_content: Union[bytes, io.BytesIO, str], user_id: str) -> Optional[str]:
         """
         Uploads an avatar photo to Cloudinary.
         Applies face-centered cropping to 256x256 and WebP/AVIF auto compression.
@@ -73,8 +73,23 @@ class CloudinaryService:
             return None
 
         try:
-            # Handle data:image base64 URI or raw bytes
-            payload = file_content
+            # Security: Ensure only in-memory image streams are uploaded, rejecting raw filesystem paths
+            # to prevent Local File Inclusion (LFI) / arbitrary file exfiltration through the SDK.
+            if isinstance(file_content, str):
+                if file_content.startswith("data:image/"):
+                    _, b64_part = file_content.split(",", 1)
+                    raw_bytes = base64.b64decode(b64_part)
+                    payload = io.BytesIO(raw_bytes)
+                else:
+                    print(f"[WARN] CloudinaryService: Rejected non-data URI string in avatar upload for {user_id}")
+                    return None
+            elif isinstance(file_content, bytes):
+                payload = io.BytesIO(file_content)
+            elif isinstance(file_content, io.BytesIO):
+                payload = file_content
+            else:
+                return None
+
             clean_id = user_id.replace(" ", "_")
             res = cloudinary.uploader.upload(
                 payload,

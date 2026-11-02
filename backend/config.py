@@ -6,7 +6,19 @@ import ast
 import os
 from typing import Any
 
-# Primary chat & Socratic dialogue LLM (500 RPD / 15 RPM on Free Tier)
+# ==============================================================================
+# COPPA / FERPA DATA PRIVACY & COMPLIANCE DISCLOSURE (Google Gemini Terms):
+# Under Google's Terms of Service for the Gemini API:
+# - FREE TIER: Customer prompts, completions, and uploaded images may be reviewed
+#   by human reviewers and used by Google to train and improve AI models.
+#   Transmitting minor student data (Grades 3-7) through the Free Tier violates
+#   COPPA (15 U.S.C. §§ 6501-6506) and FERPA regulations!
+# - PAID TIER / VERTEX AI: Customer data is NOT logged or used for model training.
+# Production environments MUST configure a paid-tier billing project or Vertex AI
+# credentials, with parental consent verified upon account creation.
+# ==============================================================================
+
+# Primary chat & Socratic dialogue LLM (Configurable via GEMINI_MODEL)
 CHAT_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite")
 
 # Diagnostic vision model for handwritten math OCR and misconception localization

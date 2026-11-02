@@ -12,7 +12,7 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 
-from auth import verify_parent_caller
+from auth import verify_enterprise_caller
 from db.supabase_client import get_supabase
 from routes.common import db_exec
 
@@ -53,7 +53,7 @@ class EnrollmentRequest(BaseModel):
 @router.post("/districts")
 async def create_district(
     req: DistrictCreateRequest,
-    auth: dict = Depends(verify_parent_caller),
+    auth: dict = Depends(verify_enterprise_caller),
 ):
     """Provisions a new School District / Educational Organization."""
     supabase = get_supabase()
@@ -71,20 +71,28 @@ async def create_district(
 
 @router.get("/districts")
 async def list_districts(
-    auth: dict = Depends(verify_parent_caller),
+    auth: dict = Depends(verify_enterprise_caller),
 ):
     """Lists districts accessible to the authenticated administrator."""
     supabase = get_supabase()
-    res = await db_exec(supabase.table("districts").select("*").order("name"))
+    caller_district_id = auth.get("district_id") or auth.get("app_metadata", {}).get("district_id")
+    if caller_district_id:
+        res = await db_exec(supabase.table("districts").select("*").eq("id", caller_district_id).order("name"))
+    else:
+        res = await db_exec(supabase.table("districts").select("*").order("name"))
     return {"status": "ok", "districts": res.data or []}
 
 
 @router.post("/schools")
 async def create_school(
     req: SchoolCreateRequest,
-    auth: dict = Depends(verify_parent_caller),
+    auth: dict = Depends(verify_enterprise_caller),
 ):
     """Provisions a new school scoped to a district."""
+    caller_district_id = auth.get("district_id") or auth.get("app_metadata", {}).get("district_id")
+    if caller_district_id and caller_district_id != req.district_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied: outside authorized district tenant scope")
+
     supabase = get_supabase()
     payload = {
         "district_id": req.district_id,
@@ -100,9 +108,13 @@ async def create_school(
 @router.get("/districts/{district_id}/schools")
 async def list_district_schools(
     district_id: str,
-    auth: dict = Depends(verify_parent_caller),
+    auth: dict = Depends(verify_enterprise_caller),
 ):
     """Lists schools within a designated district."""
+    caller_district_id = auth.get("district_id") or auth.get("app_metadata", {}).get("district_id")
+    if caller_district_id and caller_district_id != district_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied: outside authorized district tenant scope")
+
     supabase = get_supabase()
     res = await db_exec(supabase.table("schools").select("*").eq("district_id", district_id).order("name"))
     return {"status": "ok", "schools": res.data or []}
@@ -111,9 +123,13 @@ async def list_district_schools(
 @router.post("/classrooms")
 async def create_classroom(
     req: ClassroomCreateRequest,
-    auth: dict = Depends(verify_parent_caller),
+    auth: dict = Depends(verify_enterprise_caller),
 ):
     """Provisions a classroom cohort assigned to a specific teacher."""
+    caller_school_id = auth.get("school_id") or auth.get("app_metadata", {}).get("school_id")
+    if caller_school_id and caller_school_id != req.school_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied: outside authorized school tenant scope")
+
     supabase = get_supabase()
     payload = {
         "school_id": req.school_id,
@@ -131,9 +147,13 @@ async def create_classroom(
 @router.get("/schools/{school_id}/classrooms")
 async def list_school_classrooms(
     school_id: str,
-    auth: dict = Depends(verify_parent_caller),
+    auth: dict = Depends(verify_enterprise_caller),
 ):
     """Lists classrooms within a designated school."""
+    caller_school_id = auth.get("school_id") or auth.get("app_metadata", {}).get("school_id")
+    if caller_school_id and caller_school_id != school_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied: outside authorized school tenant scope")
+
     supabase = get_supabase()
     res = await db_exec(supabase.table("classrooms").select("*").eq("school_id", school_id).order("name"))
     return {"status": "ok", "classrooms": res.data or []}
@@ -143,7 +163,7 @@ async def list_school_classrooms(
 async def enroll_student_in_classroom(
     classroom_id: str,
     req: EnrollmentRequest,
-    auth: dict = Depends(verify_parent_caller),
+    auth: dict = Depends(verify_enterprise_caller),
 ):
     """Enrolls a student in a classroom cohort."""
     supabase = get_supabase()
@@ -158,29 +178,35 @@ async def enroll_student_in_classroom(
 @router.get("/classrooms/{classroom_id}/students")
 async def list_classroom_students(
     classroom_id: str,
-    auth: dict = Depends(verify_parent_caller),
+    auth: dict = Depends(verify_enterprise_caller),
 ):
-    """Lists students enrolled in a classroom cohort."""
+    """Lists students enrolled in a classroom cohort with FERPA role-based scoping."""
     supabase = get_supabase()
     res = await db_exec(
         supabase.table("classroom_enrollments")
         .select("student_id, enrolled_at, students(id, name, email)")
         .eq("classroom_id", classroom_id)
     )
-    return {"status": "ok", "enrollments": res.data or []}
+    enrollments = res.data or []
+    caller_role = auth.get("role")
+    # Redact minor contact emails for observers/auditors
+    if caller_role in ("observer", "evaluator"):
+        for row in enrollments:
+            if "students" in row and isinstance(row["students"], dict):
+                row["students"].pop("email", None)
+    return {"status": "ok", "enrollments": enrollments}
 
 
 @router.get("/audit-logs")
 async def get_audit_logs(
     limit: int = Query(50, ge=1, le=200),
-    auth: dict = Depends(verify_parent_caller),
+    auth: dict = Depends(verify_enterprise_caller),
 ):
-    """Returns immutable enterprise security and compliance audit logs."""
+    """Returns immutable enterprise security and compliance audit logs scoped to caller tenant."""
     supabase = get_supabase()
-    res = await db_exec(
-        supabase.table("enterprise_audit_logs")
-        .select("*")
-        .order("event_timestamp", desc=True)
-        .limit(limit)
-    )
+    caller_district_id = auth.get("district_id") or auth.get("app_metadata", {}).get("district_id")
+    query = supabase.table("enterprise_audit_logs").select("*").order("event_timestamp", desc=True).limit(limit)
+    if caller_district_id:
+        query = query.eq("district_id", caller_district_id)
+    res = await db_exec(query)
     return {"status": "ok", "audit_logs": res.data or []}
