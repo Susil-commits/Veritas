@@ -947,7 +947,9 @@ def strip_image_exif(file_bytes: bytes) -> bytes:
             fmt = img.format if img.format in ("JPEG", "PNG", "WEBP") else "PNG"
             # Recreate image data without EXIF metadata dictionary
             clean_img = Image.new(img.mode, img.size)
-            clean_img.putdata(list(img.getdata()))
+            img_data = img.getdata()
+            if img_data is not None:
+                clean_img.putdata(list(img_data))
             out_buf = io.BytesIO()
             clean_img.save(out_buf, format=fmt)
             return out_buf.getvalue()
