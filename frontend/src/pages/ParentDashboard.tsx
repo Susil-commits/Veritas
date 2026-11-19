@@ -415,8 +415,7 @@ export default function ParentDashboard() {
             table: 'session_events',
             filter: `student_id=eq.${selectedChildId}`,
           },
-          (payload) => {
-            console.log('Realtime learning event received:', payload)
+          () => {
             setLiveIndicator(true)
             if (liveTimerRef.current) clearTimeout(liveTimerRef.current)
             liveTimerRef.current = setTimeout(() => setLiveIndicator(false), 2000)

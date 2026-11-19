@@ -395,7 +395,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const storedDemoAvatar = localStorage.getItem(`veritas_avatar_${id}`) || 'initials'
     setAvatar(storedDemoAvatar)
 
-    const fakeUser = {
+    const demoUser = {
       id,
       email,
       aud: 'authenticated',
@@ -411,10 +411,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       },
     } as unknown as User
 
-    setUser(fakeUser)
+    setUser(demoUser)
     setRole(targetRole)
     sessionStorage.removeItem('session')
-    localStorage.setItem('veritas_demo_user', JSON.stringify(fakeUser))
+    localStorage.setItem('veritas_demo_user', JSON.stringify(demoUser))
     localStorage.setItem('veritas_user_role', targetRole)
     saveProfile({
       email,
