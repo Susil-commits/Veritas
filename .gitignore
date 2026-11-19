@@ -40,6 +40,7 @@ backend/data/sessions/
 data/children_store.json
 data/*_backup.json
 !backend/data/.gitkeep
-scratch_*
-*scratch*
-
+scratch_*.py
+scratch_*.json
+*.scratch
+scratch/

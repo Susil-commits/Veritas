@@ -226,7 +226,7 @@ export default function TutorSession() {
                 try {
                   const savedChat = JSON.parse(savedChatRaw)
                   if (Array.isArray(savedChat) && savedChat.length > 0) {
-                    setMessages(savedChat.map((m: any) => ({
+                    setMessages(savedChat.map((m: { role: "student" | "tutor" | "system"; content: string; timestamp: string | number | Date }) => ({
                       ...m,
                       timestamp: new Date(m.timestamp),
                     })))
@@ -266,13 +266,14 @@ export default function TutorSession() {
             ])
             stableSpeak(s.welcome_message)
           })
-          .catch((e: any) => {
+          .catch((e: unknown) => {
             console.error('Could not auto-start session:', e)
             try {
               sessionStorage.removeItem('session')
             } catch {}
             if (mounted) {
-              const msg = e?.response?.data?.detail || 'Could not start your tutoring session right now. Please try again.'
+              const errObj = e as { response?: { data?: { detail?: string } }; message?: string }
+              const msg = errObj?.response?.data?.detail || errObj?.message || 'Could not start your tutoring session right now. Please try again.'
               setSessionError(msg)
             }
           })
@@ -437,9 +438,10 @@ export default function TutorSession() {
         setMessages(prev => [...prev, tutorMsg])
         stableSpeak(res.tutor_message)
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to fetch next problem:', err)
-      const isAuth = String(err?.message || '').includes('401') || String(err?.message || '').includes('403')
+      const errStr = String((err as { message?: string })?.message || '')
+      const isAuth = errStr.includes('401') || errStr.includes('403')
       const msgContent = isAuth
         ? "Your session has expired. Please refresh the page or reset the session to continue."
         : "Could not load the next problem right now. Please try clicking 'Next Problem' again."
