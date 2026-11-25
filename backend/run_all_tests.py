@@ -3,8 +3,10 @@ Veritas Master Test Runner — Runs all verified automated test suites.
 Produces a crisp terminal output designed for Demo Day screen recording.
 """
 import os
+import shutil
 import sys
 import subprocess
+import tempfile
 import time
 from pathlib import Path
 
@@ -49,6 +51,11 @@ def main():
         test_env["VERITAS_TEST_MODE"] = "true"
         test_env["VERITAS_MOCK_LLM"] = "true"
 
+    created_tmp_data = None
+    if not test_env.get("VERITAS_DATA_DIR"):
+        created_tmp_data = tempfile.mkdtemp(prefix="veritas_runner_data_")
+        test_env["VERITAS_DATA_DIR"] = created_tmp_data
+
     print("=" * 76)
     print("   VERITAS AI SOCRATIC TUTOR — AUTOMATED VALIDATION SUITE")
     if not live_llm:
@@ -77,6 +84,8 @@ def main():
         else:
             print(f"  ✗ {name} failed with exit code {res.returncode} in {elapsed:.2f}s")
 
+    if created_tmp_data:
+        shutil.rmtree(created_tmp_data, ignore_errors=True)
     total_time = time.time() - start_time
     passed_count = sum(1 for r in results if r["passed"])
     total_count = len(TEST_SCRIPTS)

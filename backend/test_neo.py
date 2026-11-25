@@ -8,7 +8,6 @@ Automated Test Suite for Neo AI Assistant:
 """
 import os
 import sys
-import time
 from pathlib import Path
 
 # Default to zero-credit test mode for standalone test execution
@@ -25,7 +24,7 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-from safety import check_neo_domain_scope, NEO_OUT_OF_SCOPE_RESPONSE
+from safety import check_neo_domain_scope
 from agents.neo_agent import run_neo_agent
 from rate_limiter import RateLimiter
 from auth import create_session_token, verify_session_token

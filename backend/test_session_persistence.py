@@ -8,7 +8,6 @@ Automated Test Suite for Session Persistence & Recovery:
 import os
 import sys
 import uuid
-import time
 from pathlib import Path
 
 BACKEND_DIR = Path(__file__).resolve().parent

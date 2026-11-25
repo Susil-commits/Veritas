@@ -26,9 +26,6 @@ import argparse
 import os
 
 from safety import (
-    check_prompt_injection,
-    check_prompt_injection_tier1,
-    check_prompt_injection_tier2,
     check_prompt_injection_with_telemetry,
     check_harmful_content,
     is_answer_leaked,

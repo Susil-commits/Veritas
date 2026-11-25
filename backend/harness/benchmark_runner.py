@@ -11,11 +11,10 @@ Outputs a structured JSON benchmark artifact for CI/CD gates.
 """
 import json
 import logging
-import os
 from pathlib import Path
 import sys
 import time
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 # Ensure project root is in sys.path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -30,7 +29,6 @@ try:
     from backend.harness.sandbox import SafeMathEvaluator
     from backend.context.cognitive_context import (
         CognitiveContextManager,
-        EpistemicStudentState,
     )
     from backend.services.inference_router import InferenceRouter, InferenceTier
 except ImportError:
@@ -38,7 +36,6 @@ except ImportError:
     from harness.sandbox import SafeMathEvaluator
     from context.cognitive_context import (
         CognitiveContextManager,
-        EpistemicStudentState,
     )
     from services.inference_router import InferenceRouter, InferenceTier
 

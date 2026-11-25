@@ -8,7 +8,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from evaluators.math_evaluator import (
     evaluate_student_solution,
-    verify_math_equivalence,
     extract_expected_answer,
 )
 

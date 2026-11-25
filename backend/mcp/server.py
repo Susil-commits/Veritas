@@ -20,7 +20,7 @@ Supports:
 import sys
 import json
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict
 
 try:
     from backend.harness.sandbox import SafeMathEvaluator

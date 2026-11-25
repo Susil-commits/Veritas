@@ -105,3 +105,12 @@ jobs:
 
       - name: TypeScript check and production build
         run: npm --prefix frontend run build
+
+      - name: Run Playwright browser E2E suite
+        env:
+          VERITAS_TEST_MODE: "true"
+          VERITAS_MOCK_LLM: "true"
+        run: |
+          python -m pip install -r backend/requirements.txt
+          npx --prefix frontend playwright install chromium
+          npm --prefix frontend run test:e2e

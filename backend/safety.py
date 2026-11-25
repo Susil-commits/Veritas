@@ -16,7 +16,7 @@ import io
 import time
 import secrets
 import concurrent.futures
-from typing import Tuple, Dict, Any, Optional, List
+from typing import Tuple, Dict, Any, Optional
 from fastapi import HTTPException, status
 from dotenv import load_dotenv, find_dotenv
 

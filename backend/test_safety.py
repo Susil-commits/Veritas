@@ -29,12 +29,10 @@ from fastapi import HTTPException
 from safety import (
     sanitize_input,
     check_prompt_injection,
-    check_harmful_content,
     is_answer_leaked,
     validate_image_upload,
     record_security_event,
     get_security_telemetry,
-    SOCRATIC_BOUNDARY_RESPONSE,
 )
 from rate_limiter import RateLimiter
 

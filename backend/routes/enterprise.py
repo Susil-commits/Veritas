@@ -8,7 +8,7 @@ Provides B2B APIs for:
 5. SOC-2 / FERPA Audit Logs (/enterprise/audit-logs)
 """
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 

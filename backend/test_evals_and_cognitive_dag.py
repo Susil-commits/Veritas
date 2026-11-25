@@ -7,7 +7,6 @@ Verifies:
 """
 import sys
 import os
-import json
 from pathlib import Path
 
 os.environ["VERITAS_MOCK_LLM"] = "true"
@@ -31,8 +30,6 @@ from bkt.tracker import (
     diagnose_root_skill_deficit,
     get_skill_params,
 )
-from evals.cas_math_benchmark import run_cas_benchmark
-from evals.vision_reticle_benchmark import run_vision_reticle_benchmark, compute_box_iou
 from evals.generate_eval_report import generate_full_evaluation_report, REPORT_PATH
 
 

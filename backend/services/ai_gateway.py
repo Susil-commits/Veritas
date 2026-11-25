@@ -6,7 +6,6 @@ Provides:
 3. Automatic Exponential Backoff & Retry
 4. Audit Telemetry on Provider Degradation / Failover Events
 """
-import os
 import time
 import logging
 from typing import Any, Callable, Dict, List, Optional, Tuple

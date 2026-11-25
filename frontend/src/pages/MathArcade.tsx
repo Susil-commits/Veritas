@@ -137,310 +137,6 @@ async function verifyDigestMatch(roundId: string, qid: string, selected: number 
   return hex === digest
 }
 
-/* ── Procedural Question Generators for all 7 Levels ─────────── */
-
-function generateMultiplicationQuestion(): GameQuestion {
-  const a = Math.floor(Math.random() * 9) + 2 // 2 to 10
-  const b = Math.floor(Math.random() * 9) + 2 // 2 to 10
-  const answer = a * b
-  const optionsSet = new Set<number>([answer])
-  let attempts = 0
-  while (optionsSet.size < 4 && attempts < 40) {
-    attempts++
-    const delta = (Math.floor(Math.random() * 7) - 3) * (Math.random() > 0.5 ? a : b)
-    const fake = Math.max(2, answer + (delta === 0 ? (Math.random() > 0.5 ? 4 : -4) : delta))
-    optionsSet.add(fake)
-  }
-  let fallbackOffset = 1
-  while (optionsSet.size < 4) {
-    optionsSet.add(answer + fallbackOffset++)
-  }
-  const options = Array.from(optionsSet).sort(() => Math.random() - 0.5)
-  return {
-    question: `${a} × ${b}`,
-    options,
-    answer,
-  }
-}
-
-function generateDivisionQuestion(): GameQuestion {
-  const b = Math.floor(Math.random() * 8) + 2 // divisor: 2 to 9
-  const quotient = Math.floor(Math.random() * 9) + 2 // 2 to 10
-  const a = b * quotient // dividend
-  const answer = quotient
-  const optionsSet = new Set<number>([answer])
-  let attempts = 0
-  while (optionsSet.size < 4 && attempts < 40) {
-    attempts++
-    const delta = Math.floor(Math.random() * 5) - 2
-    const fake = Math.max(1, answer + (delta === 0 ? 3 : delta))
-    optionsSet.add(fake)
-  }
-  let fallbackOffset = 1
-  while (optionsSet.size < 4) {
-    optionsSet.add(answer + fallbackOffset++)
-  }
-  const options = Array.from(optionsSet).sort(() => Math.random() - 0.5)
-  return {
-    question: `${a} ÷ ${b}`,
-    options,
-    answer,
-  }
-}
-
-function generateTwoStepQuestion(): GameQuestion {
-  const types = ['mult_add', 'mult_sub', 'paren_mult', 'add_div']
-  const type = types[Math.floor(Math.random() * types.length)]
-  let question = ''
-  let answer = 0
-
-  if (type === 'mult_add') {
-    const a = Math.floor(Math.random() * 6) + 3 // 3 to 8
-    const b = Math.floor(Math.random() * 6) + 2 // 2 to 7
-    const c = Math.floor(Math.random() * 15) + 3 // 3 to 17
-    answer = a * b + c
-    question = `(${a} × ${b}) + ${c}`
-  } else if (type === 'mult_sub') {
-    const a = Math.floor(Math.random() * 6) + 4 // 4 to 9
-    const b = Math.floor(Math.random() * 6) + 3 // 3 to 8
-    const c = Math.floor(Math.random() * 10) + 2 // 2 to 11
-    answer = a * b - c
-    question = `(${a} × ${b}) - ${c}`
-  } else if (type === 'paren_mult') {
-    const a = Math.floor(Math.random() * 6) + 2 // 2 to 7
-    const b = Math.floor(Math.random() * 5) + 2 // 2 to 6
-    const c = Math.floor(Math.random() * 4) + 2 // 2 to 5
-    answer = (a + b) * c
-    question = `(${a} + ${b}) × ${c}`
-  } else {
-    const b = Math.floor(Math.random() * 4) + 2 // 2 to 5
-    const q = Math.floor(Math.random() * 7) + 3 // 3 to 9
-    const total = b * q
-    const a = Math.floor(Math.random() * (total - 3)) + 2
-    const c = total - a
-    answer = q
-    question = `(${a} + ${c}) ÷ ${b}`
-  }
-
-  const optionsSet = new Set<number>([answer])
-  let attempts = 0
-  while (optionsSet.size < 4 && attempts < 40) {
-    attempts++
-    const delta = Math.floor(Math.random() * 7) - 3
-    const fake = Math.max(1, answer + (delta === 0 ? 4 : delta))
-    optionsSet.add(fake)
-  }
-  let fallbackOffset = 1
-  while (optionsSet.size < 4) {
-    optionsSet.add(answer + fallbackOffset++)
-  }
-  const options = Array.from(optionsSet).sort(() => Math.random() - 0.5)
-  return {
-    question,
-    options,
-    answer,
-  }
-}
-
-function generateFractionQuestion(): GameQuestion {
-  const isEquivalent = Math.random() > 0.4
-  if (isEquivalent) {
-    const numerators = [1, 2, 3, 4]
-    const denominators = [2, 3, 4, 5]
-    const den = denominators[Math.floor(Math.random() * denominators.length)]
-    const num = numerators[Math.floor(Math.random() * Math.min(den - 1, numerators.length))] || 1
-    const multiplier = Math.floor(Math.random() * 2) + 2 // 2 or 3
-    const targetDen = den * multiplier
-    const answer = num * multiplier
-
-    const optionsSet = new Set<number>([answer])
-    let attempts = 0
-    while (optionsSet.size < 4 && attempts < 40) {
-      attempts++
-      const fake = Math.max(1, answer + (Math.floor(Math.random() * 7) - 3))
-      optionsSet.add(fake)
-    }
-    let fallbackOffset = 1
-    while (optionsSet.size < 4) {
-      optionsSet.add(answer + fallbackOffset++)
-    }
-    const options = Array.from(optionsSet).sort(() => Math.random() - 0.5)
-    return {
-      question: `${num}/${den} = ?/${targetDen}`,
-      options,
-      answer,
-    }
-  } else {
-    // Fraction Addition with common denominator
-    const den = [4, 5, 6, 8, 10][Math.floor(Math.random() * 5)]
-    const a = Math.floor(Math.random() * (den - 2)) + 1
-    const b = Math.floor(Math.random() * (den - a - 1)) + 1
-    const answer = a + b
-
-    const optionsSet = new Set<number>([answer])
-    let attempts = 0
-    while (optionsSet.size < 4 && attempts < 40) {
-      attempts++
-      const fake = Math.max(1, Math.min(den + 3, answer + (Math.floor(Math.random() * 5) - 2)))
-      optionsSet.add(fake)
-    }
-    let fallbackOffset = 1
-    while (optionsSet.size < 4) {
-      optionsSet.add(answer + fallbackOffset++)
-    }
-    const options = Array.from(optionsSet).sort(() => Math.random() - 0.5)
-    return {
-      question: `${a}/${den} + ${b}/${den} = ?/${den}`,
-      options,
-      answer,
-    }
-  }
-}
-
-function generateEquationQuestion(): GameQuestion {
-  const op = ['add', 'sub', 'mult', 'div'][Math.floor(Math.random() * 4)]
-  let question = ''
-  let answer = 0
-
-  if (op === 'add') {
-    const x = Math.floor(Math.random() * 20) + 3
-    const c = Math.floor(Math.random() * 15) + 2
-    const total = x + c
-    answer = x
-    question = `x + ${c} = ${total}`
-  } else if (op === 'sub') {
-    const x = Math.floor(Math.random() * 25) + 8
-    const c = Math.floor(Math.random() * (x - 2)) + 1
-    const diff = x - c
-    answer = x
-    question = `x - ${c} = ${diff}`
-  } else if (op === 'mult') {
-    const x = Math.floor(Math.random() * 9) + 2
-    const a = Math.floor(Math.random() * 7) + 2
-    const prod = a * x
-    answer = x
-    question = `${a}x = ${prod}`
-  } else {
-    const quotient = Math.floor(Math.random() * 8) + 2
-    const d = Math.floor(Math.random() * 5) + 2
-    const dividend = quotient * d
-    answer = dividend
-    question = `x ÷ ${d} = ${quotient}`
-  }
-
-  const optionsSet = new Set<number>([answer])
-  let attempts = 0
-  while (optionsSet.size < 4 && attempts < 40) {
-    attempts++
-    const delta = Math.floor(Math.random() * 7) - 3
-    const fake = Math.max(1, answer + (delta === 0 ? 3 : delta))
-    optionsSet.add(fake)
-  }
-  let fallbackOffset = 1
-  while (optionsSet.size < 4) {
-    optionsSet.add(answer + fallbackOffset++)
-  }
-  const options = Array.from(optionsSet).sort(() => Math.random() - 0.5)
-  return {
-    question: `Solve for x: ${question}`,
-    options,
-    answer,
-  }
-}
-
-function generateDecimalQuestion(): GameQuestion {
-  const type = ['add', 'sub', 'mult'][Math.floor(Math.random() * 3)]
-  let question = ''
-  let answerStr = ''
-  let numAnswer = 0
-
-  if (type === 'add') {
-    const a = (Math.floor(Math.random() * 8) + 1) * 0.25
-    const b = (Math.floor(Math.random() * 6) + 1) * 0.25
-    numAnswer = Math.round((a + b) * 100) / 100
-    answerStr = numAnswer.toFixed(2).replace(/\.?0+$/, '')
-    question = `${a} + ${b}`
-  } else if (type === 'sub') {
-    const b = (Math.floor(Math.random() * 5) + 1) * 0.25
-    const numAns = (Math.floor(Math.random() * 6) + 2) * 0.25
-    const a = Math.round((numAns + b) * 100) / 100
-    numAnswer = numAns
-    answerStr = numAnswer.toFixed(2).replace(/\.?0+$/, '')
-    question = `${a} - ${b}`
-  } else {
-    const a = (Math.floor(Math.random() * 8) + 2) * 0.1
-    const b = Math.floor(Math.random() * 7) + 2
-    numAnswer = Math.round(a * b * 10) / 10
-    answerStr = numAnswer.toFixed(1)
-    question = `${a.toFixed(1)} × ${b}`
-  }
-
-  const optionsSet = new Set<string>([answerStr])
-  let attempts = 0
-  while (optionsSet.size < 4 && attempts < 40) {
-    attempts++
-    const delta = (Math.floor(Math.random() * 5) - 2) * 0.25
-    const fakeNum = Math.max(0.25, Math.round((numAnswer + (delta === 0 ? 0.5 : delta)) * 100) / 100)
-    optionsSet.add(fakeNum.toFixed(2).replace(/\.?0+$/, ''))
-  }
-  let fallbackOffset = 0.5
-  while (optionsSet.size < 4) {
-    optionsSet.add((numAnswer + fallbackOffset).toFixed(2).replace(/\.?0+$/, ''))
-    fallbackOffset += 0.5
-  }
-  const options = Array.from(optionsSet).sort(() => Math.random() - 0.5)
-  return {
-    question,
-    options,
-    answer: answerStr,
-  }
-}
-
-function generateGeometryQuestion(): GameQuestion {
-  const type = ['rect_area', 'rect_perim', 'square_area', 'square_perim'][Math.floor(Math.random() * 4)]
-  let question = ''
-  let answer = 0
-
-  if (type === 'rect_area') {
-    const l = Math.floor(Math.random() * 8) + 3
-    const w = Math.floor(Math.random() * 6) + 2
-    answer = l * w
-    question = `Area: Rect with length ${l}m, width ${w}m`
-  } else if (type === 'rect_perim') {
-    const l = Math.floor(Math.random() * 8) + 4
-    const w = Math.floor(Math.random() * 6) + 2
-    answer = 2 * (l + w)
-    question = `Perimeter: Rect with length ${l}m, width ${w}m`
-  } else if (type === 'square_area') {
-    const s = Math.floor(Math.random() * 8) + 3
-    answer = s * s
-    question = `Area: Square with side ${s}m`
-  } else {
-    const s = Math.floor(Math.random() * 9) + 4
-    answer = 4 * s
-    question = `Perimeter: Square with side ${s}m`
-  }
-
-  const optionsSet = new Set<number>([answer])
-  let attempts = 0
-  while (optionsSet.size < 4 && attempts < 40) {
-    attempts++
-    const delta = Math.floor(Math.random() * 9) - 4
-    const fake = Math.max(4, answer + (delta === 0 ? 6 : delta))
-    optionsSet.add(fake)
-  }
-  let fallbackOffset = 1
-  while (optionsSet.size < 4) {
-    optionsSet.add(answer + fallbackOffset++)
-  }
-  const options = Array.from(optionsSet).sort(() => Math.random() - 0.5)
-  return {
-    question,
-    options,
-    answer,
-  }
-}
-
 export default function MathArcade() {
   const navigate = useNavigate()
   const { user, avatar, updateAvatar, role } = useAuth()
@@ -490,6 +186,7 @@ export default function MathArcade() {
   const feedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isHandlingGameOverRef = useRef(false)
   const [masteryDelta, setMasteryDelta] = useState(0)
+  const [roundError, setRoundError] = useState<string | null>(null)
   const roundIdRef = useRef<string | null>(null)
   const serverQueueRef = useRef<GameQuestion[]>([])
   const submissionsRef = useRef<GameSubmissionItem[]>([])
@@ -523,37 +220,12 @@ export default function MathArcade() {
     loadProgress()
   }, [loadProgress])
 
-  const nextQuestionForGame = useCallback((gameId: string) => {
+  const nextQuestionForGame = useCallback((_gameId: string) => {
     if (serverQueueRef.current.length > 0) {
       const nextServerQ = serverQueueRef.current.shift()!
       setCurrentQuestion(nextServerQ)
-      return
-    }
-    switch (gameId) {
-      case 'multiplier_matrix':
-        setCurrentQuestion(generateMultiplicationQuestion())
-        break
-      case 'division_dungeons':
-        setCurrentQuestion(generateDivisionQuestion())
-        break
-      case 'two_step_runner':
-        setCurrentQuestion(generateTwoStepQuestion())
-        break
-      case 'fraction_fusion':
-        setCurrentQuestion(generateFractionQuestion())
-        break
-      case 'equation_alchemist':
-        setCurrentQuestion(generateEquationQuestion())
-        break
-      case 'decimal_dash':
-        setCurrentQuestion(generateDecimalQuestion())
-        break
-      case 'geometry_odyssey':
-        setCurrentQuestion(generateGeometryQuestion())
-        break
-      default:
-        setCurrentQuestion(generateMultiplicationQuestion())
-        break
+    } else {
+      setCurrentQuestion(null)
     }
   }, [])
 
@@ -575,6 +247,7 @@ export default function MathArcade() {
     setStarsEarned(0)
     setIsNewHighScore(false)
     setQuestionFeedback(null)
+    setRoundError(null)
     setCurrentQuestion(null)
 
     try {
@@ -587,8 +260,9 @@ export default function MathArcade() {
         answer_digest: q.answer_digest,
       }))
       nextQuestionForGame(game.id)
-    } catch {
-      nextQuestionForGame(game.id)
+    } catch (err: any) {
+      setActiveGameId(null)
+      setRoundError(err?.response?.data?.detail || 'Could not start verified arcade round. Please try again.')
     }
   }
 
@@ -673,6 +347,13 @@ export default function MathArcade() {
       if (timerRef.current) clearInterval(timerRef.current)
     }
   }, [activeGameId, gameOver, selectedMode])
+
+  // Finish round cleanly if student exhausts all server-issued questions
+  useEffect(() => {
+    if (activeGameId && !gameOver && roundIdRef.current && currentQuestion === null && submissionsRef.current.length > 0) {
+      handleGameOver()
+    }
+  }, [activeGameId, gameOver, currentQuestion, handleGameOver])
 
   // Trigger game over when blitz countdown reaches zero
   useEffect(() => {
@@ -925,6 +606,12 @@ export default function MathArcade() {
               <span>Hydrating your game levels and high scores…</span>
             </div>
           ) : (
+            <>
+              {roundError && (
+                <div role="alert" style={{ maxWidth: 680, margin: '0 auto 1rem', padding: '0.75rem 1rem', borderRadius: 10, background: 'rgba(220,38,38,0.12)', border: '1px solid rgba(220,38,38,0.35)', color: '#dc2626', fontSize: '0.88rem', textAlign: 'center' }}>
+                  {roundError}
+                </div>
+              )}
             <div className="arcade-hierarchy-timeline">
               {progress?.levels.map((lvl, index) => {
                 const isUnlocked = lvl.is_unlocked
@@ -1076,6 +763,7 @@ export default function MathArcade() {
                 )
               })}
             </div>
+            </>
           )}
         </main>
       ) : (

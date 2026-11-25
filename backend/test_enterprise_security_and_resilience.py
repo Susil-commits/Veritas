@@ -8,7 +8,6 @@ Automated Test Suite for Enterprise AI Security & System Resilience:
 """
 import os
 import sys
-import time
 from pathlib import Path
 
 BACKEND_DIR = Path(__file__).resolve().parent
@@ -32,7 +31,7 @@ from safety import (
     sanitize_ocr_visual_input,
     get_security_telemetry,
 )
-from services.ai_gateway import AIGateway, ProviderCircuitBreaker
+from services.ai_gateway import AIGateway
 
 
 def test_prompt_canary_exfiltration_defense():

@@ -19,7 +19,7 @@ from agents.content_agent import get_next_problem
 from services.redis_service import redis_service
 
 # Persistent storage directory
-DATA_DIR = Path(__file__).resolve().parent / "data"
+DATA_DIR = Path(os.getenv("VERITAS_DATA_DIR") or (Path(__file__).resolve().parent / "data"))
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 SESSIONS_STORE_PATH = DATA_DIR / "sessions_store.json"
 _disk_lock = threading.Lock()

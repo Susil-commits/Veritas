@@ -6,12 +6,11 @@ Validates:
 3. Real semantic search discrimination test via pgvector RPC.
 """
 # pyright: reportMissingImports=false, reportMissingModuleSource=false
-import os
 import sys
 import json
 import random
 from pathlib import Path
-from collections import defaultdict, Counter
+from collections import defaultdict
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "backend"))
 if sys.platform == "win32":
@@ -23,7 +22,6 @@ if sys.platform == "win32":
 from dotenv import load_dotenv
 load_dotenv(Path(__file__).parent.parent / ".env")
 
-from db.supabase_client import get_supabase
 from agents.content_agent import get_next_problem
 
 SEED_FILE = Path(__file__).parent.parent / "data" / "seed_problems.json"

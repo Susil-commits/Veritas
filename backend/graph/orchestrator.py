@@ -258,6 +258,25 @@ async def tutor_node(state: TutorState) -> dict:
         diagnosis=diagnosis,
         is_credited=bool(state.get("current_problem_credited", False)),
     )
+    return await finalize_tutor_turn(state, tutor_result, steps=steps)
+
+
+async def finalize_tutor_turn(
+    state: TutorState,
+    tutor_result: Any,
+    steps: list[str] | None = None,
+) -> dict:
+    """Shared post-LLM verification, zero-leakage invariant, history update, and BKT mastery persistence."""
+    steps = list(steps if steps is not None else (state.get("thinking_steps") or []))
+    if "Tutor agent: formulating Socratic response..." not in steps:
+        steps.append("Tutor agent: formulating Socratic response...")
+
+    latest_input = state.get("latest_input", "")
+    conversation_history = list(state.get("conversation_history") or [])
+    current_prob = state.get("current_problem_evaluation") or state.get("current_problem") or {}
+    active_misc = dict(state.get("active_misconceptions") or {})
+    diagnosis = state.get("diagnosis")
+    prev_solved = state.get("problem_solved", False)
 
     if prev_solved and diagnosis and diagnosis.get("is_correct"):
         response = (

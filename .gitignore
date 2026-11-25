@@ -24,6 +24,9 @@ build/
 # Build outputs
 frontend/dist/
 frontend/.vite/
+frontend/test-results/
+frontend/playwright-report/
+.ruff_cache/
 
 # Python
 *.pyo

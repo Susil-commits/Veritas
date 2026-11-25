@@ -2,6 +2,7 @@
 Math Arcade & Curriculum-Gated Games Progression endpoints.
 """
 import os
+from pathlib import Path
 import json
 import datetime
 import threading
@@ -18,7 +19,7 @@ from routes.common import db_exec, logger, BACKEND_DIR
 
 router = APIRouter(prefix="/games", tags=["Math Arcade"])
 
-GAMES_DATA_DIR = BACKEND_DIR / "data"
+GAMES_DATA_DIR = Path(os.getenv("VERITAS_DATA_DIR") or (BACKEND_DIR / "data"))
 GAMES_DATA_DIR.mkdir(parents=True, exist_ok=True)
 GAMES_STORE_PATH = GAMES_DATA_DIR / "games_store.json"
 _games_store_lock = threading.RLock()
@@ -480,17 +481,7 @@ async def record_game_score(
             except Exception as bkt_err:
                 logger.debug("Arcade BKT fluency credit skipped: %s", bkt_err)
     else:
-        if req.score is None:
-            raise HTTPException(400, "score or round_id is required")
-        if req.score < 0:
-            raise HTTPException(400, "Score must be non-negative")
-        if req.score > MAX_SCORE_PER_GAME:
-            raise HTTPException(422, f"Score {req.score} exceeds the maximum allowed per session ({MAX_SCORE_PER_GAME:,}).")
-        if req.stars not in (1, 2, 3):
-            raise HTTPException(400, "Stars must be between 1 and 3 (allowed: 1, 2, 3)")
-        final_score = req.score
-        final_stars = req.stars
-        final_streak_max = req.streak_max or 0
+        raise HTTPException(400, "Server-issued round_id is required for verified score submission.")
 
     now_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
 

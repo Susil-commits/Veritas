@@ -1,9 +1,9 @@
-import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
+import { useEffect, useState, useCallback, useRef, useMemo, lazy, Suspense } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { getParentChildren, addChild, getChildDetails, deleteParentData, type ChildItem } from '../lib/api'
 import { supabase } from '../lib/supabase'
-import MasteryRadar from '../components/MasteryRadar'
+const MasteryRadar = lazy(() => import('../components/MasteryRadar'))
 import ThemeToggle from '../components/ThemeToggle'
 import UserAvatar from '../components/UserAvatar'
 import AvatarModal from '../components/AvatarModal'
@@ -11,7 +11,7 @@ import ConfirmLogoutModal from '../components/ConfirmLogoutModal'
 import { CognitiveReportModal } from '../components/CognitiveReportModal'
 import { getSkillMeta, getMasteryTierInfo, getBarGradient, getDomainBadgeStyle } from '../lib/skillsData'
 import { validateEmailFormat, validateNameFormat, sanitizeNameInput } from '../lib/emailValidation'
-import BKTSimulator from '../components/BKTSimulator'
+const BKTSimulator = lazy(() => import('../components/BKTSimulator'))
 import './ParentDashboard.css'
 
 interface SkillItem {
@@ -915,7 +915,7 @@ export default function ParentDashboard() {
                       )}
                     </div>
                   ) : skills.length > 0 ? (
-                    <MasteryRadar skills={skills} showBars={false} />
+                    <Suspense fallback={<div className="radar-empty">Loading radar…</div>}><MasteryRadar skills={skills} showBars={false} /></Suspense>
                   ) : (
                     <div className="radar-empty">No skill records available for this student yet.</div>
                   )}
@@ -1007,7 +1007,7 @@ export default function ParentDashboard() {
 
             {/* Interactive Cognitive BKT Model Simulator */}
             <div style={{ margin: '1.75rem 0' }}>
-              <BKTSimulator />
+              <Suspense fallback={null}><BKTSimulator /></Suspense>
             </div>
 
             {/* Student Learning History & Activity Logs */}

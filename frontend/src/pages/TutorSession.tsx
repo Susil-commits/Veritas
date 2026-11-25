@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo, memo, lazy, Suspense } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   streamMessage,
@@ -13,7 +13,7 @@ import { useSpeechInput, useTTS } from '../hooks/useVoice'
 import { useAuth } from '../context/AuthContext'
 import WorkUpload from '../components/WorkUpload'
 import ThinkingTrace from '../components/ThinkingTrace'
-import MasteryRadar from '../components/MasteryRadar'
+const MasteryRadar = lazy(() => import('../components/MasteryRadar'))
 import ThemeToggle from '../components/ThemeToggle'
 import UserAvatar from '../components/UserAvatar'
 import AvatarModal from '../components/AvatarModal'
@@ -1241,7 +1241,7 @@ export default function TutorSession() {
 
         <ThinkingTrace steps={thinkingSteps} isActive={isStreaming} />
 
-        <MasteryRadar skills={masterySkills} />
+        <Suspense fallback={<div style={{ padding: '1rem', fontSize: '0.82rem', color: 'var(--text-secondary)' }}>Loading mastery radar…</div>}><MasteryRadar skills={masterySkills} /></Suspense>
 
         <div className="mobile-only-return-chat">
           <button

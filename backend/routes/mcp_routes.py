@@ -9,7 +9,7 @@ import asyncio
 import hmac
 import json
 import logging
-from typing import Any, Dict, Optional
+from typing import Optional
 
 from fastapi import APIRouter, Header, HTTPException, Request, status
 from fastapi.responses import JSONResponse, StreamingResponse

@@ -1,8 +1,8 @@
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, lazy, Suspense } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { getMastery, getSummary, getGamesProgress, getStudentActivity, type StudentActivityResponse } from '../lib/api'
-import MasteryRadar from '../components/MasteryRadar'
+const MasteryRadar = lazy(() => import('../components/MasteryRadar'))
 import { CognitiveReportModal } from '../components/CognitiveReportModal'
 import { getSkillMeta } from '../lib/skillsData'
 import ThemeToggle from '../components/ThemeToggle'
@@ -442,7 +442,7 @@ export default function Dashboard() {
                   <span className="badge badge-violet">{skills.length} Monitored Topics</span>
                 </div>
               </div>
-              <MasteryRadar skills={skills} />
+              <Suspense fallback={<div style={{ padding: '1rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Loading mastery radar…</div>}><MasteryRadar skills={skills} /></Suspense>
             </div>
 
             {/* Skill Domain Filters */}

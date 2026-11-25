@@ -12,9 +12,8 @@ from fastapi import APIRouter, HTTPException, Depends, Header, Request, UploadFi
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
-from graph.orchestrator import TutorState
-from agents.content_agent import get_next_problem
-from agents.diagnostic_agent import run_diagnostic_agent
+from graph.orchestrator import TutorState, finalize_tutor_turn
+from agents.tutor_agent import stream_tutor_agent_events
 from bkt.tracker import initialize_mastery, get_next_skill, update_mastery
 from db.supabase_client import get_supabase
 from auth import (
@@ -37,7 +36,6 @@ from safety import (
     check_canary_leakage,
     redact_pii,
     restore_pii,
-    sanitize_ocr_visual_input,
 )
 from session_manager import (
     get_session,
@@ -47,8 +45,6 @@ from session_manager import (
     record_session_event,
     get_session_lock,
     get_student_misconceptions,
-    save_student_misconception,
-    resolve_student_misconceptions_for_skill,
     clear_student_misconceptions,
 )
 from services.cloudinary_service import cloudinary_service
@@ -707,7 +703,69 @@ async def send_message(
                     yield f"data: {json.dumps({'type': 'done', 'mastery_state': current_state.get('mastery_state', {}), 'problem_solved': False})}\n\n"
                     return
 
-                graph_output = await graph.ainvoke(graph_input)
+                eval_prob = current_state.get("current_problem_evaluation") or current_prob
+                canonical_ans = str(eval_prob.get("answer") or eval_prob.get("canonical_answer") or "")
+                if not canonical_ans and not current_state.get("current_problem_credited", False):
+                    try:
+                        from evaluators.math_evaluator import extract_expected_answer
+                        canonical_ans = str(extract_expected_answer(eval_prob)[0] or "")
+                    except Exception:
+                        canonical_ans = ""
+                try:
+                    from services.inference_router import StreamingInvariantBuffer
+                    inv_buffer = (
+                        None
+                        if current_state.get("current_problem_credited", False)
+                        else StreamingInvariantBuffer(target_solution=canonical_ans)
+                    )
+                except Exception:
+                    inv_buffer = None
+
+                streamed_live_tokens = False
+                is_mock_runtime = (
+                    os.getenv("VERITAS_TEST_MODE", "").lower() == "true"
+                    or os.getenv("VERITAS_MOCK_LLM", "").lower() == "true"
+                )
+                if safety_flag or is_mock_runtime:
+                    graph_output = await graph.ainvoke(graph_input)
+                else:
+                    loop = asyncio.get_running_loop()
+                    token_queue: asyncio.Queue[tuple[str, Any]] = asyncio.Queue()
+
+                    def _run_stream_producer():
+                        try:
+                            for kind, val in stream_tutor_agent_events(
+                                student_message=clean_message,
+                                conversation_history=list(current_state.get("conversation_history") or []),
+                                current_problem=eval_prob,
+                                active_misconceptions=dict(current_state.get("active_misconceptions") or {}),
+                                diagnosis=current_state.get("diagnosis"),
+                                is_credited=bool(current_state.get("current_problem_credited", False)),
+                            ):
+                                loop.call_soon_threadsafe(token_queue.put_nowait, (kind, val))
+                        except Exception as prod_err:
+                            loop.call_soon_threadsafe(token_queue.put_nowait, ("err", prod_err))
+                        finally:
+                            loop.call_soon_threadsafe(token_queue.put_nowait, ("end", None))
+
+                    producer_task = loop.run_in_executor(None, _run_stream_producer)
+                    tutor_result: dict[str, Any] = {}
+                    while True:
+                        kind, val = await token_queue.get()
+                        if kind == "delta" and val:
+                            delta_text = restore_pii(str(val), pii_mapping) if pii_mapping else str(val)
+                            processed = inv_buffer.process_chunk(delta_text) if inv_buffer else delta_text
+                            if processed:
+                                streamed_live_tokens = True
+                                yield f"data: {json.dumps({'type': 'token', 'content': processed})}\n\n"
+                        elif kind == "done" and isinstance(val, dict):
+                            tutor_result = val
+                        elif kind == "err":
+                            raise val
+                        elif kind == "end":
+                            break
+                    await producer_task
+                    graph_output = await finalize_tutor_turn(graph_input, tutor_result)
 
                 response = graph_output.get("agent_response", "")
 
@@ -721,6 +779,9 @@ async def send_message(
                     response = restore_pii(response, pii_mapping)
 
                 problem_solved = bool(graph_output.get("problem_solved", False))
+                if problem_solved and inv_buffer:
+                    inv_buffer = None
+
                 steps = graph_output.get("thinking_steps") or []
                 for step_content in steps:
                     if step_content != thinking_step_initial:
@@ -733,7 +794,7 @@ async def send_message(
                 current_state["mastery_state"] = graph_output.get("mastery_state", current_state.get("mastery_state", {}))
                 current_state["active_misconceptions"] = graph_output.get("active_misconceptions", current_state.get("active_misconceptions", {}))
                 current_state["current_problem_credited"] = graph_output.get("current_problem_credited", current_state.get("current_problem_credited", False))
-                current_state["problem_solved"] = problem_solved
+                current_state["problem_solved"] = problem_solved
 
                 is_final_attempt = graph_output.get("is_final_attempt")
                 turn_correctness: bool | None = True if problem_solved else (False if is_final_attempt else None)
@@ -750,35 +811,17 @@ async def send_message(
                 )
                 final_mastery = current_state.get("mastery_state", {})
 
-            # Stream response incrementally through StreamingInvariantBuffer for real-time delivery and answer defense
-            eval_prob = current_state.get("current_problem_evaluation") or current_prob
-            canonical_ans = str(eval_prob.get("answer") or eval_prob.get("canonical_answer") or "")
-            if not canonical_ans and not problem_solved and not current_state.get("current_problem_credited", False):
-                try:
-                    from evaluators.math_evaluator import extract_expected_answer
-                    canonical_ans = str(extract_expected_answer(eval_prob)[0] or "")
-                except Exception:
-                    canonical_ans = ""
-            try:
-                from services.inference_router import StreamingInvariantBuffer
-                inv_buffer = (
-                    None
-                    if (problem_solved or current_state.get("current_problem_credited", False))
-                    else StreamingInvariantBuffer(target_solution=canonical_ans)
-                )
-            except Exception:
-                inv_buffer = None
-
-            words = response.split(" ")
-            chunk_size = 2
-            for i in range(0, len(words), chunk_size):
-                chunk = " ".join(words[i:i + chunk_size])
-                if i + chunk_size < len(words):
-                    chunk += " "
-                processed = inv_buffer.process_chunk(chunk) if inv_buffer else chunk
-                if processed:
-                    yield f"data: {json.dumps({'type': 'token', 'content': processed})}\n\n"
-                    await asyncio.sleep(0.015)
+            if not streamed_live_tokens:
+                words = response.split(" ")
+                chunk_size = 2
+                for i in range(0, len(words), chunk_size):
+                    chunk = " ".join(words[i:i + chunk_size])
+                    if i + chunk_size < len(words):
+                        chunk += " "
+                    processed = inv_buffer.process_chunk(chunk) if inv_buffer else chunk
+                    if processed:
+                        yield f"data: {json.dumps({'type': 'token', 'content': processed})}\n\n"
+                        await asyncio.sleep(0.015)
 
             final_response = (
                 "Let's think about how to find that value — what do you notice about this step?"

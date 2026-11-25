@@ -15,9 +15,7 @@ Supports comparative evaluation:
 - lexical mode (BM25 / token matching keyword similarity fallback)
 Prints sample count (n=...) alongside EVERY metric.
 """
-import os
 import sys
-import json
 import argparse
 from pathlib import Path
 from typing import TypedDict
@@ -749,7 +747,7 @@ def run_retrieval_benchmark(mode: str = "pgvector", verbose: bool = False) -> di
     print(f"VERITAS RAG RETRIEVAL SUMMARY: {mode.upper()} MODE (n={n_cases})")
     print("=" * 80)
     print(f" • Total Diagnostic Test Queries  : {n_cases} (n={n_cases})")
-    print(f" • Candidate Pool Scope           : Unrestricted (all 208 problems across 10 skills)")
+    print(" • Candidate Pool Scope           : Unrestricted (all 208 problems across 10 skills)")
     print(f" • Top-1 Skill Precision         : {skill_accuracy:.1f}% ({skill_match_count}/{n_cases}) [n={n_cases}]")
     print(f" • Top-1 Difficulty (ZPD) Fit     : {diff_accuracy:.1f}% ({diff_match_count}/{n_cases}) [n={n_cases}]")
     print(f" • Misconception Keyword Coverage : {kw_match_rate:.1f}% ({total_keyword_matches}/{total_keywords_tested}) [n={total_keywords_tested}]")

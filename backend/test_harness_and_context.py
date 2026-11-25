@@ -20,7 +20,6 @@ if str(BACKEND_DIR) not in sys.path:
 from backend.context.cognitive_context import (
     CognitiveContextManager,
     EpistemicStudentState,
-    STATIC_SOCRATIC_PREFIX,
 )
 from backend.harness.invariants import PedagogicalInvariantChecker
 from backend.harness.sandbox import SafeMathEvaluator, UnsafeExpressionError

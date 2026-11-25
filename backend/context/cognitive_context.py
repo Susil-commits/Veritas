@@ -8,7 +8,6 @@ Implements:
 4. Rolling dialogue window with automated turn compaction (Tier 3).
 """
 import hashlib
-import json
 import logging
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple

@@ -5,7 +5,7 @@ Extracts student answers and expected solutions to verify correctness mathematic
 """
 from fractions import Fraction
 import re
-from typing import Any, Tuple
+from typing import Tuple
 
 
 def parse_fraction_or_num(raw: str) -> Fraction | None:

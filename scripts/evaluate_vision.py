@@ -15,12 +15,9 @@ Supports two modes of evaluation:
    - Fallback gracefulness on unreadable/missing input (zero coordinate hallucination)
    - Schema conformity of pedagogical diagnosis output
 """
-import os
 import sys
-import json
 import re
 from pathlib import Path
-from typing import Any
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 BACKEND_DIR = ROOT_DIR / "backend"

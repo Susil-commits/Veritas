@@ -8,7 +8,6 @@ Usage:
     python scripts/calibrate_bkt.py --report    # Display calibration status table
     python scripts/calibrate_bkt.py --validate  # Run Bayesian monotonicity & dynamic checks
 """
-import os
 import sys
 import json
 import math

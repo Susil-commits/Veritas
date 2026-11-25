@@ -10,7 +10,7 @@ import re
 from typing import Any
 from langchain_core.messages import BaseMessage, SystemMessage, HumanMessage, AIMessage
 from services.gemini_client import GeminiChatWrapper
-from config import CHAT_MODEL, CHAT_MODEL_CASCADE, extract_clean_text
+from config import CHAT_MODEL_CASCADE, extract_clean_text
 
 
 def _parse_tutor_response(raw: str, fallback_text: str) -> dict:
@@ -346,3 +346,210 @@ Guide the student gently away from these specific traps if you see them recurrin
     print(f"[WARN] All models in cascade failed ({last_err}), using intelligent Socratic fallback.")
     fallback_text = _intelligent_socratic_fallback(student_message, current_problem)
     return {"reply": fallback_text, "problem_solved": False, "is_final_attempt": None}
+
+
+def extract_partial_reply_from_stream(accumulated: str) -> str:
+    """Extract readable incremental reply text from a partially streamed JSON or plain response."""
+    stripped = accumulated.lstrip()
+    if not stripped:
+        return ""
+    # Handle Markdown ```json fence prefix gracefully
+    if stripped.startswith("```"):
+        nl_idx = stripped.find("\n")
+        if nl_idx == -1:
+            return ""
+        stripped = stripped[nl_idx + 1:].lstrip()
+
+    if not stripped.startswith("{"):
+        return accumulated
+
+    m = re.search(r'"(?:reply|response|message)"\s*:\s*"', stripped)
+    if not m:
+        return ""
+
+    chars: list[str] = []
+    i = m.end()
+    n = len(stripped)
+    while i < n:
+        ch = stripped[i]
+        if ch == "\\":
+            if i + 1 >= n:
+                break
+            nxt = stripped[i + 1]
+            esc_map = {"n": "\n", "r": "\r", "t": "\t", '"': '"', "\\": "\\", "/": "/"}
+            if nxt in esc_map:
+                chars.append(esc_map[nxt])
+                i += 2
+            elif nxt == "u" and i + 5 < n:
+                try:
+                    chars.append(chr(int(stripped[i + 2:i + 6], 16)))
+                    i += 6
+                except ValueError:
+                    chars.append(nxt)
+                    i += 2
+            else:
+                chars.append(nxt)
+                i += 2
+        elif ch == '"':
+            break
+        else:
+            chars.append(ch)
+            i += 1
+    return "".join(chars)
+
+
+def stream_tutor_agent_events(
+    student_message: str,
+    conversation_history: list[dict],
+    current_problem: dict | None = None,
+    active_misconceptions: dict | None = None,
+    diagnosis: dict | None = None,
+    is_credited: bool = False,
+):
+    """
+    Yields ('delta', text_chunk) live while Gemini streams tokens, followed by ('done', result_dict).
+    Falls back seamlessly to run_tutor_agent on mock mode, fast-paths, or provider errors.
+    """
+    is_mocked = hasattr(build_tutor_llm, "mock_calls") or hasattr(build_tutor_llm, "assert_called")
+    clean_msg = (student_message or "").strip()
+    clean_norm = clean_msg.lower().rstrip("!.,?")
+    GREETINGS_TUTOR = {"hi", "hello", "hey", "howdy", "good morning", "good afternoon", "greetings", "yo"}
+    AFFIRMATIONS = {"thank you", "thanks", "ok", "okay", "got it", "cool", "understood", "awesome", "great", "nice", "alright"}
+
+    use_nonstream = (
+        not is_mocked and (os.environ.get("VERITAS_TEST_MODE") == "true" or os.environ.get("VERITAS_MOCK_LLM") == "true")
+    ) or (not clean_msg and not diagnosis) or (clean_norm in GREETINGS_TUTOR and not diagnosis) or (
+        clean_norm in AFFIRMATIONS and (is_credited or (current_problem and current_problem.get("credited", False)))
+    )
+
+    if use_nonstream:
+        res = run_tutor_agent(
+            student_message=student_message,
+            conversation_history=conversation_history,
+            current_problem=current_problem,
+            active_misconceptions=active_misconceptions,
+            diagnosis=diagnosis,
+            is_credited=is_credited,
+        )
+        yield ("done", res)
+        return
+
+    # Objective math check or duplicate click fast-path before incurring LLM stream
+    if current_problem and clean_msg:
+        try:
+            from evaluators.math_evaluator import evaluate_student_solution
+            eval_res = evaluate_student_solution(clean_msg, current_problem)
+            if eval_res.get("objective_solved"):
+                res = run_tutor_agent(
+                    student_message=student_message,
+                    conversation_history=conversation_history,
+                    current_problem=current_problem,
+                    active_misconceptions=active_misconceptions,
+                    diagnosis=diagnosis,
+                    is_credited=is_credited,
+                )
+                yield ("done", res)
+                return
+        except Exception:
+            pass
+
+    if conversation_history and clean_norm:
+        last_student = next(
+            (m.get("content", "").strip().lower() for m in reversed(conversation_history) if m.get("role") == "student"),
+            None,
+        )
+        if last_student and last_student == clean_norm:
+            res = run_tutor_agent(
+                student_message=student_message,
+                conversation_history=conversation_history,
+                current_problem=current_problem,
+                active_misconceptions=active_misconceptions,
+                diagnosis=diagnosis,
+                is_credited=is_credited,
+            )
+            yield ("done", res)
+            return
+
+    # Build exact same messages as run_tutor_agent
+    system_content = SOCRATIC_SYSTEM_PROMPT
+    if current_problem:
+        system_content += f"""
+
+CURRENT PROBLEM:
+Title: {current_problem.get('title', '')}
+Problem: {current_problem.get('text', '')}
+Skill: {current_problem.get('skill_name', '')}
+Difficulty: {current_problem.get('difficulty', 1)}/5
+
+Expected solution steps (for your reference only — do NOT reveal these):
+{chr(10).join(f"Step {i+1}: {s}" for i, s in enumerate(current_problem.get('expected_steps', [])))}
+"""
+    if diagnosis:
+        system_content += f"""
+
+STUDENT HANDWRITTEN WORK DIAGNOSIS:
+OCR of student work: {diagnosis.get('ocr_text', '')}
+Diagnosed misconception: {diagnosis.get('misconception_type')}
+Description: {diagnosis.get('description', '')}
+Suggested corrective inquiry: {diagnosis.get('corrective_question', '')}
+Guide the student Socratically on the specific step where their handwriting showed this error. Do not give the answer.
+"""
+    if active_misconceptions:
+        unresolved = [
+            f"- {m_type.replace('_', ' ').title()}: observed {m_data.get('count', 1)} time(s)"
+            for m_type, m_data in active_misconceptions.items()
+            if not m_data.get("resolved")
+        ]
+        if unresolved:
+            system_content += f"""
+
+PRIOR MISCONCEPTIONS TO ADDRESS IF REPEATED:
+{chr(10).join(unresolved)}
+Guide the student gently away from these specific traps if you see them recurring.
+"""
+
+    messages: list[BaseMessage] = [SystemMessage(content=system_content)]
+    for ex in FEW_SHOT_EXAMPLES:
+        messages.append(HumanMessage(content=ex["student"]))
+        messages.append(AIMessage(content=ex["tutor"]))
+    for turn in conversation_history[-10:]:
+        messages.append(HumanMessage(content=turn["content"]) if turn["role"] == "student" else AIMessage(content=turn["content"]))
+    msg_to_send = student_message or (f"[Student submitted scratchpad: {diagnosis.get('ocr_text', '')}]" if diagnosis else "")
+    messages.append(HumanMessage(content=msg_to_send))
+
+    seen: set[str] = set()
+    models_to_try = [m for m in MODEL_CASCADE if m and not (m in seen or seen.add(m))]
+
+    for model_name in models_to_try:
+        accumulated = ""
+        emitted_len = 0
+        try:
+            llm = build_tutor_llm(model_name)
+            if hasattr(llm, "stream"):
+                for chunk in llm.stream(messages):
+                    piece = chunk if isinstance(chunk, str) else extract_clean_text(getattr(chunk, "content", chunk))
+                    if not piece:
+                        continue
+                    accumulated += piece
+                    partial_reply = extract_partial_reply_from_stream(accumulated)
+                    if len(partial_reply) > emitted_len:
+                        delta = partial_reply[emitted_len:]
+                        emitted_len = len(partial_reply)
+                        yield ("delta", delta)
+            else:
+                response = llm.invoke(messages)
+                accumulated = extract_clean_text(response.content)
+
+            if accumulated:
+                yield ("done", _parse_tutor_response(accumulated, accumulated))
+                return
+        except Exception as e:
+            if emitted_len > 0:
+                parsed = _parse_tutor_response(accumulated, accumulated)
+                yield ("done", parsed)
+                return
+            print(f"[WARN] Tutor stream failed on model '{model_name}': {e}")
+            continue
+
+    fallback_text = _intelligent_socratic_fallback(student_message, current_problem)
+    yield ("done", {"reply": fallback_text, "problem_solved": False, "is_final_attempt": None})

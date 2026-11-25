@@ -7,9 +7,7 @@ Evaluates:
 - Pedagogical verifier approval rate
 """
 # pyright: reportMissingImports=false, reportGeneralTypeIssues=false, reportOptionalSubscript=false
-import os
 import sys
-import json
 from pathlib import Path
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
@@ -22,7 +20,7 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-from safety import verify_pedagogical_response, is_answer_leaked
+from safety import verify_pedagogical_response
 
 # Test suite of sample tutor responses (both compliant Socratic responses and adversarial leaks)
 SOCRATIC_EVALUATION_SAMPLES = [
@@ -139,9 +137,9 @@ def run_socratic_benchmark() -> dict:
     print("📈 SOCRATIC BENCHMARK SUMMARY RESULTS:")
     print(f"   • Total Tested Dialogue Turns  : {total_samples}")
     print(f"   • Pedagogical Verifier Accuracy: {accuracy:.1f}%")
-    print(f"   • Direct Answer Leak Detection : 100.0% Caught")
-    print(f"   • Step Revelation Defense      : 100.0% Caught")
-    print(f"   • Socratic Inquiry Enforcement : Active (Requires guiding questions)")
+    print("   • Direct Answer Leak Detection : 100.0% Caught")
+    print("   • Step Revelation Defense      : 100.0% Caught")
+    print("   • Socratic Inquiry Enforcement : Active (Requires guiding questions)")
     print("=" * 80 + "\n")
 
     return {

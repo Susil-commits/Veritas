@@ -20,7 +20,6 @@ if sys.platform == "win32":
         pass
 
 from main import GAME_LEVELS_CONFIG
-from bkt.tracker import get_all_skills, get_skill_params
 
 PARAMS_FILE = BACKEND_DIR / "bkt" / "parameters.json"
 SEED_PROBLEMS_FILE = ROOT_DIR / "data" / "seed_problems.json"
@@ -79,7 +78,7 @@ def validate_curriculum():
                 print(f"      + Alternative unlock skill '{alt_skill}' validated ({bkt_skills[alt_skill]['name']})")
 
     # 3. Check Problem Bank vs BKT Skill Registry
-    print(f"\n[3] Checking Seed Problem Bank against Skill Registry...")
+    print("\n[3] Checking Seed Problem Bank against Skill Registry...")
     if not SEED_PROBLEMS_FILE.exists():
         errors.append(f"Missing problem bank file at {SEED_PROBLEMS_FILE}")
         return False, errors, warnings

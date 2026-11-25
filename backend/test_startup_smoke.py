@@ -21,7 +21,7 @@ if str(BACKEND_DIR) not in sys.path:
 
 from fastapi.testclient import TestClient
 from graph.orchestrator import build_graph
-from main import app, get_orchestrator_graph
+from main import app
 
 
 def test_langgraph_compilation():

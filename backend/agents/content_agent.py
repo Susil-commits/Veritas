@@ -14,7 +14,7 @@ from services.gemini_client import GeminiEmbeddingWrapper, GeminiChatWrapper
 from langchain_core.messages import SystemMessage, HumanMessage
 from db.supabase_client import get_supabase
 from bkt.tracker import get_skill_params
-from config import EMBEDDING_MODEL, EMBEDDING_DIMENSION, CHAT_MODEL, CHAT_MODEL_CASCADE, extract_clean_text
+from config import EMBEDDING_MODEL, EMBEDDING_DIMENSION, CHAT_MODEL_CASCADE, extract_clean_text
 
 
 # Centralized Embedding Model Configuration

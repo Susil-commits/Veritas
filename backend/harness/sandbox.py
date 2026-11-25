@@ -8,9 +8,7 @@ Provides safe, bounded, AST-validated symbolic evaluation:
 """
 import ast
 from fractions import Fraction
-import math
-import re
-from typing import Any, Dict, Optional, Tuple
+from typing import Dict, Optional
 
 
 class UnsafeExpressionError(Exception):

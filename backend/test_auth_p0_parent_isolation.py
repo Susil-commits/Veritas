@@ -7,6 +7,7 @@ Regression and Isolation Tests for P0 Parent Authorization Boundaries:
 5. /session/start rejects parent token with HTTP 403 ("Student account required for tutoring sessions")
 6. /games/score allows valid student with own token
 """
+import hashlib
 import uuid
 from starlette.testclient import TestClient
 from main import app, DEMO_STUDENT_ID
@@ -117,13 +118,29 @@ def test_student_can_record_own_game_score():
     student_token = create_session_token(student_id, "s-sess-own", "Alex", role="student")
     student_headers = {"Authorization": f"Bearer {student_token}"}
 
+    r_data = client.post(
+        "/games/round/start",
+        json={"student_id": student_id, "game_id": "multiplier_matrix", "mode": "blitz"},
+        headers=student_headers,
+    ).json()
+    rid = r_data["round_id"]
+    subs = [
+        {
+            "qid": q["qid"],
+            "selected": next(
+                opt for opt in q["options"]
+                if hashlib.sha256(f"{rid}:{q['qid']}:{opt}".encode()).hexdigest() == q["answer_digest"]
+            ),
+        }
+        for q in r_data["questions"][:3]
+    ]
     resp = client.post(
         "/games/score",
         json={
             "student_id": student_id,
             "game_id": "multiplier_matrix",
-            "score": 250,
-            "stars": 3,
+            "round_id": rid,
+            "submissions": subs,
         },
         headers=student_headers,
     )

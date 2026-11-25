@@ -3,9 +3,17 @@ Hermetic Pytest Configuration and Fixtures — Veritas.
 Ensures routing and unit test suites execute completely offline
 with zero network dependencies and no required environment secrets.
 """
+import atexit
 import os
+import shutil
 import sys
+import tempfile
 import warnings
+
+if not os.environ.get("VERITAS_DATA_DIR"):
+    _TEST_DATA_DIR = tempfile.mkdtemp(prefix="veritas_pytest_data_")
+    os.environ["VERITAS_DATA_DIR"] = _TEST_DATA_DIR
+    atexit.register(shutil.rmtree, _TEST_DATA_DIR, True)
 from pathlib import Path
 from typing import Any, Dict, List
 from unittest.mock import MagicMock

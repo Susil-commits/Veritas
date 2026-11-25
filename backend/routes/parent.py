@@ -9,9 +9,7 @@ Provides endpoints and logic for:
 """
 
 import os
-import sys
 import asyncio
-from collections import defaultdict
 import datetime
 import json
 import logging
@@ -19,12 +17,10 @@ from pathlib import Path
 import re
 import threading
 import time
-from typing import Optional
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import JSONResponse
-from postgrest.base_request_builder import CountMethod
 from pydantic import BaseModel, Field
 
 from session_manager import (
@@ -46,7 +42,7 @@ logger = logging.getLogger("veritas.parent")
 
 router = APIRouter(tags=["parent"])
 
-CHILDREN_FALLBACK_FILE = BACKEND_DIR.parent / "data" / "children_store.json"
+CHILDREN_FALLBACK_FILE = Path(os.getenv("VERITAS_DATA_DIR") or (BACKEND_DIR.parent / "data")) / "children_store.json"
 _children_fallback_lock = threading.Lock()
 _fallback_children_cache: list[dict] | None = None
 

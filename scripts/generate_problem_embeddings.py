@@ -2,7 +2,6 @@
 Generate and persist 768-dim Gemini embeddings for all 208 problems in data/seed_problems.json.
 This enables fast offline pgvector evaluation and eliminates per-query embedding overhead.
 """
-import os
 import sys
 import json
 import time

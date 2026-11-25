@@ -5,6 +5,7 @@ Tests for Veritas Math Arcade:
 3. POST /games/score saves high score, stars, and times played.
 4. Relogin / fresh request with the same student_id returns 100% persisted unlocks, scores, and stars without reset.
 """
+import hashlib
 import uuid
 from fastapi.testclient import TestClient
 from main import app, DEMO_STUDENT_ID
@@ -147,14 +148,32 @@ def test_game_score_and_relogin_persistence():
     assert p1["total_stars"] == 0
     assert p1["total_score"] == 0
 
-    # Play Level 1 and record score: 850 points, 3 stars
+    # Play Level 1 with a server-issued round: 6 correct (900) + 2 wrong (-50) = 850 points, 3 stars
+    round_resp = client.post(
+        "/games/round/start",
+        json={"student_id": test_student_id, "game_id": "multiplier_matrix", "mode": "blitz"},
+        headers={"Authorization": f"Bearer {token}"},
+    ).json()
+    round_id = round_resp["round_id"]
+    submissions = []
+    for idx, q in enumerate(round_resp["questions"][:8]):
+        correct_opt = next(
+            opt for opt in q["options"]
+            if hashlib.sha256(f"{round_id}:{q['qid']}:{opt}".encode()).hexdigest() == q["answer_digest"]
+        )
+        if idx < 6:
+            submissions.append({"qid": q["qid"], "selected": correct_opt})
+        else:
+            wrong_opt = next(opt for opt in q["options"] if opt != correct_opt)
+            submissions.append({"qid": q["qid"], "selected": wrong_opt})
+
     score_resp = client.post(
         "/games/score",
         json={
             "student_id": test_student_id,
             "game_id": "multiplier_matrix",
-            "score": 850,
-            "stars": 3,
+            "round_id": round_id,
+            "submissions": submissions,
         },
         headers={"Authorization": f"Bearer {token}"},
     )

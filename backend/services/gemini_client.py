@@ -145,6 +145,35 @@ class GeminiChatWrapper:
         )
         return AIMessage(content=(response.text or ""))
 
+    def _build_config_and_contents(
+        self,
+        messages: Iterable[BaseMessage | dict[str, Any]],
+    ) -> tuple[list[types.Content], types.GenerateContentConfig]:
+        system_instruction, contents = _convert_messages(messages)
+        config_kwargs: dict[str, Any] = {
+            "max_output_tokens": self.max_output_tokens,
+        }
+        if system_instruction:
+            config_kwargs["system_instruction"] = system_instruction
+        if self.temperature is not None:
+            config_kwargs["temperature"] = self.temperature
+        if self.timeout and self.timeout > 0:
+            config_kwargs["http_options"] = types.HttpOptions(timeout=int(self.timeout * 1000))
+        return contents, types.GenerateContentConfig(**config_kwargs)
+
+    def stream(self, messages: Iterable[BaseMessage | dict[str, Any]]) -> Iterable[str]:
+        """Yield text deltas directly from google.genai.models.generate_content_stream."""
+        client = _get_genai_client(self.api_key)
+        contents, config = self._build_config_and_contents(messages)
+        for chunk in client.models.generate_content_stream(
+            model=self.model,
+            contents=contents,
+            config=config,
+        ):
+            delta = getattr(chunk, "text", None)
+            if delta:
+                yield str(delta)
+
 
 class GeminiEmbeddingWrapper:
     """Drop-in embedding wrapper powered by native `google.genai`."""

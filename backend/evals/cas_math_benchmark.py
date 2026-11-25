@@ -6,7 +6,7 @@ algebraic equations, distributive expansions, commutativity, and false-positive 
 import sys
 import time
 from pathlib import Path
-from typing import Dict, Any, List, Tuple
+from typing import Dict, Any, List
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
 if str(BACKEND_DIR) not in sys.path:
@@ -14,11 +14,6 @@ if str(BACKEND_DIR) not in sys.path:
 
 from evaluators.math_evaluator import (
     verify_math_equivalence,
-    evaluate_student_solution,
-    parse_fraction_or_num,
-    normalize_expression,
-    extract_expected_answer,
-    extract_student_candidate,
 )
 
 CAS_TEST_CASES: List[Dict[str, Any]] = [

@@ -169,7 +169,7 @@ def issue_arcade_round(
     student_id: str,
     game_id: str,
     mode: str = "blitz",
-    count: int = 40,
+    count: int | None = None,
 ) -> dict[str, Any]:
     """Create and persist a server-issued question batch without leaking answers."""
     round_id = uuid.uuid4().hex
@@ -177,7 +177,8 @@ def issue_arcade_round(
     public_questions: list[dict[str, Any]] = []
     answers: dict[str, str] = {}
 
-    bounded_count = max(5, min(int(count), 60))
+    default_count = 80 if (mode or "").lower() == "zen" else 40
+    bounded_count = max(5, min(int(count if count is not None else default_count), 100))
     for idx in range(bounded_count):
         qid = f"q{idx + 1}_{uuid.uuid4().hex[:8]}"
         prompt, options, answer = _gen_question_for_game(game_id)

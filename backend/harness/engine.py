@@ -10,10 +10,9 @@ Coordinates:
 """
 import time
 import logging
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional
 
 from .invariants import PedagogicalInvariantChecker
-from .sandbox import SafeMathEvaluator
 
 logger = logging.getLogger("veritas-backend.harness")
 

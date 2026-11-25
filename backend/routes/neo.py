@@ -10,7 +10,6 @@ import os
 import asyncio
 import hashlib
 import logging
-from typing import Optional
 
 from fastapi import APIRouter, Header, HTTPException, Request
 from pydantic import BaseModel, Field
