@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { getMastery, getSummary } from '../lib/api'
+import { getMastery, getSummary, getGamesProgress } from '../lib/api'
 import MasteryRadar from '../components/MasteryRadar'
 import { CognitiveReportModal } from '../components/CognitiveReportModal'
 import { getSkillMeta } from '../lib/skillsData'
@@ -56,21 +56,11 @@ export default function Dashboard() {
     setTimeout(() => setCopiedId(false), 2000)
   }
 
-  const arcadeStats = useMemo(() => {
-    try {
-      const rawScores = localStorage.getItem('veritas_arcade_scores') || localStorage.getItem('arcade_high_scores')
-      const parsed = rawScores ? JSON.parse(rawScores) : {}
-      const gamesCount = Object.keys(parsed).length
-      let totalStars = 0
-      Object.values(parsed).forEach((item: any) => {
-        if (typeof item === 'object' && item?.stars) totalStars += item.stars
-        else if (typeof item === 'number' && item > 0) totalStars += Math.min(3, Math.floor(item / 30) + 1)
-      })
-      return { gamesPlayed: gamesCount, totalStars }
-    } catch {
-      return { gamesPlayed: 0, totalStars: 0 }
-    }
-  }, [])
+  const [arcadeStats, setArcadeStats] = useState<{ totalStars: number; gamesUnlocked: number; totalGames: number }>({
+    totalStars: 0,
+    gamesUnlocked: 0,
+    totalGames: 7,
+  })
 
   useEffect(() => {
     document.title = `Veritas — ${studentName}'s Progress Dashboard`
@@ -88,7 +78,8 @@ export default function Dashboard() {
       Promise.all([
         getMastery(studentId),
         sessionId ? getSummary(studentId, sessionId) : Promise.resolve(null),
-      ]).then(([masteryData, summaryData]) => {
+        getGamesProgress(studentId).catch(() => null),
+      ]).then(([masteryData, summaryData, gamesData]) => {
         if (!isMounted) return
         const skillMap: Record<string, string> = {}
         for (const s of masteryData?.all_skills ?? []) skillMap[s.id] = s.name
@@ -100,6 +91,13 @@ export default function Dashboard() {
         }))
         setSkills(skillsArr)
         if (summaryData?.summary) setSummary(summaryData.summary)
+        if (gamesData) {
+          setArcadeStats({
+            totalStars: gamesData.total_stars ?? 0,
+            gamesUnlocked: gamesData.games_unlocked ?? 0,
+            totalGames: gamesData.total_games ?? 7,
+          })
+        }
       }).catch((err: any) => {
         if (!isMounted) return
         console.error('Dashboard load failed:', err)
@@ -229,7 +227,7 @@ export default function Dashboard() {
             <div className="dash-hero-meta">
               <div className="dash-hero-badge-row">
                 <span className="badge badge-violet">Active Socratic Student</span>
-                <span className="badge badge-emerald">Grade 6-8 Curriculum</span>
+                <span className="badge badge-emerald">Grade 3–7 Curriculum</span>
                 <span className="badge badge-cyan">Personalized Learning</span>
               </div>
               <h1 className="dash-hero-title">{studentName}'s Learning Dashboard</h1>
@@ -329,8 +327,8 @@ export default function Dashboard() {
               <span className="metric-badge metric-badge--violet">Stars & Badges</span>
             </div>
             <div className="metric-value-row">
-              <span className="metric-number text-gold">{arcadeStats.totalStars || 14} ⭐</span>
-              <span className="metric-sub-count">{arcadeStats.gamesPlayed || 7} tiers unlocked</span>
+              <span className="metric-number text-gold">{arcadeStats.totalStars} ⭐</span>
+              <span className="metric-sub-count">{arcadeStats.gamesUnlocked} / {arcadeStats.totalGames} tiers unlocked</span>
             </div>
             <span className="metric-footnote">Speed Blitz & Zen accuracy high scores</span>
           </div>
@@ -341,8 +339,8 @@ export default function Dashboard() {
               <span className="metric-badge metric-badge--amber">Active Streak</span>
             </div>
             <div className="metric-value-row">
-              <span className="metric-number text-orange">3 Days 🔥</span>
-              <span className="metric-sub-count">Consistent habit</span>
+              <span className="metric-number text-orange">{avgMastery >= 0.7 ? 'On Track' : 'Active'}</span>
+              <span className="metric-sub-count">{strongSkills.length + developingSkills.length} skills in motion</span>
             </div>
             <span className="metric-footnote">Regular daily practice builds long-term retention</span>
           </div>

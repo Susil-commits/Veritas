@@ -22,7 +22,7 @@ const BKT_SKILLS: SkillDefinition[] = [
   { id: '4.NF.B.3', name: 'Adding & Subtracting Fractions', prior: 0.4, learn: 0.2, guess: 0.18, slip: 0.14, calibrated: true, source: 'ASSISTments 2009-2010 MLE Fit' },
   { id: '4.NF.B.4', name: 'Multiplying Fractions by Whole Numbers', prior: 0.4, learn: 0.12, guess: 0.26, slip: 0.14, calibrated: true, source: 'ASSISTments 2009-2010 MLE Fit' },
   { id: '5.NF.B.7', name: 'Dividing Fractions & Whole Numbers', prior: 0.4, learn: 0.24, guess: 0.26, slip: 0.14, calibrated: true, source: 'ASSISTments 2009-2010 MLE Fit' },
-  { id: '6.EE.A.2', name: 'Evaluating Algebraic Expressions', prior: 0.3, learn: 0.15, guess: 0.2, slip: 0.12, calibrated: false, source: 'Corbett & Anderson Baseline' },
+  { id: '6.EE.A.2', name: 'Evaluating Algebraic Expressions', prior: 0.2, learn: 0.13, guess: 0.2, slip: 0.1, calibrated: false, source: 'Corbett & Anderson Baseline' },
   { id: '6.EE.B.7', name: 'Solving One-Step Equations', prior: 0.35, learn: 0.08, guess: 0.26, slip: 0.14, calibrated: true, source: 'ASSISTments 2009-2010 MLE Fit' },
   { id: '7.EE.B.4', name: 'Solving Multi-Step Equations', prior: 0.4, learn: 0.24, guess: 0.26, slip: 0.14, calibrated: true, source: 'ASSISTments 2009-2010 MLE Fit' },
 ]

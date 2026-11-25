@@ -733,6 +733,8 @@ async def send_message(
                 current_state["mastery_state"] = graph_output.get("mastery_state", current_state.get("mastery_state", {}))
                 current_state["active_misconceptions"] = graph_output.get("active_misconceptions", current_state.get("active_misconceptions", {}))
                 current_state["current_problem_credited"] = graph_output.get("current_problem_credited", current_state.get("current_problem_credited", False))
+                current_state["problem_solved"] = problem_solved
+                current_state["problem_solved"] = is_correct
 
                 is_final_attempt = graph_output.get("is_final_attempt")
                 turn_correctness: bool | None = True if problem_solved else (False if is_final_attempt else None)
@@ -750,10 +752,21 @@ async def send_message(
                 final_mastery = current_state.get("mastery_state", {})
 
             # Stream response incrementally through StreamingInvariantBuffer for real-time delivery and answer defense
-            canonical_ans = str(current_prob.get("answer") or "")
+            eval_prob = current_state.get("current_problem_evaluation") or current_prob
+            canonical_ans = str(eval_prob.get("answer") or eval_prob.get("canonical_answer") or "")
+            if not canonical_ans and not problem_solved and not current_state.get("current_problem_credited", False):
+                try:
+                    from evaluators.math_evaluator import extract_expected_answer
+                    canonical_ans = str(extract_expected_answer(eval_prob)[0] or "")
+                except Exception:
+                    canonical_ans = ""
             try:
                 from services.inference_router import StreamingInvariantBuffer
-                inv_buffer = StreamingInvariantBuffer(target_solution=canonical_ans)
+                inv_buffer = (
+                    None
+                    if (problem_solved or current_state.get("current_problem_credited", False))
+                    else StreamingInvariantBuffer(target_solution=canonical_ans)
+                )
             except Exception:
                 inv_buffer = None
 
@@ -768,7 +781,12 @@ async def send_message(
                     yield f"data: {json.dumps({'type': 'token', 'content': processed})}\n\n"
                     await asyncio.sleep(0.015)
 
-            yield f"data: {json.dumps({'type': 'response', 'content': response, 'done': True})}\n\n"
+            final_response = (
+                "Let's think about how to find that value — what do you notice about this step?"
+                if (inv_buffer and inv_buffer.leak_detected)
+                else response
+            )
+            yield f"data: {json.dumps({'type': 'response', 'content': final_response, 'done': True})}\n\n"
             yield f"data: {json.dumps({'type': 'done', 'mastery_state': final_mastery, 'problem_solved': problem_solved})}\n\n"
         except asyncio.CancelledError:
             return
@@ -883,6 +901,7 @@ async def next_problem_endpoint(
         session_state["current_problem"] = _public_problem(next_prob)
         session_state["current_problem_evaluation"] = next_prob
         session_state["current_problem_credited"] = False
+        session_state["problem_solved"] = False
         session_state["current_skill_id"] = next_skill
         if next_prob.get("id") and next_prob["id"] not in attempted:
             attempted.append(next_prob["id"])
@@ -1072,6 +1091,7 @@ async def upload_work(
                 current_state["mastery_state"] = mastery_state
                 current_state["active_misconceptions"] = graph_output.get("active_misconceptions", current_state.get("active_misconceptions", {}))
                 current_state["current_problem_credited"] = graph_output.get("current_problem_credited", current_state.get("current_problem_credited", False))
+                current_state["problem_solved"] = is_correct
                 current_state["conversation_history"] = graph_output.get("conversation_history", current_state.get("conversation_history", []))
 
                 if curr_skill and curr_skill in mastery_state:
@@ -1104,6 +1124,7 @@ async def upload_work(
                         current_state["current_problem"] = _public_problem(next_problem)
                         current_state["current_problem_evaluation"] = next_problem
                         current_state["current_problem_credited"] = False
+                        current_state["problem_solved"] = False
                         current_state["current_skill_id"] = graph_output.get("current_skill_id") or current_state.get("current_skill_id")
                         current_state["problems_attempted"] = graph_output.get("problems_attempted", current_state.get("problems_attempted", []))
                         await asyncio.to_thread(save_session, session_id, current_state)

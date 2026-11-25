@@ -10,9 +10,13 @@ CREATE TABLE IF NOT EXISTS public.children (
     student_id UUID NOT NULL,
     student_email TEXT,
     student_name TEXT,
+    verified BOOLEAN NOT NULL DEFAULT FALSE,
+    status TEXT NOT NULL DEFAULT 'pending_consent',
     created_at TIMESTAMPTZ DEFAULT now(),
     UNIQUE(parent_id, student_id)
 );
+ALTER TABLE IF EXISTS public.children ADD COLUMN IF NOT EXISTS verified BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE IF EXISTS public.children ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'pending_consent';
 CREATE INDEX IF NOT EXISTS children_student_id_idx ON public.children(student_id);
 
 -- 2. Enable Row Level Security (RLS) on children table

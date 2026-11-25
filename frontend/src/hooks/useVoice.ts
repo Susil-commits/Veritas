@@ -155,10 +155,9 @@ export function cleanTextForSpeech(raw: string): string {
   return text
 }
 
-// Cache cloud TTS quota state in memory and localStorage to prevent spamming failed requests
+// Cache cloud TTS quota state in memory and sessionStorage to avoid spamming failed requests within a session
 let cloudTtsExhausted = typeof window !== 'undefined' && (
-  sessionStorage.getItem('veritas_cloud_tts_disabled') === 'true' ||
-  localStorage.getItem('veritas_cloud_tts_disabled') === 'true'
+  sessionStorage.getItem('veritas_cloud_tts_disabled') === 'true'
 )
 
 // Global registry for currently playing AudioContext to ensure immediate cancellation on logout or route changes
@@ -274,7 +273,6 @@ export function useTTS() {
           // synthesizeSpeech returned null (quota exceeded or 204 fallback)
           cloudTtsExhausted = true
           try {
-            localStorage.setItem('veritas_cloud_tts_disabled', 'true')
             sessionStorage.setItem('veritas_cloud_tts_disabled', 'true')
           } catch {}
         }
@@ -284,7 +282,6 @@ export function useTTS() {
         }
         cloudTtsExhausted = true
         try {
-          localStorage.setItem('veritas_cloud_tts_disabled', 'true')
           sessionStorage.setItem('veritas_cloud_tts_disabled', 'true')
         } catch {}
       }

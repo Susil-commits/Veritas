@@ -68,16 +68,16 @@ function normalizeContent(raw: string): string {
 
 function cleanLatexSymbols(s: string): string {
   return s
-    .replace(/\\*times\b/g, '×')
-    .replace(/\\*div\b/g, '÷')
-    .replace(/\\*cdot\b/g, '·')
-    .replace(/\\*pm\b/g, '±')
-    .replace(/\\*neq\b/g, '≠')
-    .replace(/\\*approx\b/g, '≈')
-    .replace(/\\*le(?:q)?\b/g, '≤')
-    .replace(/\\*ge(?:q)?\b/g, '≥')
-    .replace(/\\*degree(?:s)?\b/g, '°')
-    .replace(/\\*circ\b/g, '°')
+    .replace(/\\+times\b/g, '×')
+    .replace(/\\+div\b/g, '÷')
+    .replace(/\\+cdot\b/g, '·')
+    .replace(/\\+pm\b/g, '±')
+    .replace(/\\+neq\b/g, '≠')
+    .replace(/\\+approx\b/g, '≈')
+    .replace(/\\+le(?:q)?\b/g, '≤')
+    .replace(/\\+ge(?:q)?\b/g, '≥')
+    .replace(/\\+degree(?:s)?\b/g, '°')
+    .replace(/\\+circ\b/g, '°')
 }
 
 /**
@@ -114,8 +114,8 @@ function renderMarkdownSegment(text: string, keyPrefix: string): React.ReactNode
  * Render inline text with inline math expressions ($...$, \(...\), \frac{...}{...}, \sqrt{...}).
  */
 function renderInlineTextWithMath(line: string, lineKey: string): React.ReactNode {
-  // Matches inline math: $...$, \(...\), \frac{...}{...}, \sqrt{...}
-  const inlineRegex = /(\$[^$\n]+?\$|\\\([^\n]+?\\\)|\\[f]rac\{[^{}]+\}\{[^{}]+\}|\\[s]qrt\{[^{}]+\})/g
+  // Matches inline math: $...$ (avoiding currency like "$5 ... $10"), \(...\), \frac{...}{...}, \sqrt{...}
+  const inlineRegex = /(\$(?!\s)[^$\n]*?(?<!\s)\$(?!\d)|\\\([^\n]+?\\\)|\\[f]rac\{[^{}]+\}\{[^{}]+\}|\\[s]qrt\{[^{}]+\})/g
   const parts = line.split(inlineRegex)
 
   return parts.map((seg, idx) => {

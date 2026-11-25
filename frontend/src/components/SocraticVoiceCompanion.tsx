@@ -8,6 +8,7 @@ interface SocraticVoiceCompanionProps {
   onClose: () => void;
   problem?: {
     title?: string;
+    text?: string;
     question?: string;
     skill_id?: string;
   } | null;
@@ -139,7 +140,7 @@ export const SocraticVoiceCompanion: React.FC<SocraticVoiceCompanionProps> = ({
               {problem.title || 'Current Math Challenge'}
             </div>
             <div className="voice-blackboard-math">
-              <MathText content={problem.question || 'Loading problem formulation…'} />
+              <MathText content={problem.text || problem.question || 'Loading problem formulation…'} />
             </div>
           </div>
         )}

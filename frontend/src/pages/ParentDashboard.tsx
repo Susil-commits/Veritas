@@ -9,7 +9,7 @@ import UserAvatar from '../components/UserAvatar'
 import AvatarModal from '../components/AvatarModal'
 import ConfirmLogoutModal from '../components/ConfirmLogoutModal'
 import { CognitiveReportModal } from '../components/CognitiveReportModal'
-import { getSkillMeta, getMasteryTierInfo, getBarGradient } from '../lib/skillsData'
+import { getSkillMeta, getMasteryTierInfo, getBarGradient, getDomainBadgeStyle } from '../lib/skillsData'
 import { validateEmailFormat, validateNameFormat, sanitizeNameInput } from '../lib/emailValidation'
 import BKTSimulator from '../components/BKTSimulator'
 import './ParentDashboard.css'
@@ -946,11 +946,7 @@ export default function ParentDashboard() {
                             <div className="skill-item-badges">
                               <span
                                 className="skill-domain-badge"
-                                style={{
-                                  color: meta.domainColor,
-                                  background: `${meta.domainColor}18`,
-                                  border: `1px solid ${meta.domainColor}35`,
-                                }}
+                                style={getDomainBadgeStyle(meta.domainColor)}
                               >
                                 {meta.grade} · {meta.domainAbbr}
                               </span>
@@ -1060,9 +1056,9 @@ export default function ParentDashboard() {
                   {childDetails?.sessions?.length > 0 ? (
                     <div className="sessions-detailed-list">
                       {childDetails.sessions.map((sess: any, idx: number) => {
-                        const duration = sess.duration_minutes || 25
-                        const attempted = sess.problems_attempted ?? (idx === 0 ? 5 : 4)
-                        const solved = sess.problems_solved ?? (idx === 0 ? 4 : 3)
+                        const duration = sess.duration_minutes ?? 0
+                        const attempted = sess.problems_attempted ?? 0
+                        const solved = sess.problems_solved ?? 0
                         const sessionAccuracy = attempted > 0 ? Math.round((solved / attempted) * 100) : 0
                         return (
                           <div key={sess.id || idx} className="session-detail-card">

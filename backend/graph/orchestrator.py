@@ -256,6 +256,7 @@ async def tutor_node(state: TutorState) -> dict:
         current_problem=current_prob,
         active_misconceptions=active_misc,
         diagnosis=diagnosis,
+        is_credited=bool(state.get("current_problem_credited", False)),
     )
 
     if prev_solved and diagnosis and diagnosis.get("is_correct"):

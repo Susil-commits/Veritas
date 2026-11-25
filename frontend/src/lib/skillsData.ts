@@ -22,6 +22,10 @@ export interface SkillMeta {
   description: string
   /** CSS color token variable for this domain */
   domainColor: string
+  /** Translucent background color for domain badges */
+  domainBg?: string
+  /** Translucent border color for domain badges */
+  domainBorder?: string
 }
 
 const SKILLS_REGISTRY: Record<string, SkillMeta> = {
@@ -125,6 +129,25 @@ const SKILLS_REGISTRY: Record<string, SkillMeta> = {
     description: 'Solving multi-step real-life problems with positive and negative rational numbers in equations.',
     domainColor: 'var(--emerald)',
   },
+}
+
+/** Helper to compute valid translucent badge styles for CSS variables or hex colors */
+export function getDomainBadgeStyle(domainColor: string): { color: string; background: string; border: string } {
+  const palette: Record<string, { bg: string; border: string }> = {
+    'var(--violet)': { bg: 'rgba(124, 93, 250, 0.12)', border: 'rgba(124, 93, 250, 0.32)' },
+    'var(--amber)': { bg: 'rgba(245, 166, 35, 0.12)', border: 'rgba(245, 166, 35, 0.32)' },
+    'var(--emerald)': { bg: 'rgba(16, 185, 129, 0.12)', border: 'rgba(16, 185, 129, 0.32)' },
+    'var(--text-muted)': { bg: 'rgba(148, 163, 184, 0.12)', border: 'rgba(148, 163, 184, 0.32)' },
+  }
+  const match = palette[domainColor]
+  if (match) {
+    return { color: domainColor, background: match.bg, border: `1px solid ${match.border}` }
+  }
+  return {
+    color: domainColor,
+    background: `color-mix(in srgb, ${domainColor} 12%, transparent)`,
+    border: `1px solid color-mix(in srgb, ${domainColor} 32%, transparent)`,
+  }
 }
 
 /** Resolve skill metadata from a standard ID, falling back gracefully */

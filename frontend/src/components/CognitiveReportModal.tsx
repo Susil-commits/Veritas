@@ -41,13 +41,13 @@ export const CognitiveReportModal: React.FC<CognitiveReportModalProps> = ({
 
   // Overall CCSS Mastery & Proficient count
   const { avgMastery, proficientCount, totalSkills } = useMemo(() => {
-    if (!skills || skills.length === 0) {
-      return { avgMastery: 72, proficientCount: 5, totalSkills: 10 };
-    }
-    const sum = skills.reduce((acc, s) => acc + (Number(s.mastery_prob) || 0), 0);
-    const avg = Math.round((sum / skills.length) * 100);
-    const prof = skills.filter((s) => (Number(s.mastery_prob) || 0) >= 0.70).length;
-    return { avgMastery: avg, proficientCount: prof, totalSkills: skills.length };
+    const activeSkills = skills && skills.length > 0
+      ? skills
+      : COGNITIVE_DAG_LIST.map((n) => ({ skill_id: n.id, mastery_prob: n.prior }));
+    const sum = activeSkills.reduce((acc, s) => acc + (Number(s.mastery_prob) || 0), 0);
+    const avg = activeSkills.length > 0 ? Math.round((sum / activeSkills.length) * 100) : 0;
+    const prof = activeSkills.filter((s) => (Number(s.mastery_prob) || 0) >= 0.70).length;
+    return { avgMastery: avg, proficientCount: prof, totalSkills: activeSkills.length };
   }, [skills]);
 
   // Check for any critical foundational deficits across Grade 5-7 nodes
@@ -74,8 +74,8 @@ export const CognitiveReportModal: React.FC<CognitiveReportModalProps> = ({
       `Date: ${reportDate}`,
       `Curriculum Mastery: ${avgMastery}%`,
       `Proficient Topics: ${proficientCount} of ${totalSkills}`,
-      `Live Practice Accuracy: ${activitySummary?.accuracy_percent ?? 78}%`,
-      `Practice Time: ${activitySummary?.total_time_spent_minutes ?? 45} minutes`,
+      `Live Practice Accuracy: ${activitySummary ? `${activitySummary.accuracy_percent}%` : 'N/A'}`,
+      `Practice Time: ${activitySummary ? `${activitySummary.total_time_spent_minutes} minutes` : 'N/A'}`,
       rootDeficit
         ? `Recommended Focus: Strengthen foundational concept "${rootDeficit.rootDeficitName}"`
         : `Status: All foundational math concepts are strong and on track!`,
@@ -106,8 +106,8 @@ export const CognitiveReportModal: React.FC<CognitiveReportModalProps> = ({
         overall_mastery_percent: avgMastery,
         proficient_topics_count: proficientCount,
         total_topics_monitored: totalSkills,
-        live_accuracy_percent: activitySummary?.accuracy_percent ?? 78,
-        practice_time_minutes: activitySummary?.total_time_spent_minutes ?? 45,
+        live_accuracy_percent: activitySummary?.accuracy_percent ?? null,
+        practice_time_minutes: activitySummary?.total_time_spent_minutes ?? null,
         evaluation_accuracy: 'High (96% precision)',
       },
       foundational_focus: rootDeficit
@@ -311,13 +311,13 @@ export const CognitiveReportModal: React.FC<CognitiveReportModalProps> = ({
               </div>
               <div className="report-kpi-pill">
                 <div className="report-kpi-pill-val report-kpi-pill-val--warning">
-                  {activitySummary?.accuracy_percent ?? 78}%
+                  {activitySummary ? `${activitySummary.accuracy_percent}%` : '—'}
                 </div>
                 <div className="report-kpi-pill-lbl">Live Accuracy</div>
               </div>
               <div className="report-kpi-pill">
                 <div className="report-kpi-pill-val report-kpi-pill-val--indigo">
-                  {activitySummary?.total_time_spent_minutes ?? 45}m
+                  {activitySummary ? `${activitySummary.total_time_spent_minutes}m` : '—'}
                 </div>
                 <div className="report-kpi-pill-lbl">Practice Time</div>
               </div>

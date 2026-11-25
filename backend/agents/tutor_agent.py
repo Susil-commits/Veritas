@@ -175,6 +175,7 @@ def run_tutor_agent(
     current_problem: dict | None = None,
     active_misconceptions: dict | None = None,
     diagnosis: dict | None = None,
+    is_credited: bool = False,
 ) -> dict:
     """
     Given a student message and conversation history, return a Socratic guiding response.
@@ -230,7 +231,7 @@ def run_tutor_agent(
 
     # Fast-path 4: Affirmation after problem solved/credited
     AFFIRMATIONS = {"thank you", "thanks", "ok", "okay", "got it", "cool", "understood", "awesome", "great", "nice", "alright"}
-    if clean_norm in AFFIRMATIONS and current_problem and current_problem.get("credited", False):
+    if clean_norm in AFFIRMATIONS and (is_credited or (current_problem and current_problem.get("credited", False))):
         return {
             "reply": "You're very welcome! You did an awesome job on this problem. Click 'Next Challenge' to keep your learning momentum going!",
             "problem_solved": True,

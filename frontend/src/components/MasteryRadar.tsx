@@ -2,7 +2,7 @@ import { useState } from 'react'
 import {
   RadarChart, Radar, PolarGrid, PolarAngleAxis, ResponsiveContainer, Tooltip
 } from 'recharts'
-import { getSkillMeta, getMasteryTierInfo, getBarGradient } from '../lib/skillsData'
+import { getSkillMeta, getMasteryTierInfo, getBarGradient, getDomainBadgeStyle } from '../lib/skillsData'
 import './MasteryRadar.css'
 
 interface SkillMastery {
@@ -136,7 +136,7 @@ export default function MasteryRadar({ skills = [], showBars = true }: Props) {
                   <div className="mastery-skill-badges">
                     <span
                       className="mastery-domain-badge"
-                      style={{ color: s.meta.domainColor, background: `${s.meta.domainColor}18`, border: `1px solid ${s.meta.domainColor}35` }}
+                      style={getDomainBadgeStyle(s.meta.domainColor)}
                     >
                       {s.meta.grade} · {s.meta.domainAbbr}
                     </span>

@@ -286,10 +286,10 @@ export async function addChild(
 }
 
 export async function generateStudentPairingCode(studentId: string): Promise<{
+  status: string
   pairing_code: string
-  ttl_seconds: number
-  expires_at: string
-  message: string
+  expires_in: number
+  expires_at: number
 }> {
   const { data } = await api.post(
     `/student/${studentId}/pairing-code`,
@@ -522,9 +522,9 @@ export async function synthesizeSpeech(text: string): Promise<ArrayBuffer | null
   const trimmed = text.trim().slice(0, 500) // match backend's ElevenLabs free tier limit
   if (!trimmed) return null
 
-  // If cloud TTS has previously failed or quota exhausted, skip network call entirely
+  // If cloud TTS has previously failed or quota exhausted in this browser session, skip network call
   try {
-    if (localStorage.getItem('veritas_cloud_tts_disabled') === 'true') {
+    if (sessionStorage.getItem('veritas_cloud_tts_disabled') === 'true') {
       return null
     }
   } catch {}
@@ -538,7 +538,7 @@ export async function synthesizeSpeech(text: string): Promise<ArrayBuffer | null
     // Status 204 or fallback header means backend gracefully signals to use browser speech
     if (res.status === 204 || res.headers.get('x-tts-fallback') === 'browser') {
       try {
-        localStorage.setItem('veritas_cloud_tts_disabled', 'true')
+        sessionStorage.setItem('veritas_cloud_tts_disabled', 'true')
       } catch {}
       return null
     }
@@ -546,7 +546,7 @@ export async function synthesizeSpeech(text: string): Promise<ArrayBuffer | null
     if (!res.ok) {
       if (res.status === 402 || res.status === 429 || res.status === 503) {
         try {
-          localStorage.setItem('veritas_cloud_tts_disabled', 'true')
+          sessionStorage.setItem('veritas_cloud_tts_disabled', 'true')
         } catch {}
       }
       return null

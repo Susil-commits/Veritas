@@ -473,7 +473,15 @@ export default function MathArcade() {
   const [floatingXP, setFloatingXP] = useState<{ id: number; text: string } | null>(null)
   const floatingIdRef = useRef(0)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const feedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isHandlingGameOverRef = useRef(false)
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current)
+      if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current)
+    }
+  }, [])
 
   // Reset Score Modal State
   const [showResetModal, setShowResetModal] = useState(false)
@@ -545,6 +553,7 @@ export default function MathArcade() {
 
   const exitActiveGame = useCallback(() => {
     if (timerRef.current) clearInterval(timerRef.current)
+    if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current)
     isHandlingGameOverRef.current = false
     setActiveGameId(null)
     setGameOver(false)
@@ -641,15 +650,14 @@ export default function MathArcade() {
       setGameScore((s) => s + pointsAdded)
       floatingIdRef.current += 1
       setFloatingXP({ id: floatingIdRef.current, text: `+${pointsAdded} XP` })
-      setGameStreak(() => {
-        setMaxStreak((m) => Math.max(m, nextStreak))
-        return nextStreak
-      })
+      setGameStreak(nextStreak)
+      setMaxStreak((m) => Math.max(m, nextStreak))
 
-      setTimeout(() => {
+      if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current)
+      feedbackTimerRef.current = setTimeout(() => {
         setQuestionFeedback(null)
         setFloatingXP(null)
-        if (activeGameId) nextQuestionForGame(activeGameId)
+        if (activeGameId && !isHandlingGameOverRef.current) nextQuestionForGame(activeGameId)
       }, 350)
     } else {
       // Wrong answer
@@ -659,9 +667,10 @@ export default function MathArcade() {
       setFloatingXP(null)
       setGameScore((s) => Math.max(0, s - 25))
 
-      setTimeout(() => {
+      if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current)
+      feedbackTimerRef.current = setTimeout(() => {
         setQuestionFeedback(null)
-        if (activeGameId) nextQuestionForGame(activeGameId)
+        if (activeGameId && !isHandlingGameOverRef.current) nextQuestionForGame(activeGameId)
       }, 500)
     }
   }, [currentQuestion, gameOver, questionFeedback, gameStreak, activeGameId, nextQuestionForGame])
@@ -761,7 +770,7 @@ export default function MathArcade() {
             <span className="stat-icon">🔓</span>
             <div className="stat-meta">
               <span className="stat-value">
-                {progress?.games_unlocked || 1} / {progress?.total_games || 7}
+                {progress?.games_unlocked ?? 1} / {progress?.total_games ?? 7}
               </span>
               <span className="stat-label">Unlocked</span>
             </div>
@@ -1055,6 +1064,9 @@ export default function MathArcade() {
                   const next = !soundEnabled
                   soundFX.enabled = next
                   setSoundEnabled(next)
+                  try {
+                    localStorage.setItem('veritas_arcade_sound', String(next))
+                  } catch {}
                 }}
                 title={soundEnabled ? 'Mute sound' : 'Enable sound'}
               >

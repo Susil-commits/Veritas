@@ -88,6 +88,9 @@ class StreamingInvariantBuffer:
         if self.leak_detected:
             return None
 
+        if not self.target_solution:
+            return token
+
         self.token_history.append(token)
         recent_text = "".join(self.token_history[-self.window_size:]).lower()
 

@@ -288,7 +288,10 @@ def verify_session_token(token: str) -> dict:
                         u = user_resp.user
                         app_meta = getattr(u, "app_metadata", None) or {}
                         user_meta = getattr(u, "user_metadata", None) or {}
-                        role = app_meta.get("role") or app_meta.get("user_role") or "student"
+                        role = app_meta.get("role") or app_meta.get("user_role")
+                        if not role and user_meta.get("user_role") == "parent":
+                            role = "parent"
+                        role = role or "student"
                         return {
                             "sub": u.id,
                             "email": u.email,
@@ -318,7 +321,10 @@ def verify_session_token(token: str) -> dict:
                         u = user_resp.user
                         app_meta = getattr(u, "app_metadata", None) or {}
                         user_meta = getattr(u, "user_metadata", None) or {}
-                        role = app_meta.get("role") or app_meta.get("user_role") or "student"
+                        role = app_meta.get("role") or app_meta.get("user_role")
+                        if not role and user_meta.get("user_role") == "parent":
+                            role = "parent"
+                        role = role or "student"
                         return {
                             "sub": u.id,
                             "email": u.email,
@@ -397,6 +403,10 @@ def verify_session_token(token: str) -> dict:
             role = candidate_role
         elif candidate_role == "student":
             role = "student"
+        elif user_meta.get("user_role") == "parent" and payload.get("role") in (None, "authenticated", "parent"):
+            # Parent sign-up stores user_role="parent" in user_metadata; only allow elevating to parent
+            # (never to enterprise/admin roles) when no explicit role claim conflicts.
+            role = "parent"
         else:
             role = "student"
 

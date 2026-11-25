@@ -1,6 +1,14 @@
 import { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { streamMessage, startSession, fetchNextProblem, resetSession } from '../lib/api'
+import {
+  streamMessage,
+  startSession,
+  fetchNextProblem,
+  resetSession,
+  generateStudentPairingCode,
+  getPendingParents,
+  approveParentLink,
+} from '../lib/api'
 import { useSpeechInput, useTTS } from '../hooks/useVoice'
 import { useAuth } from '../context/AuthContext'
 import WorkUpload from '../components/WorkUpload'
@@ -128,6 +136,12 @@ export default function TutorSession() {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
   const [showVoiceCompanion, setShowVoiceCompanion] = useState(false)
   const [showReportModal, setShowReportModal] = useState(false)
+  const [showParentLinkModal, setShowParentLinkModal] = useState(false)
+  const [pairingCode, setPairingCode] = useState<string | null>(null)
+  const [pairingLoading, setPairingLoading] = useState(false)
+  const [pairingError, setPairingError] = useState<string | null>(null)
+  const [pendingParents, setPendingParents] = useState<Array<{ parent_id: string; created_at?: string }>>([])
+  const [approvingParentId, setApprovingParentId] = useState<string | null>(null)
   const [isResetting, setIsResetting] = useState(false)
   const [copiedCode, setCopiedCode] = useState(false)
   const chatEndRef = useRef<HTMLDivElement>(null)
@@ -146,6 +160,49 @@ export default function TutorSession() {
   const { isListening, interimText, startListening, stopListening, isSupported } = useSpeechInput(
     (text) => { setInput(text) }
   )
+
+  const openParentLinkModal = useCallback(async () => {
+    setShowParentLinkModal(true)
+    setPairingError(null)
+    const studentId = session?.student_id
+    if (!studentId) return
+    try {
+      const pending = await getPendingParents(studentId)
+      setPendingParents(pending.pending_parents || [])
+    } catch {
+      // Non-fatal: pending list may be empty in guest/mock sessions
+    }
+  }, [session?.student_id])
+
+  const handleGeneratePairingCode = useCallback(async () => {
+    const studentId = session?.student_id
+    if (!studentId) return
+    setPairingLoading(true)
+    setPairingError(null)
+    try {
+      const res = await generateStudentPairingCode(studentId)
+      setPairingCode(res.pairing_code)
+    } catch (err: any) {
+      setPairingError(err?.response?.data?.detail || 'Could not generate pairing code. Sign in as a student account to link a parent.')
+    } finally {
+      setPairingLoading(false)
+    }
+  }, [session?.student_id])
+
+  const handleApproveParent = useCallback(async (parentId: string) => {
+    const studentId = session?.student_id
+    if (!studentId) return
+    setApprovingParentId(parentId)
+    setPairingError(null)
+    try {
+      await approveParentLink(studentId, parentId)
+      setPendingParents(prev => prev.filter(p => p.parent_id !== parentId))
+    } catch (err: any) {
+      setPairingError(err?.response?.data?.detail || 'Failed to approve parent link request.')
+    } finally {
+      setApprovingParentId(null)
+    }
+  }, [session?.student_id])
 
   const handleCopyCode = useCallback(() => {
     const code = session?.student_id || ''
@@ -613,6 +670,15 @@ export default function TutorSession() {
             <button
               type="button"
               className="btn btn-ghost"
+              style={{ padding: '5px 8px', fontSize: '0.74rem', display: 'inline-flex', alignItems: 'center', gap: '3px' }}
+              onClick={openParentLinkModal}
+              title="Generate a Parent Pairing Code or approve parent requests"
+            >
+              <span>🔗</span> Parent Link
+            </button>
+            <button
+              type="button"
+              className="btn btn-ghost"
               style={{ padding: '5px 8px', fontSize: '0.74rem' }}
               disabled={isStreaming}
               onClick={() => {
@@ -780,6 +846,21 @@ export default function TutorSession() {
               title="View and export Cognitive Growth Report"
             >
               <span>📄</span> Report
+            </button>
+            <button
+              type="button"
+              className="btn btn-ghost"
+              style={{
+                padding: '5px 10px',
+                fontSize: '0.78rem',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+              }}
+              onClick={openParentLinkModal}
+              title="Generate a Parent Pairing Code or approve parent requests"
+            >
+              <span>🔗</span> Parent Link
             </button>
             <button
               type="button"
@@ -1277,6 +1358,119 @@ export default function TutorSession() {
         childName={session?.student_name || 'Student'}
         skills={masterySkills}
       />
+
+      {/* Parent Pairing & Consent Modal */}
+      {showParentLinkModal && (
+        <div
+          className="modal-overlay"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(15, 23, 42, 0.55)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+            padding: '1rem',
+          }}
+          onClick={() => setShowParentLinkModal(false)}
+        >
+          <div
+            className="card"
+            style={{ maxWidth: 440, width: '100%', padding: '1.5rem', background: 'var(--bg-card, #fff)', borderRadius: 16 }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+              <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700 }}>🔗 Parent Account Linking</h3>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                style={{ padding: '4px 8px' }}
+                onClick={() => setShowParentLinkModal(false)}
+                aria-label="Close parent linking modal"
+              >
+                ✕
+              </button>
+            </div>
+            <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', marginBottom: '1rem', lineHeight: 1.5 }}>
+              Share a one-time 6-digit pairing code with your parent so they can verify and view your mastery progress.
+            </p>
+
+            {pairingCode ? (
+              <div
+                style={{
+                  padding: '0.9rem',
+                  borderRadius: 12,
+                  background: 'rgba(99, 102, 241, 0.08)',
+                  border: '1px solid rgba(99, 102, 241, 0.25)',
+                  textAlign: 'center',
+                  marginBottom: '1rem',
+                }}
+              >
+                <div style={{ fontSize: '0.72rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-secondary)' }}>
+                  15-Minute Pairing Code
+                </div>
+                <div style={{ fontSize: '1.85rem', fontWeight: 800, letterSpacing: '0.2em', margin: '0.35rem 0', fontFamily: 'monospace' }}>
+                  {pairingCode}
+                </div>
+              </div>
+            ) : null}
+
+            {pairingError && (
+              <div style={{ fontSize: '0.8rem', color: '#dc2626', marginBottom: '0.75rem' }}>
+                {pairingError}
+              </div>
+            )}
+
+            <button
+              type="button"
+              className="btn btn-primary"
+              style={{ width: '100%', marginBottom: pendingParents.length > 0 ? '1rem' : 0 }}
+              onClick={handleGeneratePairingCode}
+              disabled={pairingLoading}
+            >
+              {pairingLoading ? 'Generating Code…' : pairingCode ? 'Regenerate Pairing Code' : 'Generate 6-Digit Pairing Code'}
+            </button>
+
+            {pendingParents.length > 0 && (
+              <div style={{ borderTop: '1px solid var(--border-subtle, #e2e8f0)', paddingTop: '0.85rem' }}>
+                <div style={{ fontSize: '0.78rem', fontWeight: 700, marginBottom: '0.5rem' }}>
+                  Pending Parent Link Requests ({pendingParents.length})
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  {pendingParents.map((req) => (
+                    <div
+                      key={req.parent_id}
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        padding: '0.5rem 0.65rem',
+                        borderRadius: 8,
+                        background: 'var(--bg-subtle, #f8fafc)',
+                        fontSize: '0.8rem',
+                      }}
+                    >
+                      <span style={{ fontFamily: 'monospace', fontSize: '0.76rem' }}>
+                        Parent {req.parent_id.slice(0, 8)}…
+                      </span>
+                      <button
+                        type="button"
+                        className="btn btn-primary"
+                        style={{ padding: '4px 10px', fontSize: '0.74rem' }}
+                        disabled={approvingParentId === req.parent_id}
+                        onClick={() => handleApproveParent(req.parent_id)}
+                      >
+                        {approvingParentId === req.parent_id ? 'Approving…' : 'Approve'}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
