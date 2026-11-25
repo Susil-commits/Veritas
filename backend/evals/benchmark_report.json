@@ -1,8 +1,8 @@
 {
   "metadata": {
     "evaluation_engine": "Veritas Automated Offline Evaluation Harness v2.0",
-    "timestamp_utc": "2026-11-25T14:40:15Z",
-    "total_benchmark_duration_seconds": 0.063,
+    "timestamp_utc": "2026-11-25T15:22:04Z",
+    "total_benchmark_duration_seconds": 0.065,
     "overall_status": "ALL_BENCHMARKS_PASSED"
   },
   "summary_metrics": {
@@ -156,7 +156,7 @@
           "leaked": 0
         }
       },
-      "duration_seconds": 0.0563,
+      "duration_seconds": 0.0573,
       "passed": true
     },
     "symbolic_cas_math": {
@@ -187,7 +187,7 @@
           "failed": 0
         }
       },
-      "duration_seconds": 0.002,
+      "duration_seconds": 0.003,
       "passed": true
     },
     "multimodal_vision_reticle": {

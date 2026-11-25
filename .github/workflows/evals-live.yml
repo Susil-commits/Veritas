@@ -1,0 +1,52 @@
+name: Veritas Live AI Evaluation Harness (Non-Mock)
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 6 * * 1" # Weekly Monday 06:00 UTC
+
+jobs:
+  live-evals:
+    name: Live Multimodal & Tier-2 Classifier Benchmarks
+    runs-on: ubuntu-latest
+
+    env:
+      PYTHONUNBUFFERED: "1"
+      ENVIRONMENT: "staging_eval"
+      VERITAS_TEST_MODE: "false"
+      VERITAS_MOCK_LLM: "false"
+      GEMINI_API_KEY: ${{ secrets.GEMINI_EVAL_API_KEY }}
+      SESSION_SECRET_KEY: "veritas_live_eval_ephemeral_key_min_32_bytes_ok!!"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install backend dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt
+
+      - name: Verify non-mock Gemini evaluation credentials
+        run: |
+          if [ -z "$GEMINI_API_KEY" ]; then
+            echo "GEMINI_EVAL_API_KEY secret is not configured; skipping live credit eval."
+            exit 0
+          fi
+          cd backend && python run_evals.py
+
+      - name: Upload benchmark report artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-benchmark-report
+          path: backend/evals/benchmark_report.json
+          if-no-files-found: ignore
+          retention-days: 30

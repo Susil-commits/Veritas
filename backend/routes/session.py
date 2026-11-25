@@ -733,8 +733,7 @@ async def send_message(
                 current_state["mastery_state"] = graph_output.get("mastery_state", current_state.get("mastery_state", {}))
                 current_state["active_misconceptions"] = graph_output.get("active_misconceptions", current_state.get("active_misconceptions", {}))
                 current_state["current_problem_credited"] = graph_output.get("current_problem_credited", current_state.get("current_problem_credited", False))
-                current_state["problem_solved"] = problem_solved
-                current_state["problem_solved"] = is_correct
+                current_state["problem_solved"] = problem_solved
 
                 is_final_attempt = graph_output.get("is_final_attempt")
                 turn_correctness: bool | None = True if problem_solved else (False if is_final_attempt else None)

@@ -3,10 +3,12 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import {
   getGamesProgress,
+  startGameRound,
   recordGameScore,
   resetGameScore,
   type GameLevel,
   type GamesProgressResponse,
+  type GameSubmissionItem,
 } from '../lib/api'
 import ThemeToggle from '../components/ThemeToggle'
 import UserAvatar from '../components/UserAvatar'
@@ -117,10 +119,22 @@ class SoundFX {
 export const soundFX = new SoundFX()
 
 interface GameQuestion {
+  qid?: string
   question: string
   options: (number | string)[]
-  answer: number | string
+  answer?: number | string
+  answer_digest?: string
   hint?: string
+}
+
+async function verifyDigestMatch(roundId: string, qid: string, selected: number | string, digest: string): Promise<boolean> {
+  if (!globalThis.crypto?.subtle) return false
+  const payload = new TextEncoder().encode(`${roundId}:${qid}:${String(selected).trim()}`)
+  const hashBuf = await globalThis.crypto.subtle.digest('SHA-256', payload)
+  const hex = Array.from(new Uint8Array(hashBuf))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('')
+  return hex === digest
 }
 
 /* ── Procedural Question Generators for all 7 Levels ─────────── */
@@ -475,6 +489,10 @@ export default function MathArcade() {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const feedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isHandlingGameOverRef = useRef(false)
+  const [masteryDelta, setMasteryDelta] = useState(0)
+  const roundIdRef = useRef<string | null>(null)
+  const serverQueueRef = useRef<GameQuestion[]>([])
+  const submissionsRef = useRef<GameSubmissionItem[]>([])
 
   useEffect(() => {
     return () => {
@@ -506,6 +524,11 @@ export default function MathArcade() {
   }, [loadProgress])
 
   const nextQuestionForGame = useCallback((gameId: string) => {
+    if (serverQueueRef.current.length > 0) {
+      const nextServerQ = serverQueueRef.current.shift()!
+      setCurrentQuestion(nextServerQ)
+      return
+    }
     switch (gameId) {
       case 'multiplier_matrix':
         setCurrentQuestion(generateMultiplicationQuestion())
@@ -534,9 +557,13 @@ export default function MathArcade() {
     }
   }, [])
 
-  const startGame = (game: GameLevel, mode: GameMode = selectedMode) => {
+  const startGame = async (game: GameLevel, mode: GameMode = selectedMode) => {
     if (!game.is_unlocked) return
     isHandlingGameOverRef.current = false
+    roundIdRef.current = null
+    serverQueueRef.current = []
+    submissionsRef.current = []
+    setMasteryDelta(0)
     setSelectedMode(mode)
     setActiveGameId(game.id)
     setGameScore(0)
@@ -548,7 +575,21 @@ export default function MathArcade() {
     setStarsEarned(0)
     setIsNewHighScore(false)
     setQuestionFeedback(null)
-    nextQuestionForGame(game.id)
+    setCurrentQuestion(null)
+
+    try {
+      const round = await startGameRound(studentId, game.id, mode)
+      roundIdRef.current = round.round_id
+      serverQueueRef.current = (round.questions || []).map((q) => ({
+        qid: q.qid,
+        question: q.question,
+        options: q.options,
+        answer_digest: q.answer_digest,
+      }))
+      nextQuestionForGame(game.id)
+    } catch {
+      nextQuestionForGame(game.id)
+    }
   }
 
   const exitActiveGame = useCallback(() => {
@@ -590,8 +631,18 @@ export default function MathArcade() {
         earned,
         selectedMode,
         maxStreak,
+        roundIdRef.current,
+        submissionsRef.current,
       )
       setProgress(updated)
+      if (updated.round_verified) {
+        if (typeof updated.verified_score === 'number') setGameScore(updated.verified_score)
+        if (typeof updated.verified_stars === 'number') setStarsEarned(updated.verified_stars)
+        if (typeof updated.verified_streak_max === 'number') setMaxStreak(updated.verified_streak_max)
+      }
+      if (typeof updated.mastery_delta === 'number' && updated.mastery_delta > 0) {
+        setMasteryDelta(updated.mastery_delta)
+      }
     } catch (err) {
       console.error('Failed to record game score:', err)
     }
@@ -630,11 +681,16 @@ export default function MathArcade() {
     }
   }, [activeGameId, gameOver, selectedMode, gameTimeLeft, handleGameOver])
 
-  const handleOptionSelect = useCallback((selected: number | string) => {
+  const handleOptionSelect = useCallback(async (selected: number | string) => {
     if (!currentQuestion || gameOver || questionFeedback) return
 
-    // Normalize comparison for number or string matches
-    const isCorrect = String(selected).trim() === String(currentQuestion.answer).trim()
+    let isCorrect = false
+    if (currentQuestion.qid && currentQuestion.answer_digest && roundIdRef.current) {
+      submissionsRef.current.push({ qid: currentQuestion.qid, selected })
+      isCorrect = await verifyDigestMatch(roundIdRef.current, currentQuestion.qid, selected, currentQuestion.answer_digest)
+    } else if (currentQuestion.answer !== undefined) {
+      isCorrect = String(selected).trim() === String(currentQuestion.answer).trim()
+    }
 
     if (isCorrect) {
       // Correct answer!
@@ -1099,9 +1155,11 @@ export default function MathArcade() {
                   <span className="question-text">
                     <MathText
                       content={
-                        currentQuestion?.question.includes('=') || currentQuestion?.question.startsWith('Solve')
-                          ? currentQuestion?.question
-                          : `${currentQuestion?.question} = ?`
+                        !currentQuestion
+                          ? 'Loading challenge…'
+                          : currentQuestion.question.includes('=') || currentQuestion.question.startsWith('Solve')
+                            ? currentQuestion.question
+                            : `${currentQuestion.question} = ?`
                       }
                       inline
                     />
@@ -1204,10 +1262,12 @@ export default function MathArcade() {
                   </div>
                 )}
 
-                <div className="bkt-mastery-pill">
-                  <span>📈</span>
-                  <span>Skill Level Boosted! +8% Mastery added to your learning journey!</span>
-                </div>
+                {masteryDelta > 0 && (
+                  <div className="bkt-mastery-pill">
+                    <span>📈</span>
+                    <span>Skill Level Boosted! +{Math.max(1, Math.round(masteryDelta * 100))}% verified mastery synced to BKT!</span>
+                  </div>
+                )}
 
                 <div className="modal-score-summary">
                   <div className="summary-item">

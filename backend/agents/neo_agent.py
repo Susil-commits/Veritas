@@ -13,7 +13,7 @@ from dotenv import load_dotenv
 # Ensure environment variables are loaded
 load_dotenv()
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
-from langchain_google_genai import ChatGoogleGenerativeAI
+from services.gemini_client import GeminiChatWrapper
 from langchain_core.messages import BaseMessage, SystemMessage, HumanMessage, AIMessage
 from config import CHAT_MODEL_CASCADE, extract_clean_text
 
@@ -85,7 +85,7 @@ NEO_MODEL_CASCADE = CHAT_MODEL_CASCADE
 def build_neo_llm(model_name: str) -> Any:
     """Instantiate Gemini Flash LLM using the existing GEMINI_API_KEY."""
     api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY", "")
-    return ChatGoogleGenerativeAI(
+    return GeminiChatWrapper(
         model=model_name,
         google_api_key=api_key,
         max_output_tokens=500,

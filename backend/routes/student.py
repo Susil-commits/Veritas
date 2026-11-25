@@ -9,6 +9,7 @@ Provides endpoints for:
 """
 
 import asyncio
+import datetime
 import base64
 import io
 import hashlib
@@ -24,7 +25,7 @@ from pydantic import BaseModel, Field
 from agents.content_agent import generate_session_summary
 from auth import verify_session_token, verify_student_access
 from bkt.tracker import get_all_skills
-from session_manager import clear_student_misconceptions, evict_student_sessions
+from session_manager import clear_student_misconceptions, evict_student_sessions, get_all_active_session_ids, get_session
 from db.supabase_client import get_supabase
 from rate_limiter import limiter
 from routes.common import db_exec, _SESSION_SUMMARY_CACHE
@@ -64,6 +65,101 @@ async def get_mastery(
     )
     skills = get_all_skills()
     return {"student_id": student_id, "mastery": result.data, "all_skills": skills}
+
+
+def _compute_streak_metrics(activity_dates: set[datetime.date], today: datetime.date | None = None) -> dict[str, int]:
+    """Compute consecutive current and longest active day streaks from distinct dates."""
+    import datetime as dt
+
+    if not activity_dates:
+        return {"current_streak_days": 0, "longest_streak_days": 0, "active_days_last_7": 0}
+
+    ref_today = today or dt.datetime.now(dt.timezone.utc).date()
+    sorted_days = sorted(activity_dates)
+
+    # Longest consecutive run
+    longest = 1
+    run = 1
+    for i in range(1, len(sorted_days)):
+        if (sorted_days[i] - sorted_days[i - 1]).days == 1:
+            run += 1
+            longest = max(longest, run)
+        else:
+            run = 1
+
+    # Current streak: active today or yesterday continuing backwards
+    current = 0
+    cursor = ref_today if ref_today in activity_dates else (
+        ref_today - dt.timedelta(days=1) if (ref_today - dt.timedelta(days=1)) in activity_dates else None
+    )
+    while cursor is not None and cursor in activity_dates:
+        current += 1
+        cursor = cursor - dt.timedelta(days=1)
+
+    cutoff_7 = ref_today - dt.timedelta(days=6)
+    active_last_7 = sum(1 for d in activity_dates if d >= cutoff_7)
+    return {
+        "current_streak_days": current,
+        "longest_streak_days": longest,
+        "active_days_last_7": active_last_7,
+    }
+
+
+@router.get("/student/{student_id}/activity")
+async def get_student_activity(
+    student_id: str,
+    auth_payload: dict = Depends(verify_student_access),
+):
+    """Return real daily practice streak telemetry derived from student sessions."""
+    import datetime as dt
+
+    supabase = get_supabase()
+    dates: set[dt.date] = set()
+    latest_ts: str | None = None
+
+    try:
+        res = await db_exec(
+            supabase.table("sessions")
+            .select("started_at")
+            .eq("student_id", student_id)
+            .order("started_at", desc=True)
+            .limit(180)
+        )
+        for row in (res.data or []):
+            raw_ts = row.get("started_at")
+            if not raw_ts:
+                continue
+            if latest_ts is None:
+                latest_ts = str(raw_ts)
+            try:
+                parsed = dt.datetime.fromisoformat(str(raw_ts).replace("Z", "+00:00"))
+                dates.add(parsed.astimezone(dt.timezone.utc).date())
+            except ValueError:
+                pass
+    except Exception as e:
+        logger.debug("Activity sessions query fallback for %s: %s", student_id, e)
+
+    # Also inspect active in-memory/disk sessions (covers guest/offline sessions)
+    for sid in get_all_active_session_ids():
+        sess = get_session(sid)
+        if not sess or sess.get("student_id") != student_id:
+            continue
+        raw_updated = sess.get("updated_at") or sess.get("started_at") or sess.get("created_at")
+        if raw_updated:
+            try:
+                parsed = dt.datetime.fromisoformat(str(raw_updated).replace("Z", "+00:00"))
+                dates.add(parsed.astimezone(dt.timezone.utc).date())
+                if latest_ts is None or str(raw_updated) > latest_ts:
+                    latest_ts = str(raw_updated)
+            except ValueError:
+                pass
+
+    metrics = _compute_streak_metrics(dates)
+    return {
+        "student_id": student_id,
+        **metrics,
+        "last_active_at": latest_ts,
+    }
 
 
 @router.get("/student/{student_id}/summary")

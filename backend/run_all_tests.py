@@ -37,6 +37,7 @@ TEST_SCRIPTS = [
     ("test_enterprise_routes.py", "Enterprise District & Audit Log API Endpoints"),
     ("test_harness_and_context.py", "Context Engineering & Pedagogical Harness Invariants"),
     ("test_mcp_routes.py", "Model Context Protocol (MCP) JSON-RPC & SSE Server"),
+    ("test_upgrades_arcade_streak_genai.py", "Google GenAI Adapter, Authoritative Arcade & Activity Streaks"),
 ]
 
 def main():

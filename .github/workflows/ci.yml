@@ -36,10 +36,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Python 3.11
+      - name: Set up Python 3.12
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.12"
           cache: "pip"
           cache-dependency-path: backend/requirements.txt
 
@@ -48,8 +48,12 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r backend/requirements.txt
 
-      - name: Verify dependency resolution integrity
-        run: pip check
+      - name: Verify dependency resolution, lint & bytecode compilation
+        run: |
+          pip check
+          pip install ruff pip-audit
+          ruff check backend scripts
+          python -m compileall -q backend scripts
 
       # Single step runs all 19 suites via the project's own master test runner.
       - name: Run all 19 test suites via run_all_tests.py
@@ -95,6 +99,9 @@ jobs:
 
       - name: Run linter (oxlint)
         run: npm --prefix frontend run lint
+
+      - name: Run frontend unit & component tests (Vitest)
+        run: npm --prefix frontend run test
 
       - name: TypeScript check and production build
         run: npm --prefix frontend run build

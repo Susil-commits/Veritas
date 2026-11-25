@@ -30,9 +30,8 @@ if sys.platform == "win32":
 from dotenv import load_dotenv
 load_dotenv(Path(__file__).parent.parent / ".env")
 
-from pydantic import SecretStr
 from db.supabase_client import get_supabase
-from langchain_google_genai import GoogleGenerativeAIEmbeddings
+from services.gemini_client import GeminiEmbeddingWrapper
 from config import EMBEDDING_MODEL, EMBEDDING_DIMENSION
 
 SEED_FILE = Path(__file__).parent.parent / "data" / "seed_problems.json"
@@ -105,9 +104,9 @@ def main():
         print("❌ Error: GEMINI_API_KEY is not set.")
         sys.exit(1)
 
-    embeddings = GoogleGenerativeAIEmbeddings(
+    embeddings = GeminiEmbeddingWrapper(
         model=EMBEDDING_MODEL,
-        google_api_key=SecretStr(api_key),
+        google_api_key=api_key,
     )
 
     if not SEED_FILE.exists():

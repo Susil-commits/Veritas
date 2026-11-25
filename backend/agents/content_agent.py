@@ -10,8 +10,7 @@ import json
 import uuid
 import time
 from pathlib import Path
-from pydantic import SecretStr
-from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI
+from services.gemini_client import GeminiEmbeddingWrapper, GeminiChatWrapper
 from langchain_core.messages import SystemMessage, HumanMessage
 from db.supabase_client import get_supabase
 from bkt.tracker import get_skill_params
@@ -31,17 +30,17 @@ _EMBEDDING_CIRCUIT_OPEN_UNTIL: float = 0.0
 
 # Singleton Gemini embedding client — constructed once at first use, reused for all subsequent
 # cache misses. Avoids repeated gRPC channel/HTTP client setup overhead per embed_text() call.
-_EMBEDDING_CLIENT: GoogleGenerativeAIEmbeddings | None = None
+_EMBEDDING_CLIENT: GeminiEmbeddingWrapper | None = None
 
 
-def _get_embedding_client() -> GoogleGenerativeAIEmbeddings:
-    """Return the module-level singleton GoogleGenerativeAIEmbeddings client, creating it on first call."""
+def _get_embedding_client() -> GeminiEmbeddingWrapper:
+    """Return the module-level singleton GeminiEmbeddingWrapper client, creating it on first call."""
     global _EMBEDDING_CLIENT
     if _EMBEDDING_CLIENT is None:
         api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY", "")
-        _EMBEDDING_CLIENT = GoogleGenerativeAIEmbeddings(
+        _EMBEDDING_CLIENT = GeminiEmbeddingWrapper(
             model=EMBEDDING_MODEL_NAME,
-            google_api_key=SecretStr(api_key),
+            google_api_key=api_key,
         )
     return _EMBEDDING_CLIENT
 
@@ -640,7 +639,7 @@ Keep it under 150 words total. Warm, specific, actionable."""
 
     for m_name in models_to_try:
         try:
-            llm = ChatGoogleGenerativeAI(
+            llm = GeminiChatWrapper(
                 model=m_name,
                 google_api_key=api_key,
                 max_output_tokens=500,

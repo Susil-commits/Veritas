@@ -8,8 +8,8 @@ import time
 import json
 import re
 from typing import Any
-from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import BaseMessage, SystemMessage, HumanMessage, AIMessage
+from services.gemini_client import GeminiChatWrapper
 from config import CHAT_MODEL, CHAT_MODEL_CASCADE, extract_clean_text
 
 
@@ -127,7 +127,7 @@ def build_tutor_llm(model_name: str) -> Any:
     api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY", "")
     cache_key = (model_name, api_key)
     if cache_key not in _TUTOR_LLM_CACHE:
-        _TUTOR_LLM_CACHE[cache_key] = ChatGoogleGenerativeAI(
+        _TUTOR_LLM_CACHE[cache_key] = GeminiChatWrapper(
             model=model_name,
             google_api_key=api_key,
             max_output_tokens=1000,

@@ -11,8 +11,9 @@ from pydantic import BaseModel, Field
 
 from db.supabase_client import get_supabase
 from auth import verify_student_access, verify_student_caller
-from bkt.tracker import initialize_mastery
-from session_manager import get_all_active_session_ids, get_session
+from bkt.tracker import initialize_mastery, update_mastery
+from session_manager import get_all_active_session_ids, get_session, save_session
+from services.arcade_rounds import issue_arcade_round, consume_and_grade_round
 from routes.common import db_exec, logger, BACKEND_DIR
 
 router = APIRouter(prefix="/games", tags=["Math Arcade"])
@@ -109,13 +110,26 @@ MAX_SCORE_PER_GAME = int(os.getenv("MAX_SCORE_PER_GAME", "100000"))
 _games_store_cache: dict[str, Any] | None = None
 
 
+class GameRoundStartRequest(BaseModel):
+    student_id: str = Field(max_length=64)
+    game_id: str = Field(max_length=64)
+    mode: str | None = Field(default="blitz", max_length=32)
+
+
+class GameSubmissionItem(BaseModel):
+    qid: str = Field(min_length=1, max_length=64)
+    selected: int | float | str
+
+
 class GameScoreRequest(BaseModel):
     student_id: str = Field(max_length=64)
     game_id: str = Field(max_length=64)
-    score: int = Field(le=1_000_000)
+    score: int | None = Field(default=None, le=1_000_000)
     stars: int = Field(default=1)
     mode: str | None = Field(default="blitz", max_length=32)
     streak_max: int | None = Field(default=0, ge=0, le=100_000)
+    round_id: str | None = Field(default=None, max_length=64)
+    submissions: list[GameSubmissionItem] | None = Field(default=None, max_length=100)
 
 
 class ResetGameScoreRequest(BaseModel):
@@ -328,6 +342,35 @@ async def get_games_progress(
     return await _get_student_game_progress(student_id.strip())
 
 
+@router.post("/round/start")
+async def start_game_round(
+    req: GameRoundStartRequest,
+    auth: dict = Depends(verify_student_caller),
+):
+    """Issue a server-authoritative Math Arcade question batch without exposing canonical answers."""
+    clean_student_id = (req.student_id or "").strip()
+    clean_game_id = (req.game_id or "").strip()
+    if not clean_student_id:
+        raise HTTPException(400, "student_id is required")
+    if not clean_game_id:
+        raise HTTPException(400, "game_id is required")
+    if auth.get("role") != "student":
+        raise HTTPException(status_code=403, detail="Student authentication required")
+    if auth.get("sub") != clean_student_id:
+        raise HTTPException(status_code=403, detail="Cannot start an arcade round for another student")
+
+    valid_game_ids = {item["id"] for item in GAME_LEVELS_CONFIG}
+    if clean_game_id not in valid_game_ids:
+        raise HTTPException(400, f"Invalid game_id '{clean_game_id}'. Allowed: {sorted(valid_game_ids)}")
+
+    progress = await _get_student_game_progress(clean_student_id)
+    selected_level = next(level for level in progress["levels"] if level["id"] == clean_game_id)
+    if not selected_level["is_unlocked"]:
+        raise HTTPException(403, "This game level is still locked. Complete the required curriculum first.")
+
+    return issue_arcade_round(clean_student_id, clean_game_id, mode=(req.mode or "blitz"))
+
+
 @router.post("/score")
 async def record_game_score(
     req: GameScoreRequest,
@@ -361,12 +404,93 @@ async def record_game_score(
     selected_level = next(level for level in progress["levels"] if level["id"] == clean_game_id)
     if not selected_level["is_unlocked"]:
         raise HTTPException(403, "This game level is still locked. Complete the required curriculum first.")
-    if req.score < 0:
-        raise HTTPException(400, "Score must be non-negative")
-    if req.score > MAX_SCORE_PER_GAME:
-        raise HTTPException(422, f"Score {req.score} exceeds the maximum allowed per session ({MAX_SCORE_PER_GAME:,}).")
-    if req.stars not in (1, 2, 3):
-        raise HTTPException(400, "Stars must be between 1 and 3 (allowed: 1, 2, 3)")
+
+    round_verified = False
+    mastery_delta = 0.0
+    final_mode = req.mode or "blitz"
+
+    if req.round_id:
+        try:
+            graded = consume_and_grade_round(
+                req.round_id.strip(),
+                clean_student_id,
+                clean_game_id,
+                [item.model_dump() for item in (req.submissions or [])],
+            )
+        except PermissionError as e:
+            raise HTTPException(403, str(e))
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+
+        final_score = int(graded["score"])
+        final_stars = int(graded["stars"])
+        final_streak_max = int(graded["streak_max"])
+        final_mode = str(graded.get("mode") or final_mode)
+        round_verified = True
+
+        # Bounded BKT fluency credit for verified high-accuracy rounds (>=3 answered, >=70% correct)
+        total_answered = int(graded.get("total_answered", 0))
+        correct_count = int(graded.get("correct_count", 0))
+        target_skill = str(selected_level.get("skill_required") or "")
+        if target_skill and total_answered >= 3 and (correct_count / total_answered) >= 0.7:
+            try:
+                base_mastery = initialize_mastery()
+                cur_prob = float(base_mastery.get(target_skill, 0.3))
+                for sid_active in get_all_active_session_ids():
+                    sess = get_session(sid_active)
+                    if sess and sess.get("student_id") == clean_student_id:
+                        m_state = sess.get("mastery_state") or {}
+                        if target_skill in m_state:
+                            cur_prob = max(cur_prob, float(m_state[target_skill]))
+                try:
+                    supabase = get_supabase()
+                    m_res = await db_exec(
+                        supabase.table("student_skill_mastery")
+                        .select("mastery_prob")
+                        .eq("student_id", clean_student_id)
+                        .eq("skill_id", target_skill)
+                        .limit(1)
+                    )
+                    if m_res.data:
+                        cur_prob = max(cur_prob, float(m_res.data[0]["mastery_prob"]))
+                except Exception:
+                    pass
+
+                raw_next = update_mastery(cur_prob, True, target_skill, attempt_type="hinted_attempt")
+                new_prob = round(min(max(cur_prob, raw_next), cur_prob + 0.05, 0.99), 4)
+                mastery_delta = round(max(0.0, new_prob - cur_prob), 4)
+                if mastery_delta > 0:
+                    for sid_active in get_all_active_session_ids():
+                        sess = get_session(sid_active)
+                        if sess and sess.get("student_id") == clean_student_id:
+                            sess_mastery = sess.setdefault("mastery_state", initialize_mastery())
+                            sess_mastery[target_skill] = max(float(sess_mastery.get(target_skill, 0.0)), new_prob)
+                            save_session(sid_active, sess)
+                    try:
+                        supabase = get_supabase()
+                        await db_exec(
+                            supabase.table("student_skill_mastery").upsert({
+                                "student_id": clean_student_id,
+                                "skill_id": target_skill,
+                                "mastery_prob": new_prob,
+                            }, on_conflict="student_id,skill_id")
+                        )
+                    except Exception:
+                        pass
+            except Exception as bkt_err:
+                logger.debug("Arcade BKT fluency credit skipped: %s", bkt_err)
+    else:
+        if req.score is None:
+            raise HTTPException(400, "score or round_id is required")
+        if req.score < 0:
+            raise HTTPException(400, "Score must be non-negative")
+        if req.score > MAX_SCORE_PER_GAME:
+            raise HTTPException(422, f"Score {req.score} exceeds the maximum allowed per session ({MAX_SCORE_PER_GAME:,}).")
+        if req.stars not in (1, 2, 3):
+            raise HTTPException(400, "Stars must be between 1 and 3 (allowed: 1, 2, 3)")
+        final_score = req.score
+        final_stars = req.stars
+        final_streak_max = req.streak_max or 0
 
     now_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
 
@@ -383,17 +507,18 @@ async def record_game_score(
 
         game_record["times_played"] = game_record.get("times_played", 0) + 1
         game_record["last_played"] = now_iso
-        if req.score > game_record.get("high_score", 0):
-            game_record["high_score"] = req.score
-        if req.stars > game_record.get("stars", 0):
-            game_record["stars"] = min(3, max(1, req.stars))
+        if final_score > game_record.get("high_score", 0):
+            game_record["high_score"] = final_score
+        if final_stars > game_record.get("stars", 0):
+            game_record["stars"] = min(3, max(1, final_stars))
 
         history_list = game_record.setdefault("history", [])
         history_list.append({
-            "score": req.score,
-            "stars": req.stars,
-            "mode": req.mode or "blitz",
-            "streak_max": req.streak_max or 0,
+            "score": final_score,
+            "stars": final_stars,
+            "mode": final_mode,
+            "streak_max": final_streak_max,
+            "round_verified": round_verified,
             "timestamp": now_iso,
         })
         if len(history_list) > 20:
@@ -419,7 +544,13 @@ async def record_game_score(
     except Exception as e:
         logger.debug("Supabase student_game_progress write-through skipped: %s", e)
 
-    return await _get_student_game_progress(clean_student_id)
+    updated_progress = await _get_student_game_progress(clean_student_id)
+    updated_progress["round_verified"] = round_verified
+    updated_progress["verified_score"] = final_score
+    updated_progress["verified_stars"] = final_stars
+    updated_progress["verified_streak_max"] = final_streak_max
+    updated_progress["mastery_delta"] = mastery_delta
+    return updated_progress
 
 
 @router.post("/reset")

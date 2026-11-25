@@ -220,6 +220,21 @@ export async function getMastery(studentId: string) {
   return data
 }
 
+export interface StudentActivityResponse {
+  student_id: string
+  current_streak_days: number
+  longest_streak_days: number
+  active_days_last_7: number
+  last_active_at: string | null
+}
+
+export async function getStudentActivity(studentId: string): Promise<StudentActivityResponse> {
+  const { data } = await api.get<StudentActivityResponse>(`/student/${studentId}/activity`, {
+    headers: getAuthHeaders(),
+  })
+  return data
+}
+
 export async function getSummary(studentId: string, sessionId: string) {
   const { data } = await api.get(`/student/${studentId}/summary`, {
     params: { session_id: sessionId },
@@ -637,6 +652,31 @@ export interface GamesProgressResponse {
   total_score: number
   games_unlocked: number
   total_games: number
+  round_verified?: boolean
+  verified_score?: number
+  verified_stars?: number
+  verified_streak_max?: number
+  mastery_delta?: number
+}
+
+export interface ArcadeRoundQuestion {
+  qid: string
+  question: string
+  options: (number | string)[]
+  answer_digest?: string
+}
+
+export interface ArcadeRoundStartResponse {
+  round_id: string
+  game_id: string
+  mode: string
+  expires_in: number
+  questions: ArcadeRoundQuestion[]
+}
+
+export interface GameSubmissionItem {
+  qid: string
+  selected: number | string
 }
 
 export async function getGamesProgress(studentId: string): Promise<GamesProgressResponse> {
@@ -647,6 +687,19 @@ export async function getGamesProgress(studentId: string): Promise<GamesProgress
   return data
 }
 
+export async function startGameRound(
+  studentId: string,
+  gameId: string,
+  mode: string = 'blitz',
+): Promise<ArcadeRoundStartResponse> {
+  const { data } = await api.post<ArcadeRoundStartResponse>(
+    `/games/round/start`,
+    { student_id: studentId, game_id: gameId, mode },
+    { headers: getAuthHeaders() },
+  )
+  return data
+}
+
 export async function recordGameScore(
   studentId: string,
   gameId: string,
@@ -654,6 +707,8 @@ export async function recordGameScore(
   stars: number,
   mode?: string,
   streakMax?: number,
+  roundId?: string | null,
+  submissions?: GameSubmissionItem[],
 ): Promise<GamesProgressResponse> {
   const { data } = await api.post<GamesProgressResponse>(
     `/games/score`,
@@ -664,6 +719,7 @@ export async function recordGameScore(
       stars,
       mode: mode || 'blitz',
       streak_max: streakMax || 0,
+      ...(roundId ? { round_id: roundId, submissions: submissions || [] } : {}),
     },
     { headers: getAuthHeaders() },
   )

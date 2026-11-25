@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { getMastery, getSummary, getGamesProgress } from '../lib/api'
+import { getMastery, getSummary, getGamesProgress, getStudentActivity, type StudentActivityResponse } from '../lib/api'
 import MasteryRadar from '../components/MasteryRadar'
 import { CognitiveReportModal } from '../components/CognitiveReportModal'
 import { getSkillMeta } from '../lib/skillsData'
@@ -61,6 +61,7 @@ export default function Dashboard() {
     gamesUnlocked: 0,
     totalGames: 7,
   })
+  const [activity, setActivity] = useState<StudentActivityResponse | null>(null)
 
   useEffect(() => {
     document.title = `Veritas — ${studentName}'s Progress Dashboard`
@@ -79,7 +80,8 @@ export default function Dashboard() {
         getMastery(studentId),
         sessionId ? getSummary(studentId, sessionId) : Promise.resolve(null),
         getGamesProgress(studentId).catch(() => null),
-      ]).then(([masteryData, summaryData, gamesData]) => {
+        getStudentActivity(studentId).catch(() => null),
+      ]).then(([masteryData, summaryData, gamesData, activityData]) => {
         if (!isMounted) return
         const skillMap: Record<string, string> = {}
         for (const s of masteryData?.all_skills ?? []) skillMap[s.id] = s.name
@@ -98,6 +100,7 @@ export default function Dashboard() {
             totalGames: gamesData.total_games ?? 7,
           })
         }
+        if (activityData) setActivity(activityData)
       }).catch((err: any) => {
         if (!isMounted) return
         console.error('Dashboard load failed:', err)
@@ -339,8 +342,16 @@ export default function Dashboard() {
               <span className="metric-badge metric-badge--amber">Active Streak</span>
             </div>
             <div className="metric-value-row">
-              <span className="metric-number text-orange">{avgMastery >= 0.7 ? 'On Track' : 'Active'}</span>
-              <span className="metric-sub-count">{strongSkills.length + developingSkills.length} skills in motion</span>
+              <span className="metric-number text-orange">
+                {activity && activity.current_streak_days > 0
+                  ? `${activity.current_streak_days} Day${activity.current_streak_days === 1 ? '' : 's'} 🔥`
+                  : avgMastery >= 0.7 ? 'On Track' : 'Ready'}
+              </span>
+              <span className="metric-sub-count">
+                {activity && activity.active_days_last_7 > 0
+                  ? `${activity.active_days_last_7} active day${activity.active_days_last_7 === 1 ? '' : 's'} this week`
+                  : `${strongSkills.length + developingSkills.length} skills in motion`}
+              </span>
             </div>
             <span className="metric-footnote">Regular daily practice builds long-term retention</span>
           </div>

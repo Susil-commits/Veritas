@@ -9,7 +9,7 @@ import json
 import re
 import hashlib
 from typing import Any
-from langchain_google_genai import ChatGoogleGenerativeAI
+from services.gemini_client import GeminiChatWrapper
 from langchain_core.messages import SystemMessage, HumanMessage
 from config import VISION_MODEL, VISION_MODEL_CASCADE, extract_clean_text
 
@@ -96,12 +96,12 @@ Be specific and educational — a teacher should be able to show this diagnosis 
 _VISION_LLM_CACHE = {}
 
 
-def build_vision_llm(model_name: str | None = None) -> ChatGoogleGenerativeAI:
+def build_vision_llm(model_name: str | None = None) -> GeminiChatWrapper:
     selected = model_name or os.environ.get("GEMINI_VISION_MODEL") or VISION_MODEL
     api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY", "")
     cache_key = (selected, api_key)
     if cache_key not in _VISION_LLM_CACHE:
-        _VISION_LLM_CACHE[cache_key] = ChatGoogleGenerativeAI(
+        _VISION_LLM_CACHE[cache_key] = GeminiChatWrapper(
             model=selected,
             google_api_key=api_key,
             max_output_tokens=2048,
