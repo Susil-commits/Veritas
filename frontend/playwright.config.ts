@@ -1,4 +1,5 @@
 import { defineConfig } from '@playwright/test'
+import os from 'node:os'
 import path from 'node:path'
 
 const ROOT_DIR = path.resolve(import.meta.dirname, '..')
@@ -23,18 +24,20 @@ export default defineConfig({
       cwd: path.join(ROOT_DIR, 'backend'),
       url: 'http://127.0.0.1:8000/health',
       reuseExistingServer: !process.env.CI,
-      timeout: 30_000,
+      timeout: 45_000,
       env: {
         VERITAS_TEST_MODE: 'true',
         VERITAS_MOCK_LLM: 'true',
+        VERITAS_DATA_DIR: path.join(os.tmpdir(), 'veritas-playwright-data'),
         SESSION_SECRET_KEY: 'veritas_playwright_e2e_secret_min_32_bytes_ok!!',
       },
     },
     {
-      command: 'npm run preview -- --host 127.0.0.1 --port 4173',
+      // Rebuild with explicit local API URL so CI preview never targets production Render
+      command: 'npx vite build && npm run preview -- --host 127.0.0.1 --port 4173 --strictPort',
       url: 'http://127.0.0.1:4173',
       reuseExistingServer: !process.env.CI,
-      timeout: 30_000,
+      timeout: 60_000,
       env: {
         VITE_API_URL: 'http://127.0.0.1:8000',
       },

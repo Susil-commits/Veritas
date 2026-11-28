@@ -106,11 +106,19 @@ jobs:
       - name: TypeScript check and production build
         run: npm --prefix frontend run build
 
+      - name: Set up Python 3.12 for E2E backend server
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+          cache-dependency-path: backend/requirements.txt
+
       - name: Run Playwright browser E2E suite
         env:
           VERITAS_TEST_MODE: "true"
           VERITAS_MOCK_LLM: "true"
+          VITE_API_URL: "http://127.0.0.1:8000"
         run: |
           python -m pip install -r backend/requirements.txt
-          npx --prefix frontend playwright install chromium
+          npx --prefix frontend playwright install --with-deps chromium
           npm --prefix frontend run test:e2e
